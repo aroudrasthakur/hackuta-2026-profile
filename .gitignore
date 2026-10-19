@@ -5,8 +5,19 @@ dist/
 .env.*
 !.env.example
 .DS_Store
+
+# Local Convex codegen, or scripts/ensure-convex-server-stub.mjs before typecheck/tests
 convex/_generated/
+
+# Test and coverage output
 coverage/
+.nyc_output/
 playwright-report/
 test-results/
-public/pdfjs/
+
+# Optional local editor settings (keep shared .vscode extensions JSON if added later)
+.vscode/*
+!.vscode/extensions.json
+
+# Vercel / local tooling
+.vercel/
