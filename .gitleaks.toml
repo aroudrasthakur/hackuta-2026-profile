@@ -1,0 +1,8 @@
+title = "hackuta-2026-profile"
+
+[allowlist]
+description = "Schema lock manifests store SHA-256 file hashes, not API keys"
+paths = [
+  '''scripts/admin-schema-lock/manifest.json''',
+  '''scripts/register-schema-lock/manifest.json''',
+]
