@@ -7,7 +7,8 @@ dist/
 .DS_Store
 
 # Local Convex codegen, or scripts/ensure-convex-server-stub.mjs before typecheck/tests
-convex/_generated/
+/convex/_generated/
+convex/_generated/**
 
 # Test and coverage output
 coverage/

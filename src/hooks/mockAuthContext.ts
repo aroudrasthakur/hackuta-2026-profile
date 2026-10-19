@@ -10,6 +10,7 @@ export type MockAuthContextValue = {
   setScenario: (scenario: MockAuthScenario) => void;
   requestOtp: (email: string) => void;
   verifyOtp: (code: string) => boolean;
+  signInWithEmail: (email: string) => void;
   signOut: () => void;
 };
 
@@ -22,6 +23,7 @@ export const defaultMockAuthValue: MockAuthContextValue = {
   setScenario: () => undefined,
   requestOtp: () => undefined,
   verifyOtp: () => false,
+  signInWithEmail: () => undefined,
   signOut: () => undefined,
 };
 

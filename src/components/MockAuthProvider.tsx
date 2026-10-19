@@ -15,7 +15,7 @@ function scenarioState(
   email: string | null,
 ): Omit<
   MockAuthContextValue,
-  "enabled" | "setScenario" | "requestOtp" | "verifyOtp" | "signOut"
+  "enabled" | "setScenario" | "requestOtp" | "verifyOtp" | "signInWithEmail" | "signOut"
 > {
   switch (scenario) {
     case "signedOut":
@@ -79,6 +79,12 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     [pendingEmail],
   );
 
+  const signInWithEmail = useCallback((email: string) => {
+    setVerifiedEmail(email);
+    setPendingEmail(null);
+    setScenarioState("signedInReturning");
+  }, []);
+
   const signOut = useCallback(() => {
     setScenarioState("signedOut");
     setPendingEmail(null);
@@ -104,10 +110,21 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
       setScenario,
       requestOtp,
       verifyOtp,
+      signInWithEmail,
       signOut,
       ...base,
     };
-  }, [enabled, pendingEmail, requestOtp, scenario, setScenario, verifiedEmail, verifyOtp, signOut]);
+  }, [
+    enabled,
+    pendingEmail,
+    requestOtp,
+    scenario,
+    setScenario,
+    signInWithEmail,
+    verifiedEmail,
+    verifyOtp,
+    signOut,
+  ]);
 
   return (
     <MockAuthContext.Provider value={value}>{children}</MockAuthContext.Provider>

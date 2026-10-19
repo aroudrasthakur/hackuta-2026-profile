@@ -14,6 +14,8 @@ test.describe("participant portal", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
-    await expect(page.getByLabel("Check-in QR code")).toBeVisible();
+    await expect(
+      page.getByRole("img", { name: "Participant check-in QR code" }),
+    ).toBeVisible();
   });
 });

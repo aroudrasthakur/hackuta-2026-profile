@@ -197,6 +197,7 @@ function SignInPageContent({
           setCode("");
           setCooldownExpiresAt(startCooldownExpiry(OTP_RESEND_COOLDOWN_SECONDS));
         } else {
+          mockAuth.signInWithEmail(normalized);
           await routeAfterSignIn();
         }
         return;
@@ -222,7 +223,7 @@ function SignInPageContent({
       setCode("");
       setCooldownExpiresAt(startCooldownExpiry(OTP_RESEND_COOLDOWN_SECONDS));
     } catch (err) {
-        setError(mapAuthError(err, mode));
+      setError(mapAuthError(err, mode));
     } finally {
       setPending(false);
     }

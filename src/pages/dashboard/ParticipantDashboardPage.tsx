@@ -9,6 +9,7 @@ import { getConvexClient } from "../../convex/client";
 import { useMockAuth } from "../../hooks/useMockAuth";
 import { buildHackathonTimeline } from "../../../shared/hackathon/timeline";
 import { resolveHackathonTimelineSource } from "../../../shared/hackathon/schedule";
+import { profileSignOutButton } from "../Profile/profileStyles";
 
 const DISCORD_URL = "https://discord.gg/2bVsYS3SgS";
 const CONTACT_EMAIL = "hello@hackuta.org";
@@ -104,7 +105,10 @@ export default function ParticipantDashboardPage() {
           {data.profile.email ? (
             <p className="participant-dashboard__account-email">{data.profile.email}</p>
           ) : null}
-          <SignOutButton className="participant-dashboard__sign-out" />
+          <SignOutButton
+            className="participant-dashboard__sign-out"
+            buttonClassName={profileSignOutButton}
+          />
         </div>
       </aside>
 
