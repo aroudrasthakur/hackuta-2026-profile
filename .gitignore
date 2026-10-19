@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+convex/_generated/
+coverage/
+playwright-report/
+test-results/
+public/pdfjs/

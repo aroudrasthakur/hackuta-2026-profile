@@ -1,0 +1,20 @@
+/** Production CSP — keep vercel.json Content-Security-Policy in sync. */
+export const contentSecurityPolicy = [
+  "default-src 'self'",
+  "script-src 'self' https://vercel.live",
+  "script-src-attr 'none'",
+  "style-src 'self' https://vercel.live 'unsafe-inline'",
+  "img-src 'self' https://vercel.live https://vercel.com data: blob:",
+  "font-src 'self' https://vercel.live https://assets.vercel.com",
+  "connect-src 'self' https://vercel.live wss://ws-us3.pusher.com https://*.convex.cloud wss://*.convex.cloud https://*.convex.site",
+  "frame-src https://vercel.live",
+  "worker-src 'self' blob:",
+  "media-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "upgrade-insecure-requests",
+  "require-trusted-types-for 'script'",
+  "trusted-types default",
+].join("; ");
