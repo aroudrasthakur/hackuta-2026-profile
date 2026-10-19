@@ -47,7 +47,7 @@ Primary submits use `.sign-in-btn`. Secondary navigation uses `.sign-in-btn.sign
 
 | Step | Primary | Secondary |
 | --- | --- | --- |
-| Credentials (sign in) | Sign in | Forgot password?, Need an account? Create one (`.sign-in-actions`) |
+| Credentials (sign in) | Sign in | Forgot password? (`.sign-in-actions`) |
 | Credentials (sign up) | Create account | Already have an account? Sign in (`.sign-in-actions`) |
 | Email verification | Verify email | Resend (`.sign-in-resend`), Back to sign in (`.sign-in-otp__footer`) |
 | Forgot password — email | Send code | Back to sign in (`.sign-in-actions`) |

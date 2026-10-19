@@ -31,7 +31,6 @@ import {
   getOtpSendCooldownRef,
   invalidateSessionsAfterPasswordResetRef,
 } from "../../convex/api";
-import { REGISTER_URL } from "../../constants/site";
 import { ForgotPasswordFlow } from "./ForgotPasswordFlow";
 import { getConvexClient } from "../../convex/client";
 import { useApplicantRouting } from "../../hooks/useApplicantRouting";
@@ -438,12 +437,6 @@ function SignInPageContent({
                 Forgot password?
               </button>
             ) : null}
-            <a
-              href={REGISTER_URL}
-              className="sign-in-btn sign-in-btn--secondary sign-in-btn--link"
-            >
-              Need an account? Register
-            </a>
           </div>
         </form>
       ) : (
