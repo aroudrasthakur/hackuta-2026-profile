@@ -1,55 +1,38 @@
 # Pages (`src/pages`)
 
-Route-level React views. Shared chrome comes from [src/components/](../components/README.md).
+Route-level React views for the **participant portal**. Shared chrome comes from [src/components/](../components/README.md).
 
-## Overview
-
-| Path | Summary |
-| --- | --- |
-| [HomeRedirect.tsx](HomeRedirect.tsx) | / — sends users to sign-in, register, or profile |
-| [SignIn/](SignIn/README.md) | /sign-in — account creation, sign-in, and forgot-password reset |
-| [Register/](Register/README.md) | /register — application form and success step |
-| [Profile/](Profile/README.md) | /profile — applicant dashboard |
-
-## Route map
+## Active routes
 
 | Path | Component | Auth |
 | --- | --- | --- |
-| / | HomeRedirect | Redirect logic only |
+| / | HomeRedirect | Redirect only |
 | /sign-in | SignInPage | Public |
-| /register | RegisterPage | Required; blocks if already submitted |
-| /profile | ProfilePage | Required |
-| * | Navigate → / | — |
+| /dashboard | ParticipantDashboardPage | Required |
 
 Defined in [main.tsx](../main.tsx).
 
-## HomeRedirect logic
+## HomeRedirect
 
 | Condition | Destination |
 | --- | --- |
 | Loading | Loading screen |
 | Not authenticated | /sign-in |
-| Has submitted registration | /profile |
-| Otherwise | /register |
+| Authenticated | /dashboard |
 
-Uses [useApplicantRouting](../hooks/useApplicantRouting.ts).
+Uses [useApplicantRouting](../hooks/useApplicantRouting.ts) for session + routing query.
+
+## Legacy register copies (not routed)
+
+[Register/](Register/README.md) and [Profile/](Profile/README.md) are kept for schema-lock alignment and reference. They are **excluded from `tsconfig.json`** and are not mounted in this app’s router. Applicants complete registration on the register site (`VITE_REGISTER_URL`).
 
 ## Nested READMEs
 
 | Folder | README |
 | --- | --- |
 | SignIn/ | [SignIn/README.md](SignIn/README.md) |
-| Register/ | [Register/README.md](Register/README.md) |
-| Register/components/ | [Register/components/README.md](Register/components/README.md) |
-| Profile/ | [Profile/README.md](Profile/README.md) |
-
-Form option lists for the register page are in [Register/constants.ts](Register/constants.ts) (not [src/constants/](../constants/README.md)).
-
-## Related
-
-| Location | Role |
-| --- | --- |
-| [hooks/README.md](../hooks/README.md) | Routing and session hooks |
-| [shared/README.md](../../shared/README.md) | Form validation and constants |
+| dashboard/ | Participant dashboard (no separate README) |
+| Register/ | [Register/README.md](Register/README.md) — reference only |
+| Profile/ | [Profile/README.md](Profile/README.md) — reference only |
 
 Parent index: [../README.md](../README.md).

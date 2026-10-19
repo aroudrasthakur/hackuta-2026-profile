@@ -1,6 +1,6 @@
 # Components (`src/components`)
 
-Shared React UI for the HackUTA registration app: auth shell, route guards, themed controls, and storm/weather chrome. Page-specific form widgets live under [src/pages/Register/components/](../pages/Register/components/).
+Shared React UI for the participant portal (sign-in + dashboard): auth shell, route guards, and themed controls. Legacy register form widgets remain under [src/pages/Register/components/](../pages/Register/components/) for reference only.
 
 ## Overview
 
@@ -26,9 +26,9 @@ Shared React UI for the HackUTA registration app: auth shell, route guards, them
 | --- | --- |
 | AuthBootstrap | [main.tsx](../main.tsx) |
 | MockAuthProvider | [main.tsx](../main.tsx), unit tests |
-| ProtectedRoute | [main.tsx](../main.tsx) — /register (requireNoSubmittedRegistration), /profile |
+| ProtectedRoute | [main.tsx](../main.tsx) — `/dashboard` (`requireAuth`) |
 | SignInShell, OtpCodeInput | [SignInPage](../pages/SignIn/SignInPage.tsx), [ForgotPasswordFlow](../pages/SignIn/ForgotPasswordFlow.tsx) |
-| StormPageFrame, PageShell, SignOutButton | [RegisterPage](../pages/Register/RegisterPage.tsx), [ProfilePage](../pages/Profile/ProfilePage.tsx) |
+| SignOutButton | [ParticipantDashboardPage](../pages/dashboard/ParticipantDashboardPage.tsx) |
 | OdysseyButton | Register form, profile, success step, sign-out |
 | SignInStormBackdrop | SignInShell, StormPageFrame |
 | SignInAtmosphere | SignInStormBackdrop only |

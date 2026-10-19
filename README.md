@@ -13,7 +13,16 @@ npm run dev
 
 Vite listens on **http://127.0.0.1:5473**.
 
-Sign in uses the same Convex Auth password account created on the registration site. Forgot-password follows the register flow.
+Sign in uses the same Convex Auth password account created on the registration site. Forgot-password uses the shared Convex reset flow. Registration itself runs on the register app (`VITE_REGISTER_URL`), not in this router.
+
+## Routes
+
+| Path | Purpose |
+| --- | --- |
+| `/sign-in` | Sign in / forgot password |
+| `/dashboard` | Participant portal (status, dates, QR when accepted) |
+
+Legacy `src/pages/Register` and `src/pages/Profile` trees are reference copies (schema lock); they are not mounted in [main.tsx](src/main.tsx).
 
 ## Schema locks
 

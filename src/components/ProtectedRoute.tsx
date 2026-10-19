@@ -30,7 +30,7 @@ export function ProtectedRoute({
   }
 
   if (requireNoSubmittedRegistration && routing.hasSubmittedRegistration) {
-    return <Navigate to="/profile" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;

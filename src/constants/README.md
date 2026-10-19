@@ -28,9 +28,10 @@ Registration form option lists live in [src/pages/Register/constants.ts](../page
 | Variable | Read in | Purpose |
 | --- | --- | --- |
 | VITE_LANDING_URL | site.ts | External marketing site for back-to-home / logo links |
-| VITE_USE_MOCK_API | mockAuth.ts | When "true", enables in-memory auth and mock API paths (dev/CI only) |
+| VITE_REGISTER_URL | site.ts | Registration app for “Continue registration” links |
+| VITE_USE_MOCK_API | mockAuth.ts | When "true", enables in-memory auth (dev/CI only) |
 
-See [.env.example](../../.env.example) and [docs/OPERATIONS.md](../../docs/OPERATIONS.md). Production builds fail if VITE_USE_MOCK_API=true on Vercel ([verify-production-env.mjs](../../scripts/verify-production-env.mjs)).
+See [.env.example](../../.env.example) and [README.md](../../README.md). Production builds fail if `VITE_USE_MOCK_API=true` on deploy ([verify-production-env.mjs](../../scripts/verify-production-env.mjs)).
 
 ## Related
 

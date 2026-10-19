@@ -17,7 +17,7 @@ Password sign-up/sign-in with email verification OTP on first registration, plus
 | Shell | [SignInShell](../../components/SignInShell.tsx) + [OtpCodeInput](../../components/OtpCodeInput.tsx) |
 | Convex | useAuthActions().signIn / signOut, ensureApplicantApplicationRef, getOtpSendCooldownRef, getPasswordResetSendCooldownRef, invalidateSessionsAfterPasswordResetRef |
 | Mock | useMockAuth requestOtp / verifyOtp with MOCK_OTP from [mockAuth.ts](../../constants/mockAuth.ts) |
-| Redirect | Authenticated users on the main sign-in view sent to /register or /profile |
+| Redirect | Authenticated users sent to `/dashboard` |
 | Session | JWT persists across refresh in the same tab (`sessionStorage` via Convex Auth) |
 
 Password, OTP, and reset copy: [shared/auth/](../../../shared/auth/).

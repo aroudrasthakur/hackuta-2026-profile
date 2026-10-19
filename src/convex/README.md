@@ -6,7 +6,8 @@ Typed `makeFunctionReference` wrappers for Convex queries and mutations. Import 
 | --- | --- |
 | getPublicEventConfigRef | eventConfig:getPublicEventConfig |
 | getApplicantRoutingStateRef | applicant:getApplicantRoutingState |
-| getMyApplicantDashboardRef | applications:getMyApplicantDashboard |
+| getMyApplicantDashboardRef | applications:getMyApplicantDashboard (register app) |
+| getMyParticipantDashboardRef | profile/dashboard:getMyParticipantDashboard (this app) |
 | getMyApplicationDraftRef | applications:getMyApplicationDraft |
 | saveApplicationDraftRef | applications:saveApplicationDraft |
 | ensureApplicantApplicationRef | applicant:ensureApplicantApplication |
