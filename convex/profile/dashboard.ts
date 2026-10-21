@@ -1,5 +1,9 @@
 import { query } from "../_generated/server";
-import { applicationFormWasSubmitted, getAuthUser } from "../lib/applications";
+import {
+  applicationFormWasSubmitted,
+  getAuthUser,
+  resolveApplicationForAuthUser,
+} from "../lib/applications";
 import { getEventConfigRow } from "../lib/eventConfig";
 import { DEFAULT_HACKATHON_NAME } from "../../shared/hackathon/eventDefaults";
 import { normalizeEmail } from "../lib/normalizeEmail";
@@ -8,6 +12,7 @@ import {
   applicantVisibleReviewStatus,
   openDecisionEmailForApplication,
 } from "./openDecisionEmail";
+import { buildSubmittedApplicationPayload, normalizeApplicantEmail } from "./submissionPayload";
 
 /** Participant-only dashboard payload; never exposes another user's data or tokens. */
 export const getMyParticipantDashboard = query({
@@ -19,10 +24,7 @@ export const getMyParticipantDashboard = query({
     }
     const authUserId = user._id;
 
-    const application = await ctx.db
-      .query("applications")
-      .withIndex("by_auth_user", (q) => q.eq("authUserId", authUserId))
-      .unique();
+    const application = await resolveApplicationForAuthUser(ctx, user);
 
     const review = application
       ? await ctx.db
@@ -53,6 +55,11 @@ export const getMyParticipantDashboard = query({
       : null;
     const reviewStatus = applicantVisibleReviewStatus(review, pendingDecisionEmail);
     const visibleParticipant = applicantVisibleParticipant(participant, pendingDecisionEmail);
+    const verifiedEmail = normalizeApplicantEmail(user.email);
+    const submittedApplication =
+      application && submitted
+        ? await buildSubmittedApplicationPayload(ctx, application, verifiedEmail)
+        : null;
 
     return {
       profile: {
@@ -81,6 +88,7 @@ export const getMyParticipantDashboard = query({
         registrationOpensAt: eventConfig?.registrationOpensAt ?? null,
         registrationClosesAt: eventConfig?.registrationClosesAt ?? null,
       },
+      submittedApplication,
     };
   },
 });

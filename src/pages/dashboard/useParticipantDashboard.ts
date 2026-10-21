@@ -32,6 +32,19 @@ export function useParticipantDashboard(): {
           registrationOpensAt: MOCK_NOW - 604_800_000,
           registrationClosesAt: MOCK_NOW - 259_200_000,
         },
+        submittedApplication: {
+          submittedAt: MOCK_NOW,
+          sections: [
+            {
+              title: "Personal Information",
+              rows: [
+                { label: "First name", value: "Sam" },
+                { label: "Last name", value: "Test" },
+              ],
+            },
+          ],
+          resume: { status: "none", url: null, filename: null },
+        },
       },
     };
   }

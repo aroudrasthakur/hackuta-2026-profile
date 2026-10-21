@@ -194,32 +194,37 @@
   .participant-dashboard__badge {
     align-self: flex-start;
     border-radius: 999px;
-    padding: 0.25rem 0.65rem;
-    font-size: 0.72rem;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid transparent;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   .participant-dashboard__badge--accepted {
-    background: rgb(34 197 94 / 0.2);
-    color: #86efac;
+    background: #ecfdf5;
+    border-color: rgb(16 185 129 / 0.55);
+    color: #064e3b;
   }
 
   .participant-dashboard__badge--waitlisted {
-    background: rgb(245 158 11 / 0.2);
-    color: #fcd34d;
+    background: #fffbeb;
+    border-color: rgb(245 158 11 / 0.55);
+    color: #78350f;
   }
 
   .participant-dashboard__badge--rejected {
-    background: rgb(248 113 113 / 0.18);
-    color: #fca5a5;
+    background: #fef2f2;
+    border-color: rgb(239 68 68 / 0.5);
+    color: #7f1d1d;
   }
 
   .participant-dashboard__badge--pending,
   .participant-dashboard__badge--neutral {
-    background: rgb(48 88 115 / 0.12);
-    color: var(--color-ocean);
+    background: rgb(48 88 115 / 0.1);
+    border-color: rgb(48 88 115 / 0.35);
+    color: var(--color-ink);
   }
 
   .participant-dashboard__banner-title {
@@ -904,6 +909,19 @@
   }
 
   /* Application submission */
+  .participant-application--empty {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    color: var(--color-ocean);
+  }
+
+  .participant-application__empty {
+    margin: 0 0 1rem;
+    color: var(--color-mist);
+  }
+
   .participant-application__head {
     margin-bottom: 1.25rem;
   }

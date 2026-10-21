@@ -84,6 +84,13 @@ describe("participant dashboard query", () => {
     const dashboard = await asAccepted.query(getMyParticipantDashboardRef, {});
     expect(dashboard?.participant?.qrCodeToken).toBe("b".repeat(64));
     expect(dashboard?.profile.displayName).toBe("Taylor Student");
+    expect(dashboard?.submittedApplication?.sections.length).toBeGreaterThan(0);
+    expect(dashboard?.submittedApplication?.sections[0]?.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "First name", value: "Taylor" }),
+        expect.objectContaining({ label: "Last name", value: "Student" }),
+      ]),
+    );
 
     const asOther = t.withIdentity({
       subject: other.userId,
@@ -92,6 +99,51 @@ describe("participant dashboard query", () => {
     const otherDashboard = await asOther.query(getMyParticipantDashboardRef, {});
     expect(otherDashboard?.participant?.qrCodeToken).toBe("c".repeat(64));
     expect(otherDashboard?.participant?.qrCodeToken).not.toBe(dashboard?.participant?.qrCodeToken);
+  });
+
+  it("resolves submitted applications by verified email when auth user id differs", async () => {
+    const t = createConvexTest();
+    const email = "linked@example.com";
+
+    const { applicationId, legacyUserId } = await t.run(async (ctx) => {
+      const legacyUserId = await ctx.db.insert("users", { email, name: "Legacy User" });
+      const applicationId = await ctx.db.insert("applications", {
+        authUserId: legacyUserId,
+        email,
+        firstName: "Jordan",
+        lastName: "Applicant",
+        createdAt: 1,
+        formSubmitted: true,
+        submittedAt: 2,
+      });
+      return { applicationId, legacyUserId };
+    });
+
+    const { currentUserId } = await t.run(async (ctx) => {
+      const currentUserId = await ctx.db.insert("users", { email, name: "Current Session" });
+      return { currentUserId };
+    });
+
+    expect(currentUserId).not.toBe(legacyUserId);
+
+    const asCurrentUser = t.withIdentity({ subject: currentUserId, email });
+    const dashboard = await asCurrentUser.query(getMyParticipantDashboardRef, {});
+
+    expect(dashboard?.application?.submitted).toBe(true);
+    expect(dashboard?.submittedApplication?.sections[0]?.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "First name", value: "Jordan" }),
+      ]),
+    );
+
+    const unrelated = await t.run(async (ctx) => {
+      const otherUserId = await ctx.db.insert("users", { email: "other@example.com" });
+      return otherUserId;
+    });
+    const asOther = t.withIdentity({ subject: unrelated, email: "other@example.com" });
+    const otherDashboard = await asOther.query(getMyParticipantDashboardRef, {});
+    expect(otherDashboard?.submittedApplication).toBeNull();
+    void applicationId;
   });
 
   it("masks queued decisions until the decision email is released", async () => {

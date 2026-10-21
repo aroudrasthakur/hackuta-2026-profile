@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { ResumePreviewDialog } from "../../components/resume/ResumePreviewDialog";
 import { SignOutButton } from "../../components/SignOutButton";
-import { useQuery } from "../../convex/reactBindings";
 import type { ParticipantDashboard } from "../../convex/api";
-import { getMySubmittedApplicationRef } from "../../convex/api";
-import { getConvexClient } from "../../convex/client";
 import { useMockAuth } from "../../hooks/useMockAuth";
 import { participantSignOutButton } from "./dashboardStyles";
 
@@ -14,11 +11,6 @@ const PUSH_PREF_KEY = "hackuta-profile-push-pref";
 export default function ParticipantProfilePage() {
   const data = useOutletContext<ParticipantDashboard>();
   const mockAuth = useMockAuth();
-  const client = getConvexClient();
-  const submission = useQuery(
-    getMySubmittedApplicationRef,
-    client && !mockAuth.enabled ? {} : "skip",
-  );
 
   const [pushEnabled, setPushEnabled] = useState(false);
 
@@ -32,7 +24,7 @@ export default function ParticipantProfilePage() {
 
   const resume = mockAuth.enabled
     ? { status: "none" as const, url: null, filename: null }
-    : submission?.resume ?? { status: "none" as const, url: null, filename: null };
+    : data.submittedApplication?.resume ?? { status: "none" as const, url: null, filename: null };
 
   function togglePush() {
     const next = !pushEnabled;

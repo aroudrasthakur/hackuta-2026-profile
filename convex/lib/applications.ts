@@ -2,7 +2,7 @@ import type { GenericId } from "convex/values";
 import { ensureEventConfig } from "./eventConfig";
 import { normalizeEmail } from "./normalizeEmail";
 import { getAuthUser, requireAuthUser, type AuthCtx } from "./auth";
-import type { ApplicationDoc, MutationCtx } from "./dataModel";
+import type { ApplicationDoc, AuthUserDoc, MutationCtx } from "./dataModel";
 
 export { getAuthUser, requireAuthUser };
 
@@ -14,6 +14,45 @@ export async function getApplicationByUser(
     .query("applications")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", authUserId))
     .first();
+}
+
+function applicationRecency(application: ApplicationDoc) {
+  return application.applicantUpdatedAt ?? application.submittedAt ?? application.createdAt;
+}
+
+function pickPreferredApplication(candidates: ApplicationDoc[]): ApplicationDoc | null {
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0] ?? null;
+
+  const submitted = candidates.filter((application) => applicationFormWasSubmitted(application));
+  const pool = submitted.length > 0 ? submitted : candidates;
+  return pool.reduce((best, current) =>
+    applicationRecency(current) > applicationRecency(best) ? current : best,
+  );
+}
+
+/** Resolve the signed-in user's application row (auth user id, then verified email). */
+export async function resolveApplicationForAuthUser(
+  ctx: AuthCtx,
+  user: Pick<AuthUserDoc, "_id" | "email">,
+): Promise<ApplicationDoc | null> {
+  const byAuthUser = await getApplicationByUser(ctx, user._id);
+  if (byAuthUser) return byAuthUser;
+
+  const verifiedEmail = normalizeEmail(user.email);
+  if (!verifiedEmail) return null;
+
+  const byEmail = await ctx.db
+    .query("applications")
+    .withIndex("by_email", (q) => q.eq("email", verifiedEmail))
+    .collect();
+
+  const owned = byEmail.filter((application) => {
+    if (application.authUserId === user._id) return true;
+    return normalizeEmail(application.email) === verifiedEmail;
+  });
+
+  return pickPreferredApplication(owned);
 }
 
 export async function getApplicationReview(ctx: AuthCtx, applicationId: ApplicationDoc["_id"]) {
