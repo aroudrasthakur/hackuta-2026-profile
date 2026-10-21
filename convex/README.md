@@ -1,6 +1,6 @@
 # Convex backend (`convex/`)
 
-Server functions, schema, HTTP routes, and auth for the shared HackUTA deployment. This repo is the **sole deploy path** — [hackuta-2026-register](../hackuta-2026-register) does not push backend code.
+Server functions, schema, HTTP routes, and auth for the shared HackUTA deployment. This repo is the **sole deploy path**. [hackuta-2026-register](../hackuta-2026-register) does not push backend code, and [hackuta-2026-admin](../hackuta-2026-admin) refuses Convex uploads so `convex/profile` stays on the deployment.
 
 Generated types live in [_generated/](_generated/) (gitignored). Local typecheck uses a stub from [scripts/ensure-convex-server-stub.mjs](../scripts/ensure-convex-server-stub.mjs).
 
@@ -14,10 +14,13 @@ Generated types live in [_generated/](_generated/) (gitignored). Local typecheck
 
 **Editable:** admin-owned tables in `schema.ts` (including `adminAuthAccounts`, `adminSessions`), plus [`admin/`](admin/README.md).
 
-**Frozen:** all other top-level modules, [`lib/`](lib/README.md), [`email/`](email/README.md), and all of [`shared/`](../shared/README.md).
+**Frozen:** all other top-level modules, [`lib/`](lib/README.md), [`email/`](email/README.md), and register-owned [`shared/`](../shared/README.md) paths. [`profile/`](profile/README.md) is participant-portal code and is deployed with this repo.
+
+Do not run `register-schema-lock:refresh` while the register app is in production unless that repo has shipped a backend change.
 
 ```bash
 npm run verify:register-schema-lock
+npm run verify:admin-schema-lock
 npm run convex:push-dev
 ```
 
@@ -45,7 +48,8 @@ npm run convex:push-dev
 | [applicationFields.ts](applicationFields.ts) | Convex validators from shared field registry | Register-locked |
 | [lib/](lib/README.md) | Shared server helpers | Register-locked |
 | [email/](email/README.md) | Email service client and actions | Register-locked |
-| [admin/](admin/README.md) | Organizer queries and mutations | **Admin-owned** |
+| [admin/](admin/README.md) | Organizer queries and mutations | **Admin-owned** (copied from hackuta-2026-admin) |
+| [profile/](profile/README.md) | Participant portal queries | **Profile-owned** |
 
 ## Nested README index
 
@@ -54,6 +58,7 @@ npm run convex:push-dev
 | lib/ | [lib/README.md](lib/README.md) |
 | email/ | [email/README.md](email/README.md) |
 | admin/ | [admin/README.md](admin/README.md) |
+| profile/ | [profile/README.md](profile/README.md) |
 
 ## Configuration and operations
 
@@ -62,14 +67,16 @@ npm run convex:push-dev
 | Push to shared dev | npm run convex:push-dev |
 | Deploy production | npm run convex:deploy |
 | Verify register lock | npm run verify:register-schema-lock |
-| Operator docs | [docs/OPERATIONS.md](../docs/OPERATIONS.md) |
+| Verify admin lock | npm run verify:admin-schema-lock |
+| Copy admin Convex into this repo | npm run admin-schema-lock:refresh |
+| Operator docs | [README.md](../README.md) |
 
 ## Related
 
 | Location | Role |
 | --- | --- |
 | [shared/README.md](../shared/README.md) | Isomorphic validation |
-| [src/README.md](../src/README.md) | Admin SPA |
+| [src/README.md](../src/README.md) | Participant portal |
 | [scripts/README.md](../scripts/README.md) | Codegen stub and lock scripts |
 
 Parent index: [README.md](../README.md).

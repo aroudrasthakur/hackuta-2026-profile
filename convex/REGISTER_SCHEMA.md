@@ -2,7 +2,7 @@
 
 [`hackuta-2026-register`](../../hackuta-2026-register) **does not push** to Convex. This repo deploys `standing-manatee-425` and production.
 
-Every path listed in **Register-owned (immutable)** below is frozen at the byte level. CI and `npm run convex:push-dev` fail if you edit them without running `npm run register-schema-lock:refresh`.
+Every path listed in **Register-owned (immutable)** below is frozen at the byte level. CI and `npm run convex:push-dev` / `npm run convex:deploy` fail if you edit them without running `npm run register-schema-lock:refresh`. Do not refresh while the register app is in production unless that repo has shipped a backend change.
 
 **Canonical register reference:** [`../../hackuta-2026-register/convex/schema.ts`](../../hackuta-2026-register/convex/schema.ts)
 
@@ -209,7 +209,7 @@ Used by registration Convex functions and (in register repo) the registration UI
 
 ## Updating the frozen copy from register
 
-When register source changes (rare — register does not deploy):
+When register source changes (only after hackuta-2026-register ships a backend change — do not refresh while that production app is frozen):
 
 ```bash
 # hackuta-2026-admin, sibling register repo at ../hackuta-2026-register
@@ -230,8 +230,9 @@ Refresh copies changed register files into admin, rewrites `manifest.json` and `
 | Command | When |
 | --- | --- |
 | `npm run verify:register-schema-lock` | Local dev, CI — hash + schema-body check |
-| `npm run convex:push-dev` | Auto-runs verify via `preconvex:push-dev` |
-| `npm run register-schema-lock:refresh` | After register upstream changes; updates manifest + this doc’s file list indirectly via manifest |
+| `npm run convex:push-dev` | Auto-runs register and admin lock verify via `preconvex:push-dev` |
+| `npm run convex:deploy` | Auto-runs the same checks via `preconvex:deploy` |
+| `npm run register-schema-lock:refresh` | Only after register ships a backend change |
 
 If verification fails with `Locked file changed: …`, you edited a register-owned file.
 

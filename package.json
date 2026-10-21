@@ -22,8 +22,10 @@
     "register-schema-lock:refresh": "node scripts/refresh-register-schema-lock.mjs",
     "admin-schema-lock:refresh": "node scripts/refresh-admin-schema-lock.mjs",
     "preconvex:push-dev": "node scripts/verify-register-schema-lock.mjs && node scripts/verify-admin-schema-lock.mjs",
+    "preconvex:deploy": "node scripts/verify-register-schema-lock.mjs && node scripts/verify-admin-schema-lock.mjs",
     "convex:dev": "convex dev",
     "convex:push-dev": "convex dev --once --env-file .env.example",
+    "convex:deploy": "convex deploy",
     "convex:codegen": "convex codegen"
   },
   "dependencies": {

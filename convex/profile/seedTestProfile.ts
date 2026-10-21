@@ -6,6 +6,7 @@ import { ensureEventConfig } from "../lib/eventConfig";
 import { normalizeEmail } from "../lib/normalizeEmail";
 import type { GenericId } from "convex/values";
 import type { MutationCtx } from "../lib/dataModel";
+import { isSharedDevSeedDeployment } from "./devSeedGuard";
 
 const DEFAULT_TEST_EMAIL = "profile-portal-test@hackuta.dev";
 const DEFAULT_TEST_PASSWORD = "HackutaTest1";
@@ -44,13 +45,10 @@ const submittedApplicationFields = {
 } as const;
 
 function assertDevSeedAllowed() {
-  const deployment = process.env.CONVEX_CLOUD_URL ?? "";
-  if (
-    !deployment.includes("standing-manatee-425") &&
-    !deployment.includes("127.0.0.1") &&
-    !deployment.includes("localhost")
-  ) {
-    throw new Error("Test profile seed is only allowed on the shared dev deployment.");
+  if (!isSharedDevSeedDeployment(process.env.CONVEX_CLOUD_URL)) {
+    throw new Error(
+      "Test profile seed is only allowed on the shared dev deployment (standing-manatee-425).",
+    );
   }
 }
 

@@ -73,6 +73,11 @@ const sessions = new Map<string, SessionRecord>();
 const applications = new Map<string, ApplicationRecord>();
 const reviews = new Map<string, ReviewRecord>();
 const logs: LogRecord[] = [];
+const decisionQueue = new Map<string, {
+  decision: "accepted" | "rejected" | "waitlisted";
+  status: "queued" | "held" | "sending" | "sent" | "failed";
+  queuedAt: number;
+}>();
 let nextLogId = 100;
 
 function seedStaff(record: StaffRecord) {
@@ -103,6 +108,7 @@ function resetStore() {
   applications.clear();
   reviews.clear();
   logs.length = 0;
+  decisionQueue.clear();
   nextLogId = 100;
 
   seedStaff({
@@ -355,10 +361,42 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
       return {
         application,
         reviewStatus: review?.status ?? null,
+        pendingDecision: decisionQueue.has(applicationId)
+          ? {
+              decision: decisionQueue.get(applicationId)!.decision,
+              status: decisionQueue.get(applicationId)!.status,
+              queuedAt: decisionQueue.get(applicationId)!.queuedAt,
+            }
+          : null,
         reviewActivity: reviewActivity(review, now),
         resume: applicationId === E2E_APPLICATION_IDS.unreviewed
           ? { status: "available" as const, url: sampleResumeUrl(), filename: "sample-resume.pdf" }
           : { status: "none" as const, url: null, filename: null },
+      };
+    }
+    case "admin/decisionEmailQueue:listDecisionEmailQueue": {
+      requireReviewer(sessionToken);
+      const rows = [...decisionQueue.entries()].map(([applicationId, row]) => {
+        const application = applications.get(applicationId);
+        const applicantName = [application?.firstName, application?.lastName].filter(Boolean).join(" ");
+        return {
+          itemId: applicationId,
+          applicationId,
+          decision: row.decision,
+          recipientEmail: application?.email ?? "",
+          applicantName: applicantName || "Applicant",
+          status: row.status,
+          queuedAt: row.queuedAt,
+          sentAt: row.status === "sent" ? row.queuedAt : null,
+          errorMessage: null,
+        };
+      });
+      const counts = { queued: 0, held: 0, sending: 0, failed: 0, sent: 0 };
+      for (const row of rows) counts[row.status] += 1;
+      return {
+        counts,
+        active: rows.filter((row) => row.status !== "sent").sort((left, right) => right.queuedAt - left.queuedAt),
+        sent: rows.filter((row) => row.status === "sent"),
       };
     }
     case "admin/applicationReviewLogs:listApplicationReviewLogs": {
@@ -461,20 +499,56 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       ) {
         throw adminError("REVIEW_CLAIMED");
       }
-      review.status = decision;
-      review.reviewedBy = admin.adminId;
-      review.lastActiveAt = now;
-      review.updatedAt = now;
-      const logId = `e2e-log-${nextLogId++}`;
-      logs.push({
-        _id: logId,
-        applicationId,
-        adminId: admin.adminId,
-        action: decision,
-        createdAt: now,
-      });
+      const email = applications.get(applicationId)?.email.trim();
+      if (!email) throw adminError("DECISION_EMAIL_MISSING");
+      const open = decisionQueue.get(applicationId);
+      if (open && open.status !== "sent" && open.status !== "failed" && open.decision === decision) {
+        bump();
+        return { queued: true, duplicate: true };
+      }
+      decisionQueue.set(applicationId, { decision, status: "queued", queuedAt: now });
       bump();
-      return { logId, duplicate: false };
+      return { queued: true, duplicate: false };
+    }
+    case "admin/decisionEmailQueue:setDecisionEmailHold": {
+      requireAdmin(sessionToken);
+      const itemId = String(args.itemId ?? "");
+      const row = decisionQueue.get(itemId);
+      if (!row) throw adminError("APPLICATION_NOT_FOUND");
+      const next = args.held === true ? "held" : "queued";
+      row.status = next;
+      bump();
+      return { status: next };
+    }
+    case "admin/decisionEmailQueue:retryFailedDecisionEmails": {
+      requireAdmin(sessionToken);
+      let retried = 0;
+      for (const row of decisionQueue.values()) {
+        if (row.status === "failed") {
+          row.status = "queued";
+          retried += 1;
+        }
+      }
+      bump();
+      return { retried };
+    }
+    case "admin/decisionEmailRelease:releaseDecisionEmails": {
+      requireAdmin(sessionToken);
+      const requested = Array.isArray(args.itemIds) ? args.itemIds.map(String) : null;
+      const ids = requested ?? [...decisionQueue.entries()].filter(([, row]) => row.status === "queued").map(([id]) => id);
+      if (requested?.some((id) => decisionQueue.get(id)?.status !== "queued") || ids.length === 0) {
+        throw adminError("DECISION_EMAIL_QUEUE_EMPTY");
+      }
+      for (const id of ids) {
+        const row = decisionQueue.get(id);
+        const review = reviews.get(id);
+        if (!row || !review) continue;
+        review.status = row.decision;
+        review.updatedAt = now;
+        row.status = "sent";
+      }
+      bump();
+      return { sent: ids.length, failed: 0, total: ids.length };
     }
     default:
       throw new Error(`Unhandled E2E mock mutation: ${path}`);
