@@ -8,7 +8,8 @@
     "applicationReviewLogs",
     "participants",
     "adminAuthAccounts",
-    "adminSessions"
+    "adminSessions",
+    "decisionEmailQueue"
   ],
   "registerSchemaLockedHash": "6615388d7df3c575ac3d83654896914cf3601cd1f7d59bbd7b0a58927db53c45",
   "files": {
