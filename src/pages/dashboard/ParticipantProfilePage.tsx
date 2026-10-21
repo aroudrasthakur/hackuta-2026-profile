@@ -5,6 +5,8 @@ import { SignOutButton } from "../../components/SignOutButton";
 import type { ParticipantDashboard } from "../../convex/api";
 import { useMockAuth } from "../../hooks/useMockAuth";
 import { participantSignOutButton } from "./dashboardStyles";
+import { NavScanIcon, NavSettingsIcon } from "../../components/participant/ParticipantNavIcons";
+import { ParticipantAvatar } from "../../components/participant/ParticipantAvatar";
 
 const PUSH_PREF_KEY = "hackuta-profile-push-pref";
 
@@ -39,23 +41,29 @@ export default function ParticipantProfilePage() {
   return (
     <section className="participant-profile" aria-labelledby="participant-profile-title">
       <header className="participant-profile__hero">
-        <div className="participant-profile__avatar" aria-hidden="true">
-          {data.profile.displayName.slice(0, 1).toUpperCase()}
+        <div className="participant-profile__hero-row">
+          <div className="participant-profile__identity-block">
+            <ParticipantAvatar displayName={data.profile.displayName} size="profile" />
+            <h1 id="participant-profile-title" className="participant-profile__name">
+              {data.profile.displayName}
+            </h1>
+            {data.profile.email ? <p className="participant-profile__email">{data.profile.email}</p> : null}
+          </div>
+          <nav className="participant-profile__shortcuts" aria-label="Quick links">
+            <Link to="/dashboard/scan" className="participant-profile__shortcut">
+              <NavScanIcon className="participant-profile__shortcut-icon" />
+              <span>Scan</span>
+            </Link>
+            <Link
+              to="/dashboard/profile"
+              className="participant-profile__shortcut participant-profile__shortcut--active"
+              aria-current="page"
+            >
+              <NavSettingsIcon className="participant-profile__shortcut-icon" />
+              <span>Settings</span>
+            </Link>
+          </nav>
         </div>
-        <div className="participant-profile__identity">
-          <h1 id="participant-profile-title" className="participant-profile__name">
-            {data.profile.displayName}
-          </h1>
-          {data.profile.email ? <p className="participant-profile__email">{data.profile.email}</p> : null}
-          <button type="button" className="participant-profile__edit-photo" disabled>
-            Edit photo
-          </button>
-        </div>
-        <nav className="participant-profile__shortcuts" aria-label="Quick links">
-          <Link to="/dashboard/scan">Scan</Link>
-          <span aria-hidden="true">Group</span>
-          <Link to="/dashboard/profile" aria-current="page">Settings</Link>
-        </nav>
       </header>
 
       <div className="participant-profile__group">

@@ -1,3 +1,5 @@
+export { profileInitials } from "../../lib/participantDisplay";
+
 export function formatCardDate(timestamp: number | null) {
   if (timestamp === null) return { month: "TBA", day: "—" };
   const date = new Date(timestamp);

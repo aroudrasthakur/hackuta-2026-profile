@@ -8,7 +8,7 @@ import { ensureParticipantForAcceptance } from "./participantCreation";
  * from the staff-gated acceptance transaction (or other internal callers).
  * Idempotent: returns the existing participant if the application already has one
  * and does not rotate `qrCodeToken`.
- * Reuses the applicant's existing `users` account; profile data stays on `applications`.
+ * Reuses the applicant's existing `users` account; copies `foodRestriction` from `applications` at creation.
  */
 export const createParticipantFromAcceptance = internalMutation({
   args: {

@@ -51,7 +51,7 @@ After detail loads, the page calls `logApplicationReviewAction` with `action: "v
 - `applicationReviews` — register-origin table editable in [schema.ts](../schema.ts); holds the current or final review state per application. `reviewedBy` (an `admins` id) is always set from the session, never from client args. `started_review` claims the review via [reviewClaim.ts](reviewClaim.ts): active claims block silent takeover, stale claims reset `startedAt`, and final decisions cannot restart review. `viewed` is log-only; decisions set `completedAt`. Decision patches live in [reviewState.ts](reviewState.ts).
 - `admins` — admin-only table.
 - `applicationReviewLogs` — append-only activity history; full history is restricted to admins.
-- `participants` — admin-only table; one row per accepted application (reuses `users`, no applicant data copied).
+- `participants` — admin-only table; one row per accepted application (reuses `users`). Copies `foodRestriction` from the linked application when the row is created; other profile fields stay on `applications`.
 
 Registration reads/writes for applicants remain in register-locked modules ([applications.ts](../applications.ts), [registrations.ts](../registrations.ts), etc.).
 

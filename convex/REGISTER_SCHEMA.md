@@ -50,12 +50,26 @@ File: [`convex/schema.ts`](schema.ts)
 | `emailDeliveryRecordingFailures` | Register | **No** |
 | `admins` | Admin | **Yes** — does not exist in register repo |
 | `applicationReviewLogs` | Admin | **Yes** — append-only reviewer/admin activity history |
-| `participants` | Admin | **Yes** — one row per accepted application (check-in identity) |
+| `participants` | Admin | **Yes** — one row per accepted application (check-in identity; see [participants columns](#participants-columns)) |
 | `adminAuthAccounts` | Admin | **Yes** — organizer password hashes (separate from applicant auth) |
 | `adminSessions` | Admin | **Yes** — organizer session token hashes |
 | `decisionEmailQueue` | Admin | **Yes** — queued accept, reject, and waitlist emails |
 
 All register-owned blocks must remain identical to [`schema.reference.ts`](../scripts/register-schema-lock/schema.reference.ts) aside from `applicationReviews` and admin-owned tables listed above.
+
+### `participants` columns
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `applicationId` | `Id<"applications">` | One participant row per accepted application |
+| `authUserId` | `Id<"users">` | Applicant Convex Auth user (reused from registration) |
+| `acceptedAt` | `number` | Acceptance timestamp (ms) |
+| `acceptedBy` | `Id<"admins">` | Staff admin who confirmed acceptance |
+| `qrCodeToken` | `string` | Check-in QR identity (256-bit hex) |
+| `foodRestriction` | `string` (optional) | Snapshot from the linked application’s `dietaryRestrictions`, `otherDietaryRestrictions`, and `allergyDetails` at participant creation |
+| `checkedInAt` | `number` (optional) | Event check-in timestamp |
+| `createdAt` | `number` | Row creation time |
+| `updatedAt` | `number` | Last update time |
 
 ---
 

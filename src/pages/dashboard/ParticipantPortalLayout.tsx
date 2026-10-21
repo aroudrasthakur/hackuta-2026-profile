@@ -9,6 +9,7 @@ import {
 } from "../../components/participant/ParticipantNavIcons";
 import { LANDING_URL } from "../../constants/site";
 import { useParticipantDashboard } from "./useParticipantDashboard";
+import { ParticipantAvatar } from "../../components/participant/ParticipantAvatar";
 
 const NAV = [
   { to: "/dashboard", end: true, label: "Home", icon: NavHomeIcon },
@@ -61,11 +62,9 @@ export default function ParticipantPortalLayout() {
           ))}
         </nav>
         <div className="participant-dashboard__account">
-          <div className="participant-dashboard__account-avatar" aria-hidden="true">
-            {data.profile.displayName.slice(0, 1).toUpperCase()}
-          </div>
+          <ParticipantAvatar displayName={data.profile.displayName} size="sidebar" />
           <div className="participant-dashboard__account-text">
-            <p className="participant-dashboard__account-name">Hacker</p>
+            <p className="participant-dashboard__account-name">{data.profile.displayName}</p>
             {data.profile.email ? (
               <p className="participant-dashboard__account-email">{data.profile.email}</p>
             ) : null}

@@ -31,7 +31,7 @@ function pickPreferredApplication(candidates: ApplicationDoc[]): ApplicationDoc 
   );
 }
 
-/** Resolve the signed-in user's application row (auth user id, then verified email). */
+/** Resolve the signed-in user's application row (auth user, email, then participant link). */
 export async function resolveApplicationForAuthUser(
   ctx: AuthCtx,
   user: Pick<AuthUserDoc, "_id" | "email">,
@@ -40,19 +40,31 @@ export async function resolveApplicationForAuthUser(
   if (byAuthUser) return byAuthUser;
 
   const verifiedEmail = normalizeEmail(user.email);
-  if (!verifiedEmail) return null;
+  if (verifiedEmail) {
+    const byEmail = await ctx.db
+      .query("applications")
+      .withIndex("by_email", (q) => q.eq("email", verifiedEmail))
+      .collect();
 
-  const byEmail = await ctx.db
-    .query("applications")
-    .withIndex("by_email", (q) => q.eq("email", verifiedEmail))
-    .collect();
+    const owned = byEmail.filter((application) => {
+      if (application.authUserId === user._id) return true;
+      return normalizeEmail(application.email) === verifiedEmail;
+    });
 
-  const owned = byEmail.filter((application) => {
-    if (application.authUserId === user._id) return true;
-    return normalizeEmail(application.email) === verifiedEmail;
-  });
+    const fromEmail = pickPreferredApplication(owned);
+    if (fromEmail) return fromEmail;
+  }
 
-  return pickPreferredApplication(owned);
+  const participant = await ctx.db
+    .query("participants")
+    .withIndex("by_auth_user", (q) => q.eq("authUserId", user._id))
+    .first();
+  if (participant) {
+    const linked = await ctx.db.get(participant.applicationId);
+    if (linked) return linked;
+  }
+
+  return null;
 }
 
 export async function getApplicationReview(ctx: AuthCtx, applicationId: ApplicationDoc["_id"]) {

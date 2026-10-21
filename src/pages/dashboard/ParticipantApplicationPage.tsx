@@ -1,9 +1,10 @@
 import { Link, useOutletContext } from "react-router-dom";
 import { ResumePreviewDialog } from "../../components/resume/ResumePreviewDialog";
-import type { ParticipantDashboard } from "../../convex/api";
+import type { ParticipantDashboard, SubmittedApplication } from "../../convex/api";
 import { useMockAuth } from "../../hooks/useMockAuth";
 
-const MOCK_SUBMISSION = {
+const MOCK_SUBMISSION: SubmittedApplication = {
+  submittedAt: 1_700_000_000_000,
   sections: [
     {
       title: "Personal Information",
@@ -13,16 +14,26 @@ const MOCK_SUBMISSION = {
       ],
     },
   ],
-  resume: { status: "none" as const, url: null, filename: null },
+  resume: { status: "none", url: null, filename: null },
 };
 
 export default function ParticipantApplicationPage() {
-  const dashboard = useOutletContext<ParticipantDashboard>();
+  const dashboard = useOutletContext<ParticipantDashboard | undefined>();
   const mockAuth = useMockAuth();
 
-  const data = mockAuth.enabled ? MOCK_SUBMISSION : dashboard.submittedApplication;
+  if (!dashboard && !mockAuth.enabled) {
+    return (
+      <div className="participant-application participant-application--empty">
+        <p role="status">Loading your submission…</p>
+      </div>
+    );
+  }
 
-  if (!dashboard.application?.submitted) {
+  const data = mockAuth.enabled
+    ? MOCK_SUBMISSION
+    : dashboard?.submittedApplication ?? null;
+
+  if (!mockAuth.enabled && !dashboard?.application?.submitted) {
     return (
       <div className="participant-application participant-application--empty">
         <p role="status">You have not submitted an application yet.</p>
@@ -36,7 +47,10 @@ export default function ParticipantApplicationPage() {
   if (!data) {
     return (
       <div className="participant-application participant-application--empty">
-        <p role="status">We could not load your submission. Refresh the page or try again in a moment.</p>
+        <p role="status">
+          We could not load your submission. Refresh the page, or sign out and back in if you recently
+          submitted.
+        </p>
         <Link to="/dashboard" className="participant-dashboard__link">
           Back to home
         </Link>

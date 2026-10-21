@@ -2,6 +2,7 @@ import type { DocumentByName } from "convex/server";
 import type { GenericId } from "convex/values";
 import type { DataModel, MutationCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
+import { foodRestrictionFromApplication } from "../../shared/admin/participantFoodRestriction";
 
 type ParticipantDoc = DocumentByName<DataModel, "participants">;
 
@@ -97,6 +98,11 @@ export async function ensureParticipantForAcceptance(
     return { participantId: existing.participant._id, created: false as const };
   }
 
+  const application = await ctx.db.get(args.applicationId);
+  if (!application) {
+    throw new Error("Application not found.");
+  }
+
   const qrCodeToken = await generateUniqueQrCodeToken(ctx);
   const now = Date.now();
   const participantId = await ctx.db.insert("participants", {
@@ -105,6 +111,7 @@ export async function ensureParticipantForAcceptance(
     acceptedAt: args.acceptedAt,
     acceptedBy: args.acceptedBy,
     qrCodeToken,
+    foodRestriction: foodRestrictionFromApplication(application),
     createdAt: now,
     updatedAt: now,
   });

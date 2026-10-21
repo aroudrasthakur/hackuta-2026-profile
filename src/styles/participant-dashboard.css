@@ -84,16 +84,28 @@
     border-top: 1px solid rgb(26 58 82 / 0.1);
   }
 
-  .participant-dashboard__account-avatar {
+  .participant-avatar {
     display: grid;
     place-items: center;
-    width: 2.25rem;
-    height: 2.25rem;
+    flex-shrink: 0;
     border-radius: 999px;
     background: var(--color-ocean);
     color: var(--color-light);
     font-weight: 700;
-    font-size: 0.95rem;
+    letter-spacing: 0.03em;
+    user-select: none;
+  }
+
+  .participant-avatar--sidebar {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 0.72rem;
+  }
+
+  .participant-avatar--profile {
+    width: 4.5rem;
+    height: 4.5rem;
+    font-size: 1.35rem;
   }
 
   .participant-dashboard__account-name {
@@ -748,22 +760,26 @@
 
   /* Profile */
   .participant-profile__hero {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 1rem 1.25rem;
-    align-items: start;
+    display: flex;
+    justify-content: center;
     margin-bottom: 1.5rem;
   }
 
-  .participant-profile__avatar {
-    width: 4.5rem;
-    height: 4.5rem;
-    border-radius: 999px;
-    display: grid;
-    place-items: center;
-    background: var(--color-ocean);
-    font-size: 1.75rem;
-    font-weight: 700;
+  .participant-profile__hero-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(2rem, 10vw, 4.5rem);
+    max-width: 100%;
+  }
+
+  .participant-profile__identity-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    max-width: min(100%, 28rem);
+    text-align: center;
   }
 
   .participant-profile__name {
@@ -773,36 +789,72 @@
     font-weight: 400;
     line-height: 1.25;
     color: var(--color-night);
+    max-width: 100%;
   }
 
   .participant-profile__email {
-    margin: 0.25rem 0 0.65rem;
+    margin: 0;
     color: var(--color-mist);
     font-size: 0.9rem;
-  }
-
-  .participant-profile__edit-photo {
-    border-radius: 999px;
-    border: 1px solid rgb(26 58 82 / 0.1);
-    background: transparent;
-    color: var(--color-ink);
-    padding: 0.35rem 0.85rem;
-    font-size: 0.85rem;
-    cursor: not-allowed;
-    opacity: 0.7;
+    max-width: 100%;
+    word-break: break-word;
   }
 
   .participant-profile__shortcuts {
     display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    color: var(--color-mist);
-    font-size: 0.85rem;
+    flex-shrink: 0;
+    align-items: stretch;
+    align-self: center;
+    border: 1px solid rgb(26 58 82 / 0.12);
+    border-radius: 0.85rem;
+    background: #fff8ef;
+    overflow: hidden;
   }
 
-  .participant-profile__shortcuts a {
+  .participant-profile__shortcut {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-width: 5.5rem;
+    padding: 0.85rem 1.35rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
     color: var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.1;
     text-decoration: none;
+    transition:
+      background 0.2s var(--ease-out),
+      color 0.2s var(--ease-out);
+  }
+
+  .participant-profile__shortcut + .participant-profile__shortcut {
+    border-left: 1px solid rgb(26 58 82 / 0.14);
+  }
+
+  .participant-profile__shortcut-icon {
+    width: 1.85rem;
+    height: 1.85rem;
+    flex-shrink: 0;
+  }
+
+  .participant-profile__shortcut:hover {
+    background: var(--color-light);
+  }
+
+  .participant-profile__shortcut--active {
+    background: var(--color-light);
+    color: var(--color-night);
+  }
+
+  .participant-profile__shortcut:focus-visible {
+    outline: 2px solid var(--color-ocean);
+    outline-offset: -2px;
+    z-index: 1;
   }
 
   .participant-profile__group {
@@ -1130,7 +1182,24 @@
     }
 
     .participant-profile__hero {
-      grid-template-columns: 1fr;
+      justify-content: flex-start;
+    }
+
+    .participant-profile__hero-row {
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      width: 100%;
+    }
+
+    .participant-profile__shortcuts {
+      width: 100%;
+      justify-content: stretch;
+    }
+
+    .participant-profile__shortcut {
+      flex: 1 1 0;
+      min-width: 0;
     }
 
     .participant-application__row {

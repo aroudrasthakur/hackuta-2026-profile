@@ -146,6 +146,52 @@ describe("participant dashboard query", () => {
     void applicationId;
   });
 
+  it("loads submission via participants.applicationId when auth user lookup misses", async () => {
+    const t = createConvexTest();
+    const email = "participant-link@example.com";
+
+    const { applicationId, sessionUserId } = await t.run(async (ctx) => {
+      const legacyUserId = await ctx.db.insert("users", { email, name: "Legacy Auth" });
+      const applicationId = await ctx.db.insert("applications", {
+        authUserId: legacyUserId,
+        email,
+        firstName: "Pat",
+        lastName: "Linked",
+        createdAt: 1,
+        formSubmitted: true,
+        submittedAt: 2,
+      });
+      const sessionUserId = await ctx.db.insert("users", { email, name: "Session User" });
+      const staff = await ctx.db.insert("admins", {
+        email: "staff@example.com",
+        name: "Staff",
+        role: "admin",
+        active: true,
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.insert("participants", {
+        applicationId,
+        authUserId: sessionUserId,
+        acceptedAt: 1,
+        acceptedBy: staff,
+        qrCodeToken: "e".repeat(64),
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      return { applicationId, sessionUserId };
+    });
+
+    const asSessionUser = t.withIdentity({ subject: sessionUserId, email });
+    const dashboard = await asSessionUser.query(getMyParticipantDashboardRef, {});
+
+    expect(dashboard?.application?.submitted).toBe(true);
+    expect(dashboard?.submittedApplication?.sections[0]?.rows).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "First name", value: "Pat" })]),
+    );
+    void applicationId;
+  });
+
   it("masks queued decisions until the decision email is released", async () => {
     const t = createConvexTest();
     const applicant = await seedApplicant(t, {

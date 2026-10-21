@@ -134,6 +134,7 @@ export default defineSchema({
   /**
    * Accepted applicants — one row per accepted application, created only after acceptance.
    * Profile data stays on `applications`; this row reuses the applicant's existing `users` account.
+   * `foodRestriction` is copied from the linked application at acceptance (dietary + allergy fields).
    */
   participants: defineTable({
     applicationId: v.id("applications"),
@@ -141,6 +142,7 @@ export default defineSchema({
     acceptedAt: v.number(),
     acceptedBy: v.id("admins"),
     qrCodeToken: v.string(),
+    foodRestriction: v.optional(v.string()),
     checkedInAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),

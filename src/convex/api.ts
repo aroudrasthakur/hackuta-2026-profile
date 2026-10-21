@@ -106,7 +106,8 @@ export type ParticipantDashboard = {
     registrationOpensAt: number | null;
     registrationClosesAt: number | null;
   };
-  submittedApplication: SubmittedApplication | null;
+  /** Present when the deployed dashboard query includes submission detail (may be absent briefly on older backends). */
+  submittedApplication?: SubmittedApplication | null;
 };
 
 export const getMyParticipantDashboardRef = makeFunctionReference<
