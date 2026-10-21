@@ -15,8 +15,8 @@ import {
   ensureDraftApplication,
   formatApplicantFullName,
   getAuthUser,
+  getApplicationByUser,
   getApplicationStatus,
-  resolveApplicationForAuthUser,
   applicationFormWasSubmitted,
   projectApplicantAnswers,
   syncAuthUserNameFromApplication,
@@ -41,7 +41,7 @@ export const getMyApplicationDraft = query({
       return null;
     }
 
-    const application = await resolveApplicationForAuthUser(ctx, authUser);
+    const application = await getApplicationByUser(ctx, authUser._id);
     if (!application) return null;
     const status = await getApplicationStatus(ctx, application);
     if (status !== "draft") {
@@ -118,7 +118,7 @@ export const getMyApplicantDashboard = query({
     const identity = await requireAuthIdentity(ctx);
 
     const authUser = await getAuthUser(ctx);
-    const application = authUser ? await resolveApplicationForAuthUser(ctx, authUser) : null;
+    const application = authUser ? await getApplicationByUser(ctx, authUser._id) : null;
     const status = application ? await getApplicationStatus(ctx, application) : null;
 
     const resumeStatus: "none" | "attached" = application?.resumeStorageId ? "attached" : "none";

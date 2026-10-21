@@ -1,7 +1,7 @@
 import type { QueryCtx } from "../_generated/server";
 import type { ApplicationDoc } from "../lib/dataModel";
 import { normalizeEmail } from "../lib/normalizeEmail";
-import { buildSubmissionSections } from "../../shared/registration/submissionDisplay";
+import { buildSubmissionSections } from "../../shared/admin/submissionDisplay";
 
 export type SubmittedApplicationPayload = {
   submittedAt: number | null;

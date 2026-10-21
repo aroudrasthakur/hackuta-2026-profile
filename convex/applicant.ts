@@ -8,9 +8,9 @@ import { mutation, query } from "./_generated/server";
 import {
   applicationFormWasSubmitted,
   ensureDraftApplication,
+  getApplicationByUser,
   getApplicationStatus,
   getAuthUser,
-  resolveApplicationForAuthUser,
 } from "./lib/applications";
 import { normalizeEmail } from "./lib/normalizeEmail";
 
@@ -34,7 +34,7 @@ export const getApplicantRoutingState = query({
       };
     }
 
-    const application = await resolveApplicationForAuthUser(ctx, authUser);
+    const application = await getApplicationByUser(ctx, authUser._id);
     const hasSubmittedRegistration =
       application !== null && applicationFormWasSubmitted(application);
 

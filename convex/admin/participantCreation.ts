@@ -105,13 +105,14 @@ export async function ensureParticipantForAcceptance(
 
   const qrCodeToken = await generateUniqueQrCodeToken(ctx);
   const now = Date.now();
+  const foodRestriction = foodRestrictionFromApplication(application);
   const participantId = await ctx.db.insert("participants", {
     applicationId: args.applicationId,
     authUserId: args.authUserId,
     acceptedAt: args.acceptedAt,
     acceptedBy: args.acceptedBy,
     qrCodeToken,
-    foodRestriction: foodRestrictionFromApplication(application),
+    ...(foodRestriction !== undefined ? { foodRestriction } : {}),
     createdAt: now,
     updatedAt: now,
   });

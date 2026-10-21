@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { WEEKEND_SCHEDULE_DAYS, WEEKEND_SCHEDULE_WHEN } from "../../../shared/hackathon/weekendSchedule";
+import { WEEKEND_SCHEDULE_DAYS, WEEKEND_SCHEDULE_WHEN } from "../../../shared/admin/weekendSchedule";
 
 const dayAnchors = WEEKEND_SCHEDULE_DAYS.map((day) => Date.parse(`${day.isoDate}T12:00:00`));
 

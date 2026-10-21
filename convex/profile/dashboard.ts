@@ -1,9 +1,6 @@
 import { query } from "../_generated/server";
-import {
-  applicationFormWasSubmitted,
-  getAuthUser,
-  resolveApplicationForAuthUser,
-} from "../lib/applications";
+import { applicationFormWasSubmitted, getAuthUser } from "../lib/applications";
+import { resolveApplicationForAuthUser } from "./applicationLookup";
 import { getEventConfigRow } from "../lib/eventConfig";
 import { DEFAULT_HACKATHON_NAME } from "../../shared/hackathon/eventDefaults";
 import { normalizeEmail } from "../lib/normalizeEmail";

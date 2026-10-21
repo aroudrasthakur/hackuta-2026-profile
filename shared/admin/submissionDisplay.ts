@@ -5,10 +5,10 @@ import {
   LEVEL_OF_STUDY_OTHER_OPTION,
   MAJOR_OTHER_OPTION,
   SCHOOL_OTHER_OPTION,
-} from "./constants";
-import { EMERGENCY_CONTACT_FIELDS } from "./emergencyContact";
-import { isEmergencyContactStarted } from "./emergencyContact";
-import type { ApplicantAnswerFieldKey } from "./applicantFields";
+} from "../registration/constants";
+import { EMERGENCY_CONTACT_FIELDS } from "../registration/emergencyContact";
+import { isEmergencyContactStarted } from "../registration/emergencyContact";
+import type { ApplicantAnswerFieldKey } from "../registration/applicantFields";
 
 export type SubmissionRow = { label: string; value: string };
 export type SubmissionSection = { title: string; rows: SubmissionRow[] };

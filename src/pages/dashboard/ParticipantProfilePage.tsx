@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { ResumePreviewDialog } from "../../components/resume/ResumePreviewDialog";
 import { SignOutButton } from "../../components/SignOutButton";
@@ -14,15 +14,13 @@ export default function ParticipantProfilePage() {
   const data = useOutletContext<ParticipantDashboard>();
   const mockAuth = useMockAuth();
 
-  const [pushEnabled, setPushEnabled] = useState(false);
-
-  useEffect(() => {
+  const [pushEnabled, setPushEnabled] = useState(() => {
     try {
-      setPushEnabled(localStorage.getItem(PUSH_PREF_KEY) === "1");
+      return localStorage.getItem(PUSH_PREF_KEY) === "1";
     } catch {
-      setPushEnabled(false);
+      return false;
     }
-  }, []);
+  });
 
   const resume = mockAuth.enabled
     ? { status: "none" as const, url: null, filename: null }

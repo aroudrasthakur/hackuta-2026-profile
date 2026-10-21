@@ -1,9 +1,6 @@
 import { query } from "../_generated/server";
-import {
-  applicationFormWasSubmitted,
-  getAuthUser,
-  resolveApplicationForAuthUser,
-} from "../lib/applications";
+import { applicationFormWasSubmitted, getAuthUser } from "../lib/applications";
+import { resolveApplicationForAuthUser } from "./applicationLookup";
 import { buildSubmittedApplicationPayload, normalizeApplicantEmail } from "./submissionPayload";
 
 /** Applicant's own submitted application (read-only). */
