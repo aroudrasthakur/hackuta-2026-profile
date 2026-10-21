@@ -10,7 +10,13 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SessionAuthProvider } from "./hooks/useSessionAuth";
 import { convexClient } from "./convex/client";
 import HomeRedirect from "./pages/HomeRedirect";
-import ParticipantDashboardPage from "./pages/dashboard/ParticipantDashboardPage";
+import ParticipantPortalLayout from "./pages/dashboard/ParticipantPortalLayout";
+import ParticipantHomePage from "./pages/dashboard/ParticipantHomePage";
+import ParticipantScanPage from "./pages/dashboard/ParticipantScanPage";
+import ParticipantSchedulePage from "./pages/dashboard/ParticipantSchedulePage";
+import ParticipantNotificationsPage from "./pages/dashboard/ParticipantNotificationsPage";
+import ParticipantProfilePage from "./pages/dashboard/ParticipantProfilePage";
+import ParticipantApplicationPage from "./pages/dashboard/ParticipantApplicationPage";
 import SignInPage from "./pages/SignIn/SignInPage";
 import "./styles/index.css";
 
@@ -30,10 +36,17 @@ const app = (
             path="/dashboard"
             element={
               <ProtectedRoute requireAuth>
-                <ParticipantDashboardPage />
+                <ParticipantPortalLayout />
               </ProtectedRoute>
             }
-          />
+          >
+            <Route index element={<ParticipantHomePage />} />
+            <Route path="scan" element={<ParticipantScanPage />} />
+            <Route path="schedule" element={<ParticipantSchedulePage />} />
+            <Route path="notifications" element={<ParticipantNotificationsPage />} />
+            <Route path="profile" element={<ParticipantProfilePage />} />
+            <Route path="application" element={<ParticipantApplicationPage />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthBootstrap>

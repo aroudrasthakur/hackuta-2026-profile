@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "prebuild": "node scripts/ensure-convex-server-stub.mjs && node scripts/verify-production-env.mjs",
+    "prebuild": "node scripts/prepare-pdf-assets.mjs && node scripts/ensure-convex-server-stub.mjs && node scripts/verify-production-env.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "pretypecheck": "node scripts/ensure-convex-server-stub.mjs",
@@ -33,6 +33,7 @@
     "libphonenumber-js": "^1.13.15",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-pdf": "^10.5.0",
     "react-qr-code": "^2.0.18",
     "react-router-dom": "^7.18.4"
   },

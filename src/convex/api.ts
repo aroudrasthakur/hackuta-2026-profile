@@ -103,3 +103,19 @@ export const getMyParticipantDashboardRef = makeFunctionReference<
   Record<string, never>,
   ParticipantDashboard | null
 >("profile/dashboard:getMyParticipantDashboard");
+
+export type SubmittedApplication = {
+  submittedAt: number | null;
+  sections: Array<{ title: string; rows: Array<{ label: string; value: string }> }>;
+  resume: {
+    status: "none" | "available" | "missing";
+    url: string | null;
+    filename: string | null;
+  };
+};
+
+export const getMySubmittedApplicationRef = makeFunctionReference<
+  "query",
+  Record<string, never>,
+  SubmittedApplication | null
+>("profile/submission:getMySubmittedApplication");
