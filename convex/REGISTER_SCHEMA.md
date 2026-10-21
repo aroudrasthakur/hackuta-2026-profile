@@ -53,6 +53,7 @@ File: [`convex/schema.ts`](schema.ts)
 | `participants` | Admin | **Yes** — one row per accepted application (check-in identity) |
 | `adminAuthAccounts` | Admin | **Yes** — organizer password hashes (separate from applicant auth) |
 | `adminSessions` | Admin | **Yes** — organizer session token hashes |
+| `decisionEmailQueue` | Admin | **Yes** — queued accept, reject, and waitlist emails |
 
 All register-owned blocks must remain identical to [`schema.reference.ts`](../scripts/register-schema-lock/schema.reference.ts) aside from `applicationReviews` and admin-owned tables listed above.
 

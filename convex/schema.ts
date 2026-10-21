@@ -14,8 +14,8 @@ import { emailDeliveryKind } from "./lib/emailDeliveries";
  *
  * Register-owned tables must match hackuta-2026-register/convex/schema.ts
  * (see convex/REGISTER_SCHEMA.md). Only applicationReviews, admins,
- * applicationReviewLogs, participants, adminAuthAccounts, and adminSessions may be
- * edited in this file.
+ * applicationReviewLogs, participants, adminAuthAccounts, adminSessions, and
+ * decisionEmailQueue may be edited in this file.
  */
 export default defineSchema({
   // --- REGISTER-LOCKED (do not edit) ---
@@ -166,4 +166,29 @@ export default defineSchema({
   })
     .index("by_token_hash", ["sessionTokenHash"])
     .index("by_admin", ["adminId"]),
+
+  /**
+   * Decision emails waiting for an admin to release them.
+   * Review status and participant rows stay unchanged until the email server accepts the message.
+   */
+  decisionEmailQueue: defineTable({
+    applicationId: v.id("applications"),
+    decision: v.union(v.literal("accepted"), v.literal("rejected"), v.literal("waitlisted")),
+    recipientEmail: v.string(),
+    applicantName: v.string(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("held"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("failed"),
+    ),
+    queuedBy: v.id("admins"),
+    queuedAt: v.number(),
+    updatedAt: v.number(),
+    errorMessage: v.optional(v.string()),
+    sentAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_application", ["applicationId"]),
 });

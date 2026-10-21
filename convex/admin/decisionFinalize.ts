@@ -1,9 +1,7 @@
-import { makeFunctionReference } from "convex/server";
 import type { GenericId } from "convex/values";
 import type { DocumentByName } from "convex/server";
 import { formatApplicantFullName } from "../lib/applications";
 import type { ApplicationDoc, DataModel, MutationCtx } from "../lib/dataModel";
-import { getHackathonName } from "../lib/eventConfig";
 import { adminError } from "../../shared/admin/errors";
 import { applyAcceptedApplicationDecision } from "./acceptanceDecision";
 import { isActiveReviewClaimHeldByOther, isFinalReviewStatus } from "./reviewClaim";
@@ -11,53 +9,32 @@ import { decisionPatch } from "./reviewState";
 
 type ApplicationReviewDoc = DocumentByName<DataModel, "applicationReviews">;
 type AdminDoc = DocumentByName<DataModel, "admins">;
-type ReviewDecision = "accepted" | "rejected" | "waitlisted";
+export type ReviewDecision = "accepted" | "rejected" | "waitlisted";
 
-const sendDecisionEmailRef = makeFunctionReference<
-  "action",
-  {
-    decision: ReviewDecision;
-    email: string;
-    applicantName: string;
-    hackathonName: string;
-  }
->("admin/sendDecisionEmails:sendDecisionEmail");
+const OPEN_QUEUE_STATUSES = new Set(["queued", "held", "sending"]);
 
-async function scheduleDecisionEmail(
-  ctx: MutationCtx,
-  application: ApplicationDoc,
-  decision: ReviewDecision,
-) {
-  const hackathonName = await getHackathonName(ctx);
-  const applicantName =
-    formatApplicantFullName(application) ?? application.email ?? "Applicant";
+function applicantEmail(application: ApplicationDoc) {
   const email = application.email?.trim();
-  if (!email) {
-    return;
-  }
-  await ctx.scheduler.runAfter(0, sendDecisionEmailRef, {
-    decision,
-    email,
-    applicantName,
-    hackathonName,
-  });
+  return email ? email : null;
 }
 
-async function findLatestDecisionLog(
-  ctx: MutationCtx,
-  applicationId: GenericId<"applications">,
-  decision: ReviewDecision,
-) {
-  const logs = await ctx.db
-    .query("applicationReviewLogs")
-    .withIndex("by_application_createdAt", (q) => q.eq("applicationId", applicationId))
-    .order("desc")
+function applicantName(application: ApplicationDoc, email: string) {
+  return formatApplicantFullName(application) ?? email;
+}
+
+async function openQueueRows(ctx: MutationCtx, applicationId: GenericId<"applications">) {
+  const rows = await ctx.db
+    .query("decisionEmailQueue")
+    .withIndex("by_application", (q) => q.eq("applicationId", applicationId))
     .collect();
-  return logs.find((log) => log.action === decision) ?? null;
+  return rows.filter((row) => OPEN_QUEUE_STATUSES.has(row.status));
 }
 
-/** Applies a confirmed final decision once; repeats return the existing log without re-emailing. */
-export async function finalizeApplicationDecision(
+/**
+ * Stores a decision in the email queue. Review status, audit logs, and participant
+ * rows are applied later, only after the email server accepts the message.
+ */
+export async function enqueueApplicationDecision(
   ctx: MutationCtx,
   args: {
     application: ApplicationDoc;
@@ -68,16 +45,8 @@ export async function finalizeApplicationDecision(
 ) {
   const promotingWaitlist = args.review.status === "waitlisted" && args.decision === "accepted";
   if (isFinalReviewStatus(args.review.status) && !promotingWaitlist) {
-    if (args.review.status !== args.decision) {
-      throw adminError("REVIEW_FINALIZED");
-    }
-    const existingLog = await findLatestDecisionLog(
-      ctx,
-      args.application._id,
-      args.decision,
-    );
-    if (existingLog) {
-      return { logId: existingLog._id, duplicate: true as const };
+    if (args.review.status === args.decision) {
+      return { queued: true as const, duplicate: true as const };
     }
     throw adminError("REVIEW_FINALIZED");
   }
@@ -87,28 +56,71 @@ export async function finalizeApplicationDecision(
     throw adminError("REVIEW_CLAIMED");
   }
 
-  let logId: GenericId<"applicationReviewLogs">;
+  const email = applicantEmail(args.application);
+  if (!email) {
+    throw adminError("DECISION_EMAIL_MISSING");
+  }
+
+  const open = await openQueueRows(ctx, args.application._id);
+  if (open.some((row) => row.status === "sending")) {
+    throw adminError("DECISION_EMAIL_SEND_IN_PROGRESS");
+  }
+
+  const existing = open[0];
+  if (existing && existing.decision === args.decision) {
+    return { queued: true as const, duplicate: true as const };
+  }
+
+  const snapshot = {
+    decision: args.decision,
+    recipientEmail: email,
+    applicantName: applicantName(args.application, email),
+    status: "queued" as const,
+    queuedBy: args.admin._id,
+    updatedAt: now,
+  };
+
+  if (existing) {
+    await ctx.db.patch(existing._id, snapshot);
+  } else {
+    await ctx.db.insert("decisionEmailQueue", {
+      ...snapshot,
+      applicationId: args.application._id,
+      queuedAt: now,
+    });
+  }
+
+  return { queued: true as const, duplicate: false as const };
+}
+
+/** Applies a released decision after the email server has accepted the message. */
+export async function applyReleasedApplicationDecision(
+  ctx: MutationCtx,
+  args: {
+    application: ApplicationDoc;
+    review: ApplicationReviewDoc;
+    admin: AdminDoc;
+    decision: ReviewDecision;
+  },
+) {
   if (args.decision === "accepted") {
-    const result = await applyAcceptedApplicationDecision(ctx, {
+    await applyAcceptedApplicationDecision(ctx, {
       application: args.application,
       review: args.review,
       admin: args.admin,
     });
-    logId = result.logId;
-  } else {
-    const now = Date.now();
-    await ctx.db.patch(
-      args.review._id,
-      decisionPatch(args.review, args.admin._id, args.decision, now),
-    );
-    logId = await ctx.db.insert("applicationReviewLogs", {
-      applicationId: args.application._id,
-      adminId: args.admin._id,
-      action: args.decision,
-      createdAt: now,
-    });
+    return;
   }
 
-  await scheduleDecisionEmail(ctx, args.application, args.decision);
-  return { logId, duplicate: false as const };
+  const now = Date.now();
+  await ctx.db.patch(
+    args.review._id,
+    decisionPatch(args.review, args.admin._id, args.decision, now),
+  );
+  await ctx.db.insert("applicationReviewLogs", {
+    applicationId: args.application._id,
+    adminId: args.admin._id,
+    action: args.decision,
+    createdAt: now,
+  });
 }

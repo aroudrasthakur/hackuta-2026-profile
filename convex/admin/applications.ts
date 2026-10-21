@@ -9,6 +9,7 @@ import {
 } from "../lib/applications";
 import type { ApplicationDoc } from "../lib/dataModel";
 import { ACTIVE_REVIEW_STALE_MS, isFinalReviewStatus, isReviewStale, reviewClaimExpiresAt } from "./reviewClaim";
+import { openDecisionEmailForApplication } from "./decisionEmailQueue";
 import { requireAdminRole, requireReviewerAccess, sessionTokenArgs } from "./staffAuth";
 import { adminError } from "../../shared/admin/errors";
 
@@ -81,6 +82,7 @@ export const getApplication = query({
     if (!application || !applicationFormWasSubmitted(application)) return null;
 
     const review = await getApplicationReview(ctx, id);
+    const pending = await openDecisionEmailForApplication(ctx, id);
     const currentReviewer = review?.reviewedBy ? await ctx.db.get(review.reviewedBy) : null;
     const now = Date.now();
     const resumeUrl = application.resumeStorageId
@@ -93,6 +95,9 @@ export const getApplication = query({
     return {
       application,
       reviewStatus: review?.status ?? null,
+      pendingDecision: pending
+        ? { decision: pending.decision, status: pending.status, queuedAt: pending.queuedAt }
+        : null,
       reviewActivity: review
         ? {
             reviewedBy: review.reviewedBy ?? null,

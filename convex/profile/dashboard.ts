@@ -3,6 +3,11 @@ import { applicationFormWasSubmitted, getAuthUser } from "../lib/applications";
 import { getEventConfigRow } from "../lib/eventConfig";
 import { DEFAULT_HACKATHON_NAME } from "../../shared/hackathon/eventDefaults";
 import { normalizeEmail } from "../lib/normalizeEmail";
+import {
+  applicantVisibleParticipant,
+  applicantVisibleReviewStatus,
+  openDecisionEmailForApplication,
+} from "./openDecisionEmail";
 
 /** Participant-only dashboard payload; never exposes another user's data or tokens. */
 export const getMyParticipantDashboard = query({
@@ -43,7 +48,11 @@ export const getMyParticipantDashboard = query({
       "Participant";
 
     const submitted = application ? applicationFormWasSubmitted(application) : false;
-    const reviewStatus = review?.status ?? null;
+    const pendingDecisionEmail = application
+      ? await openDecisionEmailForApplication(ctx, application._id)
+      : null;
+    const reviewStatus = applicantVisibleReviewStatus(review, pendingDecisionEmail);
+    const visibleParticipant = applicantVisibleParticipant(participant, pendingDecisionEmail);
 
     return {
       profile: {
@@ -58,10 +67,10 @@ export const getMyParticipantDashboard = query({
           }
         : null,
       reviewStatus,
-      participant: participant
+      participant: visibleParticipant
         ? {
-            qrCodeToken: participant.qrCodeToken,
-            acceptedAt: participant.acceptedAt,
+            qrCodeToken: visibleParticipant.qrCodeToken,
+            acceptedAt: visibleParticipant.acceptedAt,
           }
         : null,
       hackathon: {

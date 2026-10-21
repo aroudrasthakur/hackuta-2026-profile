@@ -3,7 +3,7 @@ import { paginationOptsValidator } from "convex/server";
 import { mutation, query } from "../_generated/server";
 import { adminError } from "../../shared/admin/errors";
 import { applicationFormWasSubmitted } from "../lib/applications";
-import { finalizeApplicationDecision } from "./decisionFinalize";
+import { enqueueApplicationDecision } from "./decisionFinalize";
 import { requireAdminRole, requireReviewerAccess, sessionTokenArgs } from "./staffAuth";
 import {
   applicationReviewLogActivityAction,
@@ -69,7 +69,7 @@ export const logApplicationReviewAction = mutation({
   },
 });
 
-/** Confirmed final decision — updates review state, audit log, and schedules decision email. */
+/** Records a decision in the email queue. Review status changes only when an admin releases the email. */
 export const setApplicationDecision = mutation({
   args: {
     ...sessionTokenArgs,
@@ -77,7 +77,7 @@ export const setApplicationDecision = mutation({
     decision: applicationReviewLogDecisionAction,
   },
   returns: v.object({
-    logId: v.id("applicationReviewLogs"),
+    queued: v.literal(true),
     duplicate: v.boolean(),
   }),
   handler: async (ctx, { sessionToken, applicationId, decision }) => {
@@ -92,7 +92,7 @@ export const setApplicationDecision = mutation({
       .unique();
     if (!review) throw new Error("Application review not found");
 
-    return await finalizeApplicationDecision(ctx, {
+    return await enqueueApplicationDecision(ctx, {
       application,
       review,
       admin,

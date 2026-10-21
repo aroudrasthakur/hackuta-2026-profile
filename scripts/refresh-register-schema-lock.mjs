@@ -25,6 +25,7 @@ const EDITABLE_TABLES = [
   "participants",
   "adminAuthAccounts",
   "adminSessions",
+  "decisionEmailQueue",
 ];
 
 function sha256(content) {

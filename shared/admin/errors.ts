@@ -30,6 +30,11 @@ export const ADMIN_ERROR_MESSAGES = {
     "This organizer account is deactivated. Contact an admin if you need access.",
   SIGN_IN_RATE_LIMITED:
     "Too many failed sign-in attempts. Please wait a few minutes and try again.",
+  DECISION_EMAIL_MISSING:
+    "This application has no email address, so the decision cannot be queued.",
+  DECISION_EMAIL_QUEUE_EMPTY: "There are no queued decision emails to send.",
+  DECISION_EMAIL_SEND_IN_PROGRESS:
+    "Decision emails are already being sent. Wait for that release to finish.",
 } as const;
 
 export type AdminErrorCode = keyof typeof ADMIN_ERROR_MESSAGES;

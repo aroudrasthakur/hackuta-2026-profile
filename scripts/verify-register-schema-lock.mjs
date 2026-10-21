@@ -16,6 +16,7 @@ const ADMIN_EDITABLE_TABLES = [
   "participants",
   "adminAuthAccounts",
   "adminSessions",
+  "decisionEmailQueue",
 ];
 const REFERENCE_EDITABLE_TABLES = ["applicationReviews"];
 

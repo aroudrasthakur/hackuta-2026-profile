@@ -93,4 +93,55 @@ describe("participant dashboard query", () => {
     expect(otherDashboard?.participant?.qrCodeToken).toBe("c".repeat(64));
     expect(otherDashboard?.participant?.qrCodeToken).not.toBe(dashboard?.participant?.qrCodeToken);
   });
+
+  it("masks queued decisions until the decision email is released", async () => {
+    const t = createConvexTest();
+    const applicant = await seedApplicant(t, {
+      email: "queued@example.com",
+      submitted: true,
+      fields: { firstName: "Quinn", lastName: "Applicant" },
+    });
+    const staff = await seedStaff(t);
+
+    await t.run(async (ctx) => {
+      const review = await ctx.db
+        .query("applicationReviews")
+        .withIndex("by_application", (q) => q.eq("applicationId", applicant.applicationId))
+        .unique();
+      if (!review) throw new Error("Expected review row from seedApplicant");
+      await ctx.db.patch(review._id, {
+        status: "accepted",
+        reviewedBy: staff.adminId,
+        completedAt: Date.now(),
+      });
+      await ctx.db.insert("participants", {
+        applicationId: applicant.applicationId,
+        authUserId: applicant.userId,
+        acceptedAt: 1,
+        acceptedBy: staff.adminId,
+        qrCodeToken: "d".repeat(64),
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.insert("decisionEmailQueue", {
+        applicationId: applicant.applicationId,
+        decision: "accepted",
+        recipientEmail: "queued@example.com",
+        applicantName: "Quinn Applicant",
+        status: "queued",
+        queuedBy: staff.adminId,
+        queuedAt: 1,
+        updatedAt: 1,
+      });
+    });
+
+    const asApplicant = t.withIdentity({
+      subject: applicant.userId,
+      email: "queued@example.com",
+    });
+    const dashboard = await asApplicant.query(getMyParticipantDashboardRef, {});
+    expect(dashboard?.reviewStatus).not.toBe("accepted");
+    expect(dashboard?.reviewStatus).toBe("under_review");
+    expect(dashboard?.participant).toBeNull();
+  });
 });
