@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMyParticipantDashboardRef } from "../../src/convex/api";
+import { getMyParticipantDashboardRef, getMySubmittedApplicationRef } from "../../src/convex/api";
 import { createConvexTest } from "../helpers/convexTestContext";
 import { seedApplicant, seedStaff } from "../helpers/reviewTestKit";
 
@@ -99,6 +99,64 @@ describe("participant dashboard query", () => {
     const otherDashboard = await asOther.query(getMyParticipantDashboardRef, {});
     expect(otherDashboard?.participant?.qrCodeToken).toBe("c".repeat(64));
     expect(otherDashboard?.participant?.qrCodeToken).not.toBe(dashboard?.participant?.qrCodeToken);
+  });
+
+  it("returns submitted application sections from the dedicated submission query", async () => {
+    const t = createConvexTest();
+    const applicant = await seedApplicant(t, {
+      email: "submission-query@example.com",
+      submitted: true,
+      fields: { firstName: "Sub", lastName: "Query" },
+    });
+    const asUser = t.withIdentity({
+      subject: applicant.userId,
+      email: "submission-query@example.com",
+    });
+
+    const payload = await asUser.query(getMySubmittedApplicationRef, {});
+    expect(payload?.sections[0]?.rows).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "First name", value: "Sub" })]),
+    );
+  });
+
+  it("prefers the newest submitted application when multiple rows share an email", async () => {
+    const t = createConvexTest();
+    const email = "duplicate-email@example.com";
+
+    const { currentUserId } = await t.run(async (ctx) => {
+      const legacyUserId = await ctx.db.insert("users", { email, name: "Legacy" });
+      await ctx.db.insert("applications", {
+        authUserId: legacyUserId,
+        email,
+        firstName: "Older",
+        lastName: "Draft",
+        createdAt: 1,
+        applicantUpdatedAt: 1,
+        formSubmitted: true,
+        submittedAt: 2,
+      });
+      await ctx.db.insert("applications", {
+        authUserId: legacyUserId,
+        email,
+        firstName: "Older",
+        lastName: "Submitted",
+        createdAt: 1,
+        applicantUpdatedAt: 5,
+        formSubmitted: true,
+        submittedAt: 6,
+      });
+      const currentUserId = await ctx.db.insert("users", { email, name: "Current" });
+      return { currentUserId };
+    });
+
+    const asCurrentUser = t.withIdentity({ subject: currentUserId, email });
+    const dashboard = await asCurrentUser.query(getMyParticipantDashboardRef, {});
+
+    expect(dashboard?.submittedApplication?.sections[0]?.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Last name", value: "Submitted" }),
+      ]),
+    );
   });
 
   it("resolves submitted applications by verified email when auth user id differs", async () => {
