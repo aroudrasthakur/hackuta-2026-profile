@@ -389,14 +389,16 @@ export const listVolunteerActionLogs = query({
             ? table.withIndex("by_action_createdAt", (q) =>
               q.eq("action", action).gte("createdAt", lower).lte("createdAt", upper))
             : table.withIndex("by_createdAt", (q) => q.gte("createdAt", lower).lte("createdAt", upper));
-    const result = await indexed
-      .filter((q) => q.and(
-        volunteerAdminId ? q.eq(q.field("actorAdminId"), volunteerAdminId) : true,
-        eventId ? q.eq(q.field("eventId"), eventId) : true,
-        action ? q.eq(q.field("action"), action) : true,
-      ))
-      .order("desc")
-      .paginate(paginationOpts);
+    const filtered = volunteerAdminId || eventId || action
+      ? indexed.filter((q) => {
+        const conditions = [];
+        if (volunteerAdminId) conditions.push(q.eq(q.field("actorAdminId"), volunteerAdminId));
+        if (eventId) conditions.push(q.eq(q.field("eventId"), eventId));
+        if (action) conditions.push(q.eq(q.field("action"), action));
+        return q.and(...conditions);
+      })
+      : indexed;
+    const result = await filtered.order("desc").paginate(paginationOpts);
 
     const names = nameLookups(ctx);
     const page = [];
@@ -442,10 +444,8 @@ export const listStaffConfigLogs = query({
       ? table.withIndex("by_target_admin_createdAt", (q) =>
         q.eq("targetAdminId", targetAdminId).gte("createdAt", lower).lte("createdAt", upper))
       : table.withIndex("by_createdAt", (q) => q.gte("createdAt", lower).lte("createdAt", upper));
-    const result = await indexed
-      .filter((q) => (action ? q.eq(q.field("action"), action) : true))
-      .order("desc")
-      .paginate(paginationOpts);
+    const filtered = action ? indexed.filter((q) => q.eq(q.field("action"), action)) : indexed;
+    const result = await filtered.order("desc").paginate(paginationOpts);
 
     const names = nameLookups(ctx);
     const page = [];
