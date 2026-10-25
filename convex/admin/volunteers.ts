@@ -98,7 +98,7 @@ async function insertVolunteer(
   await setStaffPassword(ctx, adminId, fields.password);
   await ctx.db.insert("staffConfigLogs", {
     actorAdminId,
-    action: "volunteer_created",
+    action: fields.participantId ? "volunteer_promoted" : "volunteer_created",
     targetAdminId: adminId,
     ...(fields.participantId ? { targetParticipantId: fields.participantId } : {}),
     details: buildStaffConfigDetails({ after: { ...capabilities, active: true } }),

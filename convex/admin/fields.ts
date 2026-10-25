@@ -42,6 +42,7 @@ export const volunteerActionLogAction = v.union(
 /** Admin-only staff and event configuration audit on `staffConfigLogs.action`. */
 export const staffConfigLogAction = v.union(
   v.literal("volunteer_created"),
+  v.literal("volunteer_promoted"),
   v.literal("volunteer_restored"),
   v.literal("volunteer_revoked"),
   v.literal("volunteer_password_reset"),
