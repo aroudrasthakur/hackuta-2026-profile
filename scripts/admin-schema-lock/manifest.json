@@ -22,7 +22,7 @@
   "convex/admin/signInSecurityConstants.ts": "4d186f20137b788d5b76312110e307a8d880eb403f52763cf23a11dbf37539e1",
   "convex/admin/staffAuth.ts": "35fcd5b9145934342fb31625380626601a8b0a4d97930c1a84dc19204ceb27f3",
   "convex/admin/staffCredentials.ts": "285357f7a75d29cdd20626a221ee37a32c8addf97aa1d8371baa451556f8ef91",
-  "convex/admin/volunteerAccounts.ts": "590ce9bf541acaeeec0f5e422d82ec8f3e0ee129b5ac7aa09a8e2448aca4cec4",
   "convex/admin/volunteerScan.ts": "8b98e26a74bf422297ad4583472db07289fbcdb47a83be38abc464bd702c24fc",
-  "convex/admin/volunteerScanRateLimit.ts": "40ce43d97c286feb87e169d0a4b6d134ed4b7866fba2ad6ea14d81dc9adb4f13"
+  "convex/admin/volunteerScanRateLimit.ts": "40ce43d97c286feb87e169d0a4b6d134ed4b7866fba2ad6ea14d81dc9adb4f13",
+  "convex/admin/volunteers.ts": "4c1cf581a6ec87a1cbb8f5fdc87326259e5f71113c9baa3b9de60b3189ff15c2"
 }

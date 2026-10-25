@@ -214,7 +214,11 @@ export default defineSchema({
   })
     .index("by_actor", ["actorAdminId"])
     .index("by_participant", ["participantId"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_actor_createdAt", ["actorAdminId", "createdAt"])
+    .index("by_participant_createdAt", ["participantId", "createdAt"])
+    .index("by_event_createdAt", ["eventId", "createdAt"])
+    .index("by_action_createdAt", ["action", "createdAt"]),
 
   /** Admin-only audit for volunteer, event, and access configuration changes. */
   staffConfigLogs: defineTable({
@@ -227,7 +231,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_actor", ["actorAdminId"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_target_admin_createdAt", ["targetAdminId", "createdAt"]),
 
   /** Organizer credentials — separate from applicant Convex Auth. Provisioned internally. */
   adminAuthAccounts: defineTable({

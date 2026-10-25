@@ -12,9 +12,16 @@ const STAFF_CONFIG_KEYS = [
   "startsAt",
   "endsAt",
   "eventIds",
+  "addedEventIds",
+  "removedEventIds",
+  "before",
+  "after",
 ] as const;
 
 type StaffConfigKey = (typeof STAFF_CONFIG_KEYS)[number];
+
+/** Keys allowed inside a `before` / `after` snapshot. All boolean. */
+const SNAPSHOT_KEYS = ["canCheckIn", "canFoodCheckIn", "active"] as const;
 
 const CHANGED_FIELD_NAMES = new Set([
   "name",
@@ -149,12 +156,33 @@ function readChangedFields(value: unknown): string[] {
   });
 }
 
+function readSnapshot(value: unknown): Record<string, boolean> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    rejectDetails();
+  }
+  const input = value as Record<string, unknown>;
+  const snapshot: Record<string, boolean> = {};
+  for (const key of Object.keys(input)) {
+    const flag = input[key];
+    if (!(SNAPSHOT_KEYS as readonly string[]).includes(key) || typeof flag !== "boolean") {
+      rejectDetails();
+    }
+    snapshot[key] = flag;
+  }
+  return snapshot;
+}
+
 function readDetailValue(key: StaffConfigKey, value: unknown): unknown {
   switch (key) {
     case "changedFields":
       return readChangedFields(value);
     case "eventIds":
+    case "addedEventIds":
+    case "removedEventIds":
       return readIdList(value);
+    case "before":
+    case "after":
+      return readSnapshot(value);
     case "canCheckIn":
     case "canFoodCheckIn":
     case "active":

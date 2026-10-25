@@ -48,6 +48,8 @@ export const ADMIN_ERROR_MESSAGES = {
   STAFF_ACCOUNT_EXISTS: "A staff account already uses that email or participant.",
   VOLUNTEER_NOT_FOUND: "We couldn't find that volunteer account.",
   INVALID_STAFF_NAME: "Enter a name for this staff account.",
+  INVALID_EVENT_ASSIGNMENT: "Each event can be listed once, up to 50 events. Remove duplicates and try again.",
+  INVALID_LOG_FILTER: "Check the date range and try again.",
 } as const;
 
 export type AdminErrorCode = keyof typeof ADMIN_ERROR_MESSAGES;
