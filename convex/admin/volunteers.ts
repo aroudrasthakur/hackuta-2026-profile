@@ -107,14 +107,18 @@ async function insertVolunteer(
   return { ok: true as const, adminId, email: fields.email };
 }
 
-/** Standalone volunteer (not a registered participant). Role is always `volunteer`. */
+/**
+ * Standalone volunteer (not a registered participant). Role is always
+ * `volunteer`; both capabilities must be passed explicitly.
+ */
 export const createVolunteer = mutation({
   args: {
     ...sessionTokenArgs,
     email: v.string(),
     name: v.string(),
     password: v.string(),
-    ...capabilityArgs,
+    canCheckIn: v.boolean(),
+    canFoodCheckIn: v.boolean(),
   },
   returns: createdResult,
   handler: async (ctx, { sessionToken, email, name, password, canCheckIn, canFoodCheckIn }) => {
