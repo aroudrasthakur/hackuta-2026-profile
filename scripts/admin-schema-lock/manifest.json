@@ -14,7 +14,7 @@
   "convex/admin/participants.ts": "53c5391cac523ce6eb15e24f1bc91ceb342e772c25fcd39f7d6f39755220d3fa",
   "convex/admin/passwordHash.ts": "826f243c107d22199b4f66581f2d6ed66f18700b2feda3bd7670b931f023c24b",
   "convex/admin/pointsBackfill.ts": "684383b2da6d625aa7f048058757adca1fbbf7b3b812d2abbae7430e7bb41e0f",
-  "convex/admin/pointsLedger.ts": "4e817ab4540d8258b9b80059a5ec0e2e5fa0eedf22fb4f53cfd8097286db7c5d",
+  "convex/admin/pointsLedger.ts": "978fbf3fd7085dc6d972558120481700d914492198fbb951ca6653290c6186da",
   "convex/admin/reviewClaim.ts": "e723dd72f3e13fc5c2576528b3df60fad9ec512149370bbd835066b58513ca6d",
   "convex/admin/reviewState.ts": "132acca458d2babf3b20880952b457cec4c3a8d00c3563a6ccfe0bd1c103a644",
   "convex/admin/sendDecisionEmails.ts": "c0996c8edcd8e9f2a391a94858bb3ec8d5d1004fef10ea95d9a03b616daa144c",
@@ -22,5 +22,7 @@
   "convex/admin/signInSecurityConstants.ts": "4d186f20137b788d5b76312110e307a8d880eb403f52763cf23a11dbf37539e1",
   "convex/admin/staffAuth.ts": "35fcd5b9145934342fb31625380626601a8b0a4d97930c1a84dc19204ceb27f3",
   "convex/admin/staffCredentials.ts": "285357f7a75d29cdd20626a221ee37a32c8addf97aa1d8371baa451556f8ef91",
-  "convex/admin/volunteerAccounts.ts": "590ce9bf541acaeeec0f5e422d82ec8f3e0ee129b5ac7aa09a8e2448aca4cec4"
+  "convex/admin/volunteerAccounts.ts": "590ce9bf541acaeeec0f5e422d82ec8f3e0ee129b5ac7aa09a8e2448aca4cec4",
+  "convex/admin/volunteerScan.ts": "8b98e26a74bf422297ad4583472db07289fbcdb47a83be38abc464bd702c24fc",
+  "convex/admin/volunteerScanRateLimit.ts": "40ce43d97c286feb87e169d0a4b6d134ed4b7866fba2ad6ea14d81dc9adb4f13"
 }

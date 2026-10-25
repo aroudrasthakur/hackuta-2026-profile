@@ -30,19 +30,27 @@ async function requireStoredEvent(ctx: MutationCtx, eventId: EventId) {
 }
 
 /**
- * Accepted participants only. A missing review row is not eligible.
+ * Eligibility comes from the linked application review, not from the
+ * participant row existing. A missing review row is not eligible.
  */
+export async function isParticipantEligible(
+  ctx: QueryCtx | MutationCtx,
+  participant: { applicationId: GenericId<"applications"> },
+) {
+  const review = await ctx.db
+    .query("applicationReviews")
+    .withIndex("by_application", (q) => q.eq("applicationId", participant.applicationId))
+    .unique();
+  return review?.status === "accepted";
+}
+
+/** Throwing variant for callers whose failures should roll back the transaction. */
 export async function requireEligibleParticipant(ctx: MutationCtx, participantId: ParticipantId) {
   const participant = await ctx.db.get(participantId);
   if (!participant) {
     throw adminError("PARTICIPANT_NOT_FOUND");
   }
-
-  const review = await ctx.db
-    .query("applicationReviews")
-    .withIndex("by_application", (q) => q.eq("applicationId", participant.applicationId))
-    .unique();
-  if (review?.status !== "accepted") {
+  if (!await isParticipantEligible(ctx, participant)) {
     throw adminError("PARTICIPANT_NOT_ELIGIBLE");
   }
   return participant;
