@@ -54,7 +54,7 @@ File: [`convex/schema.ts`](schema.ts)
 | `adminAuthAccounts` | Admin | **Yes** — organizer password hashes (separate from applicant auth) |
 | `adminSessions` | Admin | **Yes** — organizer session token hashes |
 | `decisionEmailQueue` | Admin | **Yes** — queued accept, reject, and waitlist emails |
-| `events` | Admin | **Yes** — point-bearing activities (fixed `pointsAwarded`, schedule window) |
+| `events` | Admin | **Yes** — point-bearing activities (fixed `pointsAwarded`; `startsAt`/`endsAt` are reference only and do not gate scanning) |
 | `volunteerEventAccess` | Admin | **Yes** — which events a volunteer may award |
 | `participantEventAwards` | Admin | **Yes** — authoritative per-participant per-event award |
 | `volunteerActionLogs` | Admin | **Yes** — scan and admin point-adjustment audit (no QR or dietary data) |

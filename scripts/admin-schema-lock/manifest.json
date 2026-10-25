@@ -14,7 +14,7 @@
   "convex/admin/participants.ts": "17f880230a1f8b8fddebe4f2724dca31d2a2712b4e16c2b5b60784048bd4b449",
   "convex/admin/passwordHash.ts": "826f243c107d22199b4f66581f2d6ed66f18700b2feda3bd7670b931f023c24b",
   "convex/admin/pointsBackfill.ts": "684383b2da6d625aa7f048058757adca1fbbf7b3b812d2abbae7430e7bb41e0f",
-  "convex/admin/pointsLedger.ts": "8bf280aeebc7567f732900beeb05c70e744e9438163b3f38868a2dfb0347dd8c",
+  "convex/admin/pointsLedger.ts": "4379ba4df6840a507bbd0504bd844347f0a9c8746ab0957b3522e83003d5db88",
   "convex/admin/reviewClaim.ts": "e723dd72f3e13fc5c2576528b3df60fad9ec512149370bbd835066b58513ca6d",
   "convex/admin/reviewState.ts": "132acca458d2babf3b20880952b457cec4c3a8d00c3563a6ccfe0bd1c103a644",
   "convex/admin/sendDecisionEmails.ts": "c0996c8edcd8e9f2a391a94858bb3ec8d5d1004fef10ea95d9a03b616daa144c",

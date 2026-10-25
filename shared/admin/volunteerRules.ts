@@ -125,15 +125,6 @@ export function normalizeEventInput(input: EventScheduleInput): NormalizedEventI
     ...(description !== undefined ? { description } : {}),
   };
 }
-
-/** Event points can be awarded at `startsAt` and are closed at `endsAt`. */
-export function isWithinEventWindow(
-  event: { startsAt: number; endsAt: number },
-  now: number,
-): boolean {
-  return event.startsAt <= now && now < event.endsAt;
-}
-
 function readIdList(value: unknown): string[] {
   if (!Array.isArray(value) || value.length > DETAIL_LIST_MAX_LENGTH) {
     rejectDetails();

@@ -4,7 +4,6 @@ import { adminError } from "../../shared/admin/errors";
 import {
   assertAdjustmentDelta,
   assertPointBalance,
-  isWithinEventWindow,
   normalizeAdjustmentReason,
 } from "../../shared/admin/volunteerRules";
 
@@ -44,6 +43,7 @@ export async function requireEligibleParticipant(ctx: MutationCtx, participantId
 
 /**
  * Awards an event's fixed points once. The caller does not choose the amount.
+ * `startsAt` / `endsAt` are reference only and do not gate scanning.
  * Award row, cached balance, and audit log are written in the caller's mutation.
  */
 export async function awardEventPoints(
@@ -57,9 +57,6 @@ export async function awardEventPoints(
 ) {
   const participant = await requireEligibleParticipant(ctx, args.participantId);
   const event = await requireStoredEvent(ctx, args.eventId);
-  if (!isWithinEventWindow(event, args.now)) {
-    throw adminError("EVENT_OUTSIDE_WINDOW");
-  }
   if (!Number.isSafeInteger(event.pointsAwarded) || event.pointsAwarded <= 0) {
     throw adminError("INVALID_EVENT");
   }

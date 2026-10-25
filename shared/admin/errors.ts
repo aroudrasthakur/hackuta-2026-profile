@@ -39,7 +39,6 @@ export const ADMIN_ERROR_MESSAGES = {
   INVALID_EVENT: "Check the event name, points, and schedule, then try again.",
   EVENT_NOT_FOUND: "We couldn't find that event.",
   EVENT_INACTIVE: "This event isn't active.",
-  EVENT_OUTSIDE_WINDOW: "This event isn't open for points right now.",
   POINTS_ALREADY_AWARDED: "This participant already received points for that event.",
   PARTICIPANT_NOT_FOUND: "We couldn't find this participant.",
   PARTICIPANT_NOT_ELIGIBLE: "This participant isn't eligible for that action.",
