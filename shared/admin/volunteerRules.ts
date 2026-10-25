@@ -80,14 +80,14 @@ export function assertAdjustmentDelta(delta: number): number {
   return delta;
 }
 
-/** Trims an admin adjustment note. Empty and over-long notes are rejected. */
+/** Trims an admin adjustment note. Empty, over-long, or non-string notes are `INVALID_ADJUSTMENT_REASON`. */
 export function normalizeAdjustmentReason(reason: string): string {
   if (typeof reason !== "string") {
-    throw adminError("INVALID_POINTS");
+    throw adminError("INVALID_ADJUSTMENT_REASON");
   }
   const trimmed = reason.trim();
   if (!trimmed || trimmed.length > ADJUSTMENT_REASON_MAX_LENGTH) {
-    throw adminError("INVALID_POINTS");
+    throw adminError("INVALID_ADJUSTMENT_REASON");
   }
   return trimmed;
 }

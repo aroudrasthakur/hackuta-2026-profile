@@ -15,10 +15,7 @@ import { mutation, query } from "../_generated/server";
 import { formatApplicantFullName } from "../lib/applications";
 import type { QueryCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
-import {
-  ADJUSTMENT_REASON_MAX_LENGTH,
-  assertPointBalance,
-} from "../../shared/admin/volunteerRules";
+import { assertPointBalance, normalizeAdjustmentReason } from "../../shared/admin/volunteerRules";
 import { createdAtBounds, nameLookups, UNNAMED_PARTICIPANT } from "./adminQueryHelpers";
 import {
   adjustPoints,
@@ -45,12 +42,6 @@ const volunteerStatusFilter = v.union(
 function normalizeSearch(search: string | undefined) {
   const trimmed = search?.trim().toLowerCase() ?? "";
   if (trimmed.length > MAX_PARTICIPANT_SEARCH_LENGTH) throw adminError("INVALID_PARTICIPANT_FILTER");
-  return trimmed;
-}
-
-function normalizeReason(reason: string) {
-  const trimmed = reason.trim();
-  if (!trimmed || trimmed.length > ADJUSTMENT_REASON_MAX_LENGTH) throw adminError("INVALID_ADJUSTMENT_REASON");
   return trimmed;
 }
 
@@ -198,7 +189,7 @@ export const setParticipantPoints = mutation({
   handler: async (ctx, { sessionToken, participantId, points, reason }) => {
     const actor = await requireAdminRole(ctx, sessionToken);
     const target = assertPointBalance(points);
-    const normalizedReason = normalizeReason(reason);
+    const normalizedReason = normalizeAdjustmentReason(reason);
     const participant = await requireEligibleParticipant(ctx, participantId);
     const previousPoints = assertPointBalance(participant.points ?? 0);
     const pointsDelta = target - previousPoints;
