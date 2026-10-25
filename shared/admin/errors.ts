@@ -35,6 +35,16 @@ export const ADMIN_ERROR_MESSAGES = {
   DECISION_EMAIL_QUEUE_EMPTY: "There are no queued decision emails to send.",
   DECISION_EMAIL_SEND_IN_PROGRESS:
     "Decision emails are already being sent. Wait for that release to finish.",
+  INVALID_POINTS: "That point change isn't allowed.",
+  INVALID_EVENT: "Check the event name, points, and schedule, then try again.",
+  EVENT_NOT_FOUND: "We couldn't find that event.",
+  EVENT_INACTIVE: "This event isn't active.",
+  EVENT_OUTSIDE_WINDOW: "This event isn't open for points right now.",
+  POINTS_ALREADY_AWARDED: "This participant already received points for that event.",
+  PARTICIPANT_NOT_FOUND: "We couldn't find this participant.",
+  PARTICIPANT_NOT_ELIGIBLE: "This participant isn't eligible for that action.",
+  VOLUNTEER_ONLY: "Only volunteers can perform this action.",
+  CAPABILITY_DENIED: "You don't have permission for this scan.",
 } as const;
 
 export type AdminErrorCode = keyof typeof ADMIN_ERROR_MESSAGES;

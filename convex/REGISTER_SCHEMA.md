@@ -54,6 +54,11 @@ File: [`convex/schema.ts`](schema.ts)
 | `adminAuthAccounts` | Admin | **Yes** — organizer password hashes (separate from applicant auth) |
 | `adminSessions` | Admin | **Yes** — organizer session token hashes |
 | `decisionEmailQueue` | Admin | **Yes** — queued accept, reject, and waitlist emails |
+| `events` | Admin | **Yes** — point-bearing activities (fixed `pointsAwarded`, schedule window) |
+| `volunteerEventAccess` | Admin | **Yes** — which events a volunteer may award |
+| `participantEventAwards` | Admin | **Yes** — authoritative per-participant per-event award |
+| `volunteerActionLogs` | Admin | **Yes** — scan and admin point-adjustment audit (no QR or dietary data) |
+| `staffConfigLogs` | Admin | **Yes** — volunteer/event/access configuration audit |
 
 All register-owned blocks must remain identical to [`schema.reference.ts`](../scripts/register-schema-lock/schema.reference.ts) aside from `applicationReviews` and admin-owned tables listed above.
 
@@ -67,9 +72,24 @@ All register-owned blocks must remain identical to [`schema.reference.ts`](../sc
 | `acceptedBy` | `Id<"admins">` | Staff admin who confirmed acceptance |
 | `qrCodeToken` | `string` | Check-in QR identity (256-bit hex) |
 | `foodRestriction` | `string` (optional) | Snapshot from the linked application’s `dietaryRestrictions`, `otherDietaryRestrictions`, and `allergyDetails` at participant creation |
-| `checkedInAt` | `number` (optional) | Event check-in timestamp |
+| `checkedInAt` | `number` (optional) | General hackathon door check-in |
+| `foodCheckedInAt` | `number` (optional) | Food line check-in |
+| `points` | `number` (optional, then required) | Cached point balance; new accepts start at `0` |
 | `createdAt` | `number` | Row creation time |
 | `updatedAt` | `number` | Last update time |
+
+`points` stays optional until `admin/pointsBackfill:backfillParticipantPoints` is deployed from hackuta-2026-profile and run until `isDone`. A later schema change can make `points` required only after that backfill finishes. Deploying `points` as required while any participant row omits it fails the Convex push.
+
+### `admins` volunteer columns
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `role` | `"reviewer" \| "admin" \| "volunteer"` | Existing staff rows stay valid |
+| `participantId` | `Id<"participants">` (optional) | Set when a participant is promoted to volunteer |
+| `canCheckIn` | `boolean` (optional) | Missing means denied; must be `true` to scan door check-in |
+| `canFoodCheckIn` | `boolean` (optional) | Missing means denied; must be `true` to scan food |
+
+Event-specific point permissions live in `volunteerEventAccess`, not on `admins`.
 
 ---
 

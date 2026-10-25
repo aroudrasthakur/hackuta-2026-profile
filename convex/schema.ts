@@ -6,16 +6,19 @@ import {
   applicationReviewStatus,
   applicationSubmissionLogRecord,
 } from "./applicationFields";
-import { applicationReviewLogAction } from "./admin/fields";
+import {
+  applicationReviewLogAction,
+  staffRole,
+  staffConfigLogAction,
+  volunteerActionLogAction,
+} from "./admin/fields";
 import { emailDeliveryKind } from "./lib/emailDeliveries";
 
 /**
  * Deployment schema for standing-manatee-425 / production.
  *
  * Register-owned tables must match hackuta-2026-register/convex/schema.ts
- * (see convex/REGISTER_SCHEMA.md). Only applicationReviews, admins,
- * applicationReviewLogs, participants, adminAuthAccounts, adminSessions, and
- * decisionEmailQueue may be edited in this file.
+ * (see convex/REGISTER_SCHEMA.md). Admin-owned tables are listed in REGISTER_SCHEMA.md.
  */
 export default defineSchema({
   // --- REGISTER-LOCKED (do not edit) ---
@@ -113,13 +116,20 @@ export default defineSchema({
   admins: defineTable({
     email: v.string(),
     name: v.string(),
-    role: v.union(v.literal("reviewer"), v.literal("admin")),
+    role: staffRole,
     active: v.boolean(),
+    /** When a participant is promoted to volunteer staff. */
+    participantId: v.optional(v.id("participants")),
+    /** Missing means denied; volunteers need explicit `true` to scan check-in. */
+    canCheckIn: v.optional(v.boolean()),
+    /** Missing means denied; volunteers need explicit `true` to scan food. */
+    canFoodCheckIn: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_email", ["email"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    .index("by_participant", ["participantId"]),
 
   applicationReviewLogs: defineTable({
     applicationId: v.id("applications"),
@@ -144,12 +154,80 @@ export default defineSchema({
     qrCodeToken: v.string(),
     foodRestriction: v.optional(v.string()),
     checkedInAt: v.optional(v.number()),
+    foodCheckedInAt: v.optional(v.number()),
+    /** Cached balance; optional until backfill, then required in a later deploy. */
+    points: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_application", ["applicationId"])
     .index("by_auth_user", ["authUserId"])
     .index("by_qr_token", ["qrCodeToken"]),
+
+  /** Point-bearing hackathon activities volunteers may award (fixed points per event). */
+  events: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    pointsAwarded: v.number(),
+    startsAt: v.number(),
+    endsAt: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_active", ["active"]),
+
+  /** Which events a volunteer may award points for (one row per volunteer+event). */
+  volunteerEventAccess: defineTable({
+    volunteerAdminId: v.id("admins"),
+    eventId: v.id("events"),
+    grantedBy: v.id("admins"),
+    createdAt: v.number(),
+  })
+    .index("by_volunteer", ["volunteerAdminId"])
+    .index("by_volunteer_event", ["volunteerAdminId", "eventId"]),
+
+  /** Authoritative record that a participant received an event's points (not the action log). */
+  participantEventAwards: defineTable({
+    participantId: v.id("participants"),
+    eventId: v.id("events"),
+    pointsAwarded: v.number(),
+    awardedBy: v.id("admins"),
+    awardedAt: v.number(),
+  })
+    .index("by_participant_event", ["participantId", "eventId"])
+    .index("by_event", ["eventId"]),
+
+  /**
+   * Volunteer scan and admin point-adjustment audit. No QR tokens, passwords,
+   * session tokens, or dietary restrictions.
+   */
+  volunteerActionLogs: defineTable({
+    actorAdminId: v.id("admins"),
+    participantId: v.id("participants"),
+    action: volunteerActionLogAction,
+    eventId: v.optional(v.id("events")),
+    pointsDelta: v.optional(v.number()),
+    previousPoints: v.optional(v.number()),
+    newPoints: v.optional(v.number()),
+    reason: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_actor", ["actorAdminId"])
+    .index("by_participant", ["participantId"])
+    .index("by_createdAt", ["createdAt"]),
+
+  /** Admin-only audit for volunteer, event, and access configuration changes. */
+  staffConfigLogs: defineTable({
+    actorAdminId: v.id("admins"),
+    action: staffConfigLogAction,
+    targetAdminId: v.optional(v.id("admins")),
+    targetEventId: v.optional(v.id("events")),
+    targetParticipantId: v.optional(v.id("participants")),
+    details: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_actor", ["actorAdminId"])
+    .index("by_createdAt", ["createdAt"]),
 
   /** Organizer credentials — separate from applicant Convex Auth. Provisioned internally. */
   adminAuthAccounts: defineTable({

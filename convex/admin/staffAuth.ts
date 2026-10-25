@@ -79,3 +79,55 @@ export async function requireAdminRole(
   }
   return admin;
 }
+
+export type VolunteerCapability = "canCheckIn" | "canFoodCheckIn";
+
+/**
+ * Missing capability flags are denied. Only an explicit `true` grants the scan.
+ */
+export function volunteerCapabilities(admin: {
+  canCheckIn?: boolean;
+  canFoodCheckIn?: boolean;
+}) {
+  return {
+    canCheckIn: admin.canCheckIn === true,
+    canFoodCheckIn: admin.canFoodCheckIn === true,
+  };
+}
+
+/** Fields for a newly appointed volunteer. Both scans start denied. */
+export function newVolunteerFields() {
+  return {
+    role: "volunteer" as const,
+    canCheckIn: false,
+    canFoodCheckIn: false,
+  };
+}
+
+/** Active volunteer session. Reviewers and admins are rejected. */
+export async function requireVolunteer(
+  ctx: QueryCtx | MutationCtx,
+  sessionToken: string,
+) {
+  const admin = await getCurrentAdmin(ctx, sessionToken);
+  if (!admin) {
+    throw adminError("NOT_AUTHENTICATED");
+  }
+  if (admin.role !== "volunteer") {
+    throw adminError("VOLUNTEER_ONLY");
+  }
+  return admin;
+}
+
+/** Volunteer session plus an explicit capability grant. */
+export async function requireVolunteerCapability(
+  ctx: QueryCtx | MutationCtx,
+  sessionToken: string,
+  capability: VolunteerCapability,
+) {
+  const admin = await requireVolunteer(ctx, sessionToken);
+  if (!volunteerCapabilities(admin)[capability]) {
+    throw adminError("CAPABILITY_DENIED");
+  }
+  return admin;
+}
