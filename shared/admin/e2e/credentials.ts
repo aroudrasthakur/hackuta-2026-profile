@@ -13,6 +13,13 @@ export const E2E_ADMIN = {
   role: "admin" as const,
 };
 
+export const E2E_VOLUNTEER = {
+  email: "volunteer@e2e.hackuta.test",
+  password: "E2eVolunteer1!",
+  name: "E2E Volunteer",
+  role: "volunteer" as const,
+};
+
 export const E2E_APPLICATION_IDS = {
   unreviewed: "e2e-app-unreviewed",
   underReview: "e2e-app-under-review",

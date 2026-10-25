@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { ensureParticipantForAcceptance } from "./participantCreation";
+import { adminError } from "../../shared/admin/errors";
 
 /**
  * Create the participant row for a confirmed acceptance.
@@ -32,6 +33,9 @@ export const createParticipantFromAcceptance = internalMutation({
     const admin = await ctx.db.get(acceptedBy);
     if (!admin?.active) {
       throw new Error("Accepting admin not found or inactive.");
+    }
+    if (admin.role !== "admin" && admin.role !== "reviewer") {
+      throw adminError("NOT_AUTHORIZED");
     }
 
     const user = await ctx.db.get(application.authUserId);

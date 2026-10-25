@@ -39,11 +39,15 @@ export const ADMIN_ERROR_MESSAGES = {
   INVALID_EVENT: "Check the event name, points, and schedule, then try again.",
   EVENT_NOT_FOUND: "We couldn't find that event.",
   EVENT_INACTIVE: "This event isn't active.",
+  EVENT_ACCESS_DENIED: "You aren't assigned to this event.",
   POINTS_ALREADY_AWARDED: "This participant already received points for that event.",
   PARTICIPANT_NOT_FOUND: "We couldn't find this participant.",
   PARTICIPANT_NOT_ELIGIBLE: "This participant isn't eligible for that action.",
   VOLUNTEER_ONLY: "Only volunteers can perform this action.",
   CAPABILITY_DENIED: "You don't have permission for this scan.",
+  STAFF_ACCOUNT_EXISTS: "A staff account already uses that email or participant.",
+  VOLUNTEER_NOT_FOUND: "We couldn't find that volunteer account.",
+  INVALID_STAFF_NAME: "Enter a name for this staff account.",
 } as const;
 
 export type AdminErrorCode = keyof typeof ADMIN_ERROR_MESSAGES;

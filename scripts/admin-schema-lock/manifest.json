@@ -1,9 +1,9 @@
 {
   "convex/admin/acceptanceDecision.ts": "c372af66e66c40d2cfd4b682cd8cd2fffeb5245140d7ff5a744315928009bde5",
-  "convex/admin/adminSignInRateLimit.ts": "5fc998c70a5e7329f1cd49b7b1afae8c4031c7a08c286d2dc7ca113f41296e70",
+  "convex/admin/adminSignInRateLimit.ts": "97c72bc1d8396626c5a01912191299db199794b6ecac39d137a0008620209ade",
   "convex/admin/applicationReviewLogs.ts": "4a2efdfb5324fec913d319acbb53ea2826da07b56aa4a2db118ecde9dc9b1a16",
   "convex/admin/applications.ts": "26e6406df66b357f5d32f1f6016b898d2407794844273fada3983dd552cbc1b3",
-  "convex/admin/auth.ts": "b0a7bf17b74eeb161057bc114dfc757a5f3e2d7295d226cfcaa8a1406fbe2334",
+  "convex/admin/auth.ts": "8002fcf43754da6a9d037f818465da774fdcc895ac8946950c577071d4ae5b7b",
   "convex/admin/decisionEmailQueue.ts": "d6a809950f0a5045ad8c0f4b0f795fe7e560553a9fc1108e540b1fba693cf6dd",
   "convex/admin/decisionEmailRelease.ts": "40d7a21a02314e6cc3490159f5036789dc76bcc07f3b36cd654a3937c043615d",
   "convex/admin/decisionEmailService.ts": "dcb4fabddd7ce7f094ce0b6487f1db9c7c34c854f26a3380f95dd95b97a6a5ca",
@@ -11,14 +11,16 @@
   "convex/admin/decisionFinalize.ts": "1e48718cfaf7b15ffc4a61cde6615feb585648d64a91995cce55b7c185d97551",
   "convex/admin/fields.ts": "c78db31a3144c986f03d3fbce764b41ec62f510209c906c0d895df97a3026697",
   "convex/admin/participantCreation.ts": "985f9f87f87301d52e52a8e0078ae5895a6ae93120a7956c242b191d547760c0",
-  "convex/admin/participants.ts": "17f880230a1f8b8fddebe4f2724dca31d2a2712b4e16c2b5b60784048bd4b449",
+  "convex/admin/participants.ts": "53c5391cac523ce6eb15e24f1bc91ceb342e772c25fcd39f7d6f39755220d3fa",
   "convex/admin/passwordHash.ts": "826f243c107d22199b4f66581f2d6ed66f18700b2feda3bd7670b931f023c24b",
   "convex/admin/pointsBackfill.ts": "684383b2da6d625aa7f048058757adca1fbbf7b3b812d2abbae7430e7bb41e0f",
-  "convex/admin/pointsLedger.ts": "4379ba4df6840a507bbd0504bd844347f0a9c8746ab0957b3522e83003d5db88",
+  "convex/admin/pointsLedger.ts": "4e817ab4540d8258b9b80059a5ec0e2e5fa0eedf22fb4f53cfd8097286db7c5d",
   "convex/admin/reviewClaim.ts": "e723dd72f3e13fc5c2576528b3df60fad9ec512149370bbd835066b58513ca6d",
   "convex/admin/reviewState.ts": "132acca458d2babf3b20880952b457cec4c3a8d00c3563a6ccfe0bd1c103a644",
   "convex/admin/sendDecisionEmails.ts": "c0996c8edcd8e9f2a391a94858bb3ec8d5d1004fef10ea95d9a03b616daa144c",
   "convex/admin/sessionLifecycle.ts": "84d76771557cd88a65011c5e9f59148cde3fdbbb8bb370e8f620bd591212601d",
   "convex/admin/signInSecurityConstants.ts": "4d186f20137b788d5b76312110e307a8d880eb403f52763cf23a11dbf37539e1",
-  "convex/admin/staffAuth.ts": "37d0d220db653cbbb3080f7b07efa8e4e3de535adac077635bc0476f7ff6037c"
+  "convex/admin/staffAuth.ts": "35fcd5b9145934342fb31625380626601a8b0a4d97930c1a84dc19204ceb27f3",
+  "convex/admin/staffCredentials.ts": "285357f7a75d29cdd20626a221ee37a32c8addf97aa1d8371baa451556f8ef91",
+  "convex/admin/volunteerAccounts.ts": "590ce9bf541acaeeec0f5e422d82ec8f3e0ee129b5ac7aa09a8e2448aca4cec4"
 }

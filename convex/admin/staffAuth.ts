@@ -1,4 +1,12 @@
-import { v } from "convex/values";
+/**
+ * Staff session resolution and role guards.
+ *
+ * **Authorization contract:** [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md)
+ *
+ * UI route redirects are not security. Every public Convex handler that touches
+ * participant, event, or point data must call the appropriate guard here first.
+ */
+import { v, type GenericId } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../lib/dataModel";
 import { sha256Hex } from "../lib/sha256Hex";
 import { adminError } from "../../shared/admin/errors";
@@ -105,7 +113,7 @@ export function newVolunteerFields() {
 }
 
 /** Active volunteer session. Reviewers and admins are rejected. */
-export async function requireVolunteer(
+export async function requireVolunteerAccess(
   ctx: QueryCtx | MutationCtx,
   sessionToken: string,
 ) {
@@ -125,9 +133,42 @@ export async function requireVolunteerCapability(
   sessionToken: string,
   capability: VolunteerCapability,
 ) {
-  const admin = await requireVolunteer(ctx, sessionToken);
+  const admin = await requireVolunteerAccess(ctx, sessionToken);
   if (!volunteerCapabilities(admin)[capability]) {
     throw adminError("CAPABILITY_DENIED");
   }
   return admin;
+}
+
+/**
+ * Checks the volunteer's **current** assignment and an active event immediately
+ * before a point-scan (or similar) operation.
+ *
+ * Invariant: deleting `volunteerEventAccess` takes effect on the next request;
+ * there is no session cache of assignments. Schedule fields on `events` are not
+ * checked here (reference only).
+ */
+export async function requireVolunteerEventAccess(
+  ctx: QueryCtx | MutationCtx,
+  sessionToken: string,
+  eventId: GenericId<"events">,
+) {
+  const volunteer = await requireVolunteerAccess(ctx, sessionToken);
+  const assignment = await ctx.db
+    .query("volunteerEventAccess")
+    .withIndex("by_volunteer_event", (q) =>
+      q.eq("volunteerAdminId", volunteer._id).eq("eventId", eventId),
+    )
+    .unique();
+  if (!assignment) {
+    throw adminError("EVENT_ACCESS_DENIED");
+  }
+  const event = await ctx.db.get(eventId);
+  if (!event) {
+    throw adminError("EVENT_NOT_FOUND");
+  }
+  if (!event.active) {
+    throw adminError("EVENT_INACTIVE");
+  }
+  return { volunteer, event };
 }

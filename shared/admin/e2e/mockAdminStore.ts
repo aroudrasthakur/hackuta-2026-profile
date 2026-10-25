@@ -1,16 +1,19 @@
 import { ADMIN_ERROR_MESSAGES, adminError } from "../errors.ts";
 import { sampleResumeUrl } from "./resumeFixture.ts";
-import { E2E_ADMIN, E2E_APPLICATION_IDS, E2E_REVIEWER } from "./credentials.ts";
+import { E2E_ADMIN, E2E_APPLICATION_IDS, E2E_REVIEWER, E2E_VOLUNTEER } from "./credentials.ts";
 
 const ACTIVE_REVIEW_STALE_MS = 30 * 60 * 1000;
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
-type StaffRole = "reviewer" | "admin";
+type StaffRole = "reviewer" | "admin" | "volunteer";
 
 type StaffRecord = {
   adminId: string;
   email: string;
   name: string;
   role: StaffRole;
+  canCheckIn?: boolean;
+  canFoodCheckIn?: boolean;
 };
 
 type ApplicationRecord = {
@@ -123,6 +126,14 @@ function resetStore() {
     name: E2E_ADMIN.name,
     role: E2E_ADMIN.role,
   });
+  seedStaff({
+    adminId: "e2e-admin-volunteer",
+    email: E2E_VOLUNTEER.email,
+    name: E2E_VOLUNTEER.name,
+    role: E2E_VOLUNTEER.role,
+    canCheckIn: true,
+    canFoodCheckIn: false,
+  });
 
   const now = Date.now();
   seedApplication(E2E_APPLICATION_IDS.unreviewed, {
@@ -216,8 +227,9 @@ export function resetE2eMockStore() {
 }
 
 function adminFromSessionToken(sessionToken: string) {
-  const embedded = /^e2e-session-(e2e-admin-(?:reviewer|admin))-\d+$/.exec(sessionToken);
+  const embedded = /^e2e-session-(e2e-admin-(?:reviewer|admin|volunteer))-(\d+)$/.exec(sessionToken);
   if (embedded?.[1]) {
+    if (Number(embedded[2]) + SESSION_TTL_MS <= Date.now()) return null;
     const admin = staffById.get(embedded[1]);
     if (admin) return admin;
   }
@@ -237,7 +249,9 @@ function requireSession(sessionToken: string) {
 }
 
 function requireReviewer(sessionToken: string) {
-  return requireSession(sessionToken);
+  const staff = requireSession(sessionToken);
+  if (staff.role === "volunteer") throw adminError("NOT_AUTHORIZED");
+  return staff;
 }
 
 function requireAdmin(sessionToken: string) {
@@ -287,7 +301,8 @@ export function e2eMockSignIn(email: string, password: string) {
   const staff = staffByEmail.get(normalized);
   const valid =
     (normalized === E2E_REVIEWER.email && password === E2E_REVIEWER.password) ||
-    (normalized === E2E_ADMIN.email && password === E2E_ADMIN.password);
+    (normalized === E2E_ADMIN.email && password === E2E_ADMIN.password) ||
+    (normalized === E2E_VOLUNTEER.email && password === E2E_VOLUNTEER.password);
   if (!staff || !valid) {
     return {
       ok: false as const,
@@ -299,7 +314,7 @@ export function e2eMockSignIn(email: string, password: string) {
   sessions.set(sessionToken, {
     sessionToken,
     adminId: staff.adminId,
-    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    expiresAt: Date.now() + SESSION_TTL_MS,
   });
   bump();
   return {
@@ -327,7 +342,9 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
         email: admin.email,
         name: admin.name,
         role: admin.role,
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        canCheckIn: admin.canCheckIn === true,
+        canFoodCheckIn: admin.canFoodCheckIn === true,
+        expiresAt: Number(sessionToken.split("-").pop()) + SESSION_TTL_MS,
       };
     }
     case "admin/applications:listSubmittedApplications": {

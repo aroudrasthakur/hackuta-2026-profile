@@ -1,3 +1,10 @@
+/**
+ * Participant points ledger — **internal helpers only** (not Convex entry points).
+ *
+ * These functions trust their caller for authorization. They do **not** replace
+ * `requireVolunteerAccess`, `requireVolunteerCapability`, or
+ * `requireVolunteerEventAccess`. See [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md).
+ */
 import type { GenericId } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
@@ -42,9 +49,14 @@ export async function requireEligibleParticipant(ctx: MutationCtx, participantId
 }
 
 /**
- * Awards an event's fixed points once. The caller does not choose the amount.
- * `startsAt` / `endsAt` are reference only and do not gate scanning.
- * Award row, cached balance, and audit log are written in the caller's mutation.
+ * Awards an event's fixed points once. **Not an auth boundary.**
+ *
+ * Does not verify session, volunteer role, capability, or event assignment.
+ * Public scan mutations must call `requireVolunteerEventAccess` (and capability
+ * guards) first, then pass `actorAdminId` from the guard result.
+ *
+ * `startsAt` / `endsAt` are reference only. Award row, balance, and log are
+ * written in the caller's mutation transaction.
  */
 export async function awardEventPoints(
   ctx: MutationCtx,
@@ -101,8 +113,9 @@ export async function awardEventPoints(
 }
 
 /**
- * Admin-only signed adjustment. Rejects a balance that would drop below zero.
- * The adjustment log is the ledger entry; awards are not rewritten.
+ * Signed point adjustment. **Not a session auth boundary** — only checks that
+ * `actorAdminId` refers to an active admin row. Public mutations must call
+ * `requireAdminRole` first and pass that admin's id.
  */
 export async function adjustPoints(
   ctx: MutationCtx,
