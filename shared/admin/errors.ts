@@ -50,6 +50,8 @@ export const ADMIN_ERROR_MESSAGES = {
   INVALID_STAFF_NAME: "Enter a name for this staff account.",
   INVALID_EVENT_ASSIGNMENT: "Each event can be listed once, up to 50 events. Remove duplicates and try again.",
   INVALID_LOG_FILTER: "Check the date range and try again.",
+  INVALID_ADJUSTMENT_REASON: "Enter a reason for this point change (up to 200 characters).",
+  INVALID_PARTICIPANT_FILTER: "Shorten the search to 100 characters or fewer and try again.",
 } as const;
 
 export type AdminErrorCode = keyof typeof ADMIN_ERROR_MESSAGES;

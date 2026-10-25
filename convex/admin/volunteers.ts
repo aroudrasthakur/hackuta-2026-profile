@@ -1,6 +1,7 @@
 /**
- * Administrator-only volunteer management: accounts, participant promotion,
- * capabilities, event assignments, and the volunteer / staff audit logs.
+ * Administrator-only volunteer management: accounts, capabilities, event
+ * assignments, and the volunteer / staff audit logs. Participant promotion
+ * lives in `participantsAdmin.ts`; both use `volunteerProvisioning.ts`.
  *
  * Every export calls `requireAdminRole` before reading or writing. Volunteers
  * and reviewers are denied, so nobody can change their own permissions,
@@ -13,98 +14,32 @@
 import { paginationOptsValidator } from "convex/server";
 import { v, type GenericId } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { formatApplicantFullName } from "../lib/applications";
-import type { MutationCtx, QueryCtx } from "../lib/dataModel";
-import { isValidEmailSyntax, normalizeEmail } from "../lib/normalizeEmail";
+import type { MutationCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
 import { buildStaffConfigDetails } from "../../shared/admin/volunteerRules";
 import { validatePasswordRequirements } from "../../shared/auth/password";
 import { staffConfigLogAction, volunteerActionLogAction } from "./fields";
-import { requireEligibleParticipant } from "./pointsLedger";
+import { createdAtBounds, nameLookups } from "./adminQueryHelpers";
 import { invalidateAdminSessions } from "./sessionLifecycle";
-import { newVolunteerFields, requireAdminRole, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
+import { requireAdminRole, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
 import { setStaffPassword } from "./staffCredentials";
+import { insertVolunteer, requireAvailableStaffEmail, requireStaffName } from "./volunteerProvisioning";
 
 /** Matches the `staffConfigLogs.details` id-list limit. */
 export const MAX_VOLUNTEER_EVENTS = 50;
 
-const UNNAMED_PARTICIPANT = "Participant";
-const UNKNOWN_STAFF = "Unknown staff";
-const UNKNOWN_EVENT = "Unknown event";
-
 type AdminId = GenericId<"admins">;
 type EventId = GenericId<"events">;
-type ParticipantId = GenericId<"participants">;
-type Ctx = QueryCtx | MutationCtx;
 
 const volunteerArgs = { ...sessionTokenArgs, volunteerAdminId: v.id("admins") };
 const okResult = v.object({ ok: v.literal(true) });
 const createdResult = v.object({ ok: v.literal(true), adminId: v.id("admins"), email: v.string() });
-const capabilityArgs = {
-  canCheckIn: v.optional(v.boolean()),
-  canFoodCheckIn: v.optional(v.boolean()),
-};
 const dateRangeArgs = { from: v.optional(v.number()), to: v.optional(v.number()) };
 
 async function requireVolunteerAccount(ctx: MutationCtx, adminId: AdminId) {
   const volunteer = await ctx.db.get(adminId);
   if (!volunteer || volunteer.role !== "volunteer") throw adminError("VOLUNTEER_NOT_FOUND");
   return volunteer;
-}
-
-function requireStaffName(name: string | null | undefined) {
-  const trimmed = name?.trim();
-  if (!trimmed) throw adminError("INVALID_STAFF_NAME");
-  return trimmed;
-}
-
-/** Same normalization as staff sign-in. Any existing staff row (any role, active or not) blocks reuse. */
-async function requireAvailableStaffEmail(ctx: MutationCtx, email: string | null | undefined) {
-  const normalized = normalizeEmail(email ?? "");
-  if (!normalized || !isValidEmailSyntax(normalized)) throw adminError("INVALID_EMAIL");
-  const existing = await ctx.db.query("admins")
-    .withIndex("by_email", (q) => q.eq("email", normalized)).first();
-  if (existing) throw adminError("STAFF_ACCOUNT_EXISTS");
-  return normalized;
-}
-
-async function insertVolunteer(
-  ctx: MutationCtx,
-  actorAdminId: AdminId,
-  fields: {
-    email: string;
-    name: string;
-    password: string;
-    canCheckIn?: boolean;
-    canFoodCheckIn?: boolean;
-    participantId?: ParticipantId;
-  },
-) {
-  const now = Date.now();
-  const capabilities = {
-    canCheckIn: fields.canCheckIn === true,
-    canFoodCheckIn: fields.canFoodCheckIn === true,
-  };
-  const adminId = await ctx.db.insert("admins", {
-    email: fields.email,
-    name: fields.name,
-    active: true,
-    ...newVolunteerFields(),
-    ...capabilities,
-    ...(fields.participantId ? { participantId: fields.participantId } : {}),
-    createdAt: now,
-    updatedAt: now,
-  });
-  await setStaffPassword(ctx, adminId, fields.password);
-  await ctx.db.insert("staffConfigLogs", {
-    actorAdminId,
-    action: fields.participantId ? "volunteer_promoted" : "volunteer_created",
-    targetAdminId: adminId,
-    ...(fields.participantId ? { targetParticipantId: fields.participantId } : {}),
-    details: buildStaffConfigDetails({ after: { ...capabilities, active: true } }),
-    createdAt: now,
-  });
-  return { ok: true as const, adminId, email: fields.email };
 }
 
 /**
@@ -131,65 +66,6 @@ export const createVolunteer = mutation({
     });
   },
 });
-
-/**
- * Creates a **separate** volunteer staff account linked to an accepted
- * participant. Email and name default to the registration values. The
- * participant row, QR token, points, application, and applicant account are
- * left untouched, and existing staff accounts are never converted.
- */
-export const promoteParticipantToVolunteer = mutation({
-  args: {
-    ...sessionTokenArgs,
-    participantId: v.id("participants"),
-    password: v.string(),
-    email: v.optional(v.string()),
-    name: v.optional(v.string()),
-    ...capabilityArgs,
-  },
-  returns: createdResult,
-  handler: async (ctx, { sessionToken, participantId, password, ...fields }) => {
-    const actor = await requireAdminRole(ctx, sessionToken);
-    const participant = await requireEligibleParticipant(ctx, participantId);
-    const linked = await ctx.db.query("admins")
-      .withIndex("by_participant", (q) => q.eq("participantId", participantId)).first();
-    if (linked) throw adminError("STAFF_ACCOUNT_EXISTS");
-    const application = await ctx.db.get(participant.applicationId);
-    const registrationEmail = application?.email ?? (await ctx.db.get(participant.authUserId))?.email;
-    const name = requireStaffName(fields.name ?? (application && formatApplicantFullName(application)));
-    validatePasswordRequirements(password);
-    const email = await requireAvailableStaffEmail(ctx, fields.email ?? registrationEmail);
-    return insertVolunteer(ctx, actor._id, {
-      email, name, password, participantId,
-      canCheckIn: fields.canCheckIn, canFoodCheckIn: fields.canFoodCheckIn,
-    });
-  },
-});
-
-/** Per-request name lookups shared by the list endpoints. */
-function nameLookups(ctx: Ctx) {
-  const staff = new Map<string, string>();
-  const events = new Map<string, string>();
-  const participants = new Map<string, string>();
-  return {
-    async staffName(adminId: AdminId) {
-      if (!staff.has(adminId)) staff.set(adminId, (await ctx.db.get(adminId))?.name ?? UNKNOWN_STAFF);
-      return staff.get(adminId)!;
-    },
-    async eventName(eventId: EventId) {
-      if (!events.has(eventId)) events.set(eventId, (await ctx.db.get(eventId))?.name ?? UNKNOWN_EVENT);
-      return events.get(eventId)!;
-    },
-    async participantName(participantId: ParticipantId) {
-      if (!participants.has(participantId)) {
-        const participant = await ctx.db.get(participantId);
-        const application = participant ? await ctx.db.get(participant.applicationId) : null;
-        participants.set(participantId, (application && formatApplicantFullName(application)) ?? UNNAMED_PARTICIPANT);
-      }
-      return participants.get(participantId)!;
-    },
-  };
-}
 
 /** Paginated volunteer roster. Never returns credentials, sessions, QR tokens, or points. */
 export const listVolunteers = query({
@@ -347,15 +223,6 @@ export const setVolunteerEventAccess = mutation({
     return { ok: true as const, added: addedEventIds.length, removed: removedEventIds.size };
   },
 });
-
-function createdAtBounds(from?: number, to?: number) {
-  const lower = from ?? 0;
-  const upper = to ?? Number.MAX_SAFE_INTEGER;
-  if (!Number.isFinite(lower) || !Number.isFinite(upper) || lower > upper) {
-    throw adminError("INVALID_LOG_FILTER");
-  }
-  return { lower, upper };
-}
 
 /**
  * Volunteer scan and point-adjustment history, newest first. The most

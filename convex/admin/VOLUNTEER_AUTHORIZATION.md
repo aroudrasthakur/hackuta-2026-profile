@@ -52,7 +52,9 @@ If you add a new public mutation that imports `pointsLedger`, add a row to the e
 | `decisionEmailQueue.ts` | `listDecisionEmailQueue` | `requireReviewerAccess` |
 | `decisionEmailQueue.ts` | `setDecisionEmailHold`, `retryFailedDecisionEmails`, `claimDecisionEmails` | `requireAdminRole` |
 | `decisionEmailRelease.ts` | `releaseDecisionEmails` | Admin session via action wrapper |
-| `volunteers.ts` | all exports (accounts, promotion, capabilities, event access, `listVolunteerActionLogs`, `listStaffConfigLogs`) | `requireAdminRole` |
+| `volunteers.ts` | all exports (accounts, capabilities, event access, `listVolunteerActionLogs`, `listStaffConfigLogs`) | `requireAdminRole` |
+| `participantsAdmin.ts` | all exports (`listParticipants`, `getParticipantDetails`, `setParticipantPoints`, `listPointAdjustments`, `promoteParticipantToVolunteer`) | `requireAdminRole` |
+| `volunteerProvisioning.ts`, `adminQueryHelpers.ts` | — | **Helpers only** (callers must guard first) |
 | `volunteerScan.ts` | `listMyScanOptions`, `resolveQrForScan` | `requireVolunteerAccess`, then per-purpose capability / assignment checks |
 | `volunteerScanRateLimit.ts` | `pruneVolunteerScanRateLimits` | **Internal only** (`internalMutation`) |
 | `participants.ts` | — | **Internal only** (`internalMutation`) |
