@@ -59,6 +59,11 @@ File: [`convex/schema.ts`](schema.ts)
 | `participantEventAwards` | Admin | **Yes** — authoritative per-participant per-event award |
 | `volunteerActionLogs` | Admin | **Yes** — scan and admin point-adjustment audit (no QR or dietary data) |
 | `staffConfigLogs` | Admin | **Yes** — volunteer/event/access configuration audit |
+| `shopItems` | Admin | **Yes** — shop catalog and the one authoritative stock count |
+| `shopRedemptions` | Admin | **Yes** — completed purchases with the price charged and any refund |
+| `shopInventoryAdjustments` | Admin | **Yes** — audit row for every stock change |
+| `shopFlashSales`, `shopFlashSaleItems` | Admin | **Yes** — timed promotions and their item prices |
+| `participantAnnouncements` | Admin | **Yes** — participant portal announcements (flash sales) |
 
 All register-owned blocks must remain identical to [`schema.reference.ts`](../scripts/register-schema-lock/schema.reference.ts) aside from `applicationReviews` and admin-owned tables listed above.
 

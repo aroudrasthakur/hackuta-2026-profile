@@ -9,6 +9,8 @@ import {
 import {
   applicationReviewLogAction,
   staffRole,
+  shopInventoryAdjustmentKind,
+  shopItemStatus,
   staffConfigLogAction,
   volunteerActionLogAction,
 } from "./admin/fields";
@@ -124,6 +126,8 @@ export default defineSchema({
     canCheckIn: v.optional(v.boolean()),
     /** Missing means denied; volunteers need explicit `true` to scan food. */
     canFoodCheckIn: v.optional(v.boolean()),
+    /** Missing means denied; volunteers need explicit `true` to sell shop items. */
+    canRedeemShop: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -210,6 +214,8 @@ export default defineSchema({
     previousPoints: v.optional(v.number()),
     newPoints: v.optional(v.number()),
     reason: v.optional(v.string()),
+    /** Set on `shop_purchase` and `shop_refund` rows. */
+    shopRedemptionId: v.optional(v.id("shopRedemptions")),
     createdAt: v.number(),
   })
     .index("by_actor", ["actorAdminId"])
@@ -227,6 +233,8 @@ export default defineSchema({
     targetAdminId: v.optional(v.id("admins")),
     targetEventId: v.optional(v.id("events")),
     targetParticipantId: v.optional(v.id("participants")),
+    targetShopItemId: v.optional(v.id("shopItems")),
+    targetFlashSaleId: v.optional(v.id("shopFlashSales")),
     details: v.optional(v.string()),
     createdAt: v.number(),
   })
@@ -276,4 +284,116 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_application", ["applicationId"]),
+
+  /**
+   * Event shop catalog. `stockQuantity` is the one authoritative count; every
+   * change also writes a `shopInventoryAdjustments` row. Items are archived,
+   * never deleted, so purchase history always resolves.
+   */
+  shopItems: defineTable({
+    name: v.string(),
+    description: v.string(),
+    imageStorageId: v.optional(v.id("_storage")),
+    pointsCost: v.number(),
+    stockQuantity: v.number(),
+    status: shopItemStatus,
+    featured: v.boolean(),
+    lowStockThreshold: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_status_featured", ["status", "featured"]),
+
+  /**
+   * One completed volunteer sale. Prices and the item name are copied at sale
+   * time, so later price changes never alter history. `idempotencyKey` is
+   * unique by lookup inside the purchase transaction.
+   */
+  shopRedemptions: defineTable({
+    participantId: v.id("participants"),
+    itemId: v.id("shopItems"),
+    itemName: v.string(),
+    quantity: v.number(),
+    unitPointsCost: v.number(),
+    basePointsCost: v.number(),
+    totalPointsSpent: v.number(),
+    redeemedBy: v.id("admins"),
+    redeemedAt: v.number(),
+    pointsBefore: v.number(),
+    pointsAfter: v.number(),
+    flashSaleId: v.optional(v.id("shopFlashSales")),
+    idempotencyKey: v.string(),
+    refund: v.optional(v.object({
+      refundedBy: v.id("admins"),
+      refundedAt: v.number(),
+      reason: v.string(),
+      restocked: v.boolean(),
+      pointsRestored: v.number(),
+    })),
+  })
+    .index("by_idempotency_key", ["idempotencyKey"])
+    .index("by_participant_redeemedAt", ["participantId", "redeemedAt"])
+    .index("by_item_redeemedAt", ["itemId", "redeemedAt"])
+    .index("by_volunteer_redeemedAt", ["redeemedBy", "redeemedAt"])
+    .index("by_redeemedAt", ["redeemedAt"]),
+
+  /** Append-only audit of every `shopItems.stockQuantity` change. */
+  shopInventoryAdjustments: defineTable({
+    itemId: v.id("shopItems"),
+    actorAdminId: v.id("admins"),
+    kind: shopInventoryAdjustmentKind,
+    previousQuantity: v.number(),
+    newQuantity: v.number(),
+    delta: v.number(),
+    reason: v.optional(v.string()),
+    redemptionId: v.optional(v.id("shopRedemptions")),
+    createdAt: v.number(),
+  })
+    .index("by_item_createdAt", ["itemId", "createdAt"])
+    .index("by_createdAt", ["createdAt"]),
+
+  /**
+   * Timed promotion. Scheduled, live, and ended are derived from the window,
+   * so normal prices return on their own when a sale ends.
+   */
+  shopFlashSales: defineTable({
+    title: v.string(),
+    message: v.string(),
+    startsAt: v.number(),
+    endsAt: v.number(),
+    createdBy: v.id("admins"),
+    cancelledBy: v.optional(v.id("admins")),
+    cancelledAt: v.optional(v.number()),
+    announcementId: v.optional(v.id("participantAnnouncements")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_startsAt", ["startsAt"]),
+
+  /** Sale price for one item. Window and cancel state are copied from the sale for pricing lookups. */
+  shopFlashSaleItems: defineTable({
+    flashSaleId: v.id("shopFlashSales"),
+    itemId: v.id("shopItems"),
+    salePointsCost: v.number(),
+    startsAt: v.number(),
+    endsAt: v.number(),
+    cancelled: v.boolean(),
+  })
+    .index("by_item_startsAt", ["itemId", "startsAt"])
+    .index("by_sale", ["flashSaleId"]),
+
+  /** Participant portal announcements (flash sales today). Withdrawn rows stay for audit. */
+  participantAnnouncements: defineTable({
+    kind: v.union(v.literal("flash_sale"), v.literal("general")),
+    title: v.string(),
+    body: v.string(),
+    flashSaleId: v.optional(v.id("shopFlashSales")),
+    publishedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    withdrawnAt: v.optional(v.number()),
+    createdBy: v.id("admins"),
+    createdAt: v.number(),
+  })
+    .index("by_publishedAt", ["publishedAt"]),
 });

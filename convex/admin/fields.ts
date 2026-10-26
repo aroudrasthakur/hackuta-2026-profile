@@ -37,6 +37,8 @@ export const volunteerActionLogAction = v.union(
   v.literal("food_check_in"),
   v.literal("point_scan"),
   v.literal("admin_adjust"),
+  v.literal("shop_purchase"),
+  v.literal("shop_refund"),
 );
 
 /** Admin-only staff and event configuration audit on `staffConfigLogs.action`. */
@@ -51,4 +53,25 @@ export const staffConfigLogAction = v.union(
   v.literal("event_updated"),
   v.literal("event_active_changed"),
   v.literal("volunteer_event_access_updated"),
+  v.literal("shop_item_created"),
+  v.literal("shop_item_updated"),
+  v.literal("flash_sale_created"),
+  v.literal("flash_sale_updated"),
+  v.literal("flash_sale_cancelled"),
+);
+
+/** Lifecycle on `shopItems.status`. Archived items stay for purchase history. */
+export const shopItemStatus = v.union(
+  v.literal("active"),
+  v.literal("inactive"),
+  v.literal("archived"),
+);
+
+/** Why `shopItems.stockQuantity` changed, on `shopInventoryAdjustments.kind`. */
+export const shopInventoryAdjustmentKind = v.union(
+  v.literal("initial"),
+  v.literal("manual"),
+  v.literal("restock"),
+  v.literal("purchase"),
+  v.literal("refund_restock"),
 );

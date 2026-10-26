@@ -22,6 +22,12 @@ const ADMIN_EDITABLE_TABLES = [
   "adminAuthAccounts",
   "adminSessions",
   "decisionEmailQueue",
+  "shopItems",
+  "shopRedemptions",
+  "shopInventoryAdjustments",
+  "shopFlashSales",
+  "shopFlashSaleItems",
+  "participantAnnouncements",
 ];
 const REFERENCE_EDITABLE_TABLES = ["applicationReviews"];
 

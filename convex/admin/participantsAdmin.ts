@@ -5,7 +5,7 @@
  * `NOT_AUTHORIZED`. See [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md).
  *
  * Accounting invariant: `participants.points` = sum of `participantEventAwards`
- * + sum of `admin_adjust` deltas. Manual corrections only append an
+ * + sum of `admin_adjust`, `shop_purchase`, and `shop_refund` deltas. Manual corrections only append an
  * `admin_adjust` log; event awards are never deleted or changed here, so event
  * uniqueness and award values stay intact. QR tokens are never returned.
  */

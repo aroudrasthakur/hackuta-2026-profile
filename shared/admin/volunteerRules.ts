@@ -21,6 +21,7 @@ type StaffConfigKey = (typeof STAFF_CONFIG_KEYS)[number];
 const SNAPSHOT_KEYS: Record<string, "boolean" | "integer"> = {
   canCheckIn: "boolean",
   canFoodCheckIn: "boolean",
+  canRedeemShop: "boolean",
   active: "boolean",
   pointsAwarded: "integer",
   startsAt: "integer",
@@ -52,9 +53,18 @@ const CHANGED_FIELD_NAMES = new Set([
   "active",
   "canCheckIn",
   "canFoodCheckIn",
+  "canRedeemShop",
   "eventIds",
   "role",
   "participantId",
+  "pointsCost",
+  "featured",
+  "status",
+  "imageStorageId",
+  "lowStockThreshold",
+  "title",
+  "message",
+  "items",
 ]);
 
 /** Convex ids are short and alphanumeric. Longer strings would fit a QR token. */

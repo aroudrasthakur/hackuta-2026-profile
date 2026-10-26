@@ -17,7 +17,7 @@ import type { GenericId } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { formatApplicantFullName } from "../lib/applications";
 import type { MutationCtx } from "../lib/dataModel";
-import { isParticipantEligible } from "./pointsLedger";
+import { computeLedgerPoints, isParticipantEligible } from "./pointsLedger";
 import { requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
 import {
   isVolunteerScanThrottled,
@@ -29,7 +29,7 @@ const QR_TOKEN_PATTERN = /^[0-9a-f]{64}$/;
 const UNNAMED_PARTICIPANT = "Participant";
 
 type AdminDoc = Awaited<ReturnType<typeof requireVolunteerAccess>>;
-type ScanPurpose = "check_in" | "food_check_in" | "point_scan";
+type ScanPurpose = "check_in" | "food_check_in" | "point_scan" | "shop";
 
 /** 256-bit lowercase hex, matching `createQrCodeToken`. Length is checked before the regex. */
 export function isWellFormedQrToken(token: string) {
@@ -111,6 +111,7 @@ async function resolveQr(
   let event = null;
   if (args.purpose === "check_in" && !capabilities.canCheckIn) return null;
   if (args.purpose === "food_check_in" && !capabilities.canFoodCheckIn) return null;
+  if (args.purpose === "shop" && !capabilities.canRedeemShop) return null;
   if (args.purpose === "point_scan") {
     event = await assignedActiveEvent(ctx, volunteer, args.eventId);
     if (!event) return null;
@@ -142,6 +143,18 @@ async function resolveQr(
       alreadyAwarded: award !== null,
     };
   }
+  if (args.purpose === "shop") {
+    if (volunteer.participantId === participant._id) return { status: "self_purchase_denied" as const };
+    return {
+      status: "ok" as const,
+      purpose: "shop" as const,
+      participant: {
+        participantId: participant._id,
+        name,
+        points: participant.points ?? await computeLedgerPoints(ctx, participant._id),
+      },
+    };
+  }
   if (args.purpose === "check_in") {
     return {
       status: "ok" as const,
@@ -169,14 +182,16 @@ async function resolveQr(
  * Previews a scanned QR code for one purpose. Mutation (not query) so every
  * attempt is counted. Statuses: `ok`, `qr_not_found` (missing and malformed
  * tokens look identical), `participant_not_eligible`, `not_authorized`
- * (missing capability or event access, or point scan without `eventId`), and
- * `rate_limited`.
+ * (missing capability or event access, or point scan without `eventId`),
+ * `self_purchase_denied` (shop scan of the volunteer's own participant
+ * record), and `rate_limited`. A shop preview returns the participant id
+ * and balance for the purchase screens.
  */
 export const resolveQrForScan = mutation({
   args: {
     ...sessionTokenArgs,
     qrCodeToken: v.string(),
-    purpose: v.union(v.literal("check_in"), v.literal("food_check_in"), v.literal("point_scan")),
+    purpose: v.union(v.literal("check_in"), v.literal("food_check_in"), v.literal("point_scan"), v.literal("shop")),
     eventId: v.optional(v.id("events")),
   },
   handler: async (ctx, { sessionToken, ...args }) => {

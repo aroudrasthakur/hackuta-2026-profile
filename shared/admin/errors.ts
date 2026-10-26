@@ -54,6 +54,18 @@ export const ADMIN_ERROR_MESSAGES = {
   INVALID_LOG_FILTER: "Check the date range and try again.",
   INVALID_ADJUSTMENT_REASON: "Enter a reason for this point change (up to 200 characters).",
   INVALID_PARTICIPANT_FILTER: "Shorten the search to 100 characters or fewer and try again.",
+  INVALID_SHOP_ITEM: "Check the item name, description, price, and stock, then try again.",
+  INVALID_SHOP_IMAGE: "Upload a PNG, JPEG, WebP, or GIF image of 2 MB or less.",
+  SHOP_ITEM_NOT_FOUND: "We couldn't find that shop item.",
+  INVALID_STOCK_ADJUSTMENT: "Enter a stock change that keeps the quantity at zero or more.",
+  INVALID_SHOP_REASON: "Enter a reason (up to 200 characters).",
+  INVALID_FLASH_SALE:
+    "Check the sale title, times, and items. Each sale price must be lower than the item's price.",
+  FLASH_SALE_OVERLAP: "One of these items is already in another sale during that time.",
+  FLASH_SALE_NOT_FOUND: "We couldn't find that flash sale.",
+  FLASH_SALE_NOT_EDITABLE: "This sale has already started, ended, or been cancelled.",
+  REDEMPTION_NOT_FOUND: "We couldn't find that purchase.",
+  REDEMPTION_ALREADY_REFUNDED: "This purchase has already been refunded.",
 } as const;
 
 export type AdminErrorCode = keyof typeof ADMIN_ERROR_MESSAGES;

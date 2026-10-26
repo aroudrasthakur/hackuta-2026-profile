@@ -21,6 +21,9 @@ type AdminId = GenericId<"admins">;
 type ParticipantDoc = DocumentByName<DataModel, "participants">;
 type EventDoc = DocumentByName<DataModel, "events">;
 
+/** Log actions whose `pointsDelta` counts toward the balance. Event awards count from their own table. */
+const LEDGER_DELTA_ACTIONS = new Set<string>(["admin_adjust", "shop_purchase", "shop_refund"]);
+
 async function requireStoredEvent(ctx: MutationCtx, eventId: EventId) {
   const event = await ctx.db.get(eventId);
   if (!event) {
@@ -221,7 +224,8 @@ export async function adjustPoints(
 }
 
 /**
- * Awards plus signed `admin_adjust` deltas. `point_scan` logs are not added again.
+ * Awards plus signed `admin_adjust`, `shop_purchase`, and `shop_refund` deltas.
+ * `point_scan` logs are not added again.
  */
 export async function computeLedgerPoints(ctx: QueryCtx | MutationCtx, participantId: ParticipantId) {
   const awards = await ctx.db
@@ -241,7 +245,7 @@ export async function computeLedgerPoints(ctx: QueryCtx | MutationCtx, participa
     total += award.pointsAwarded;
   }
   for (const log of logs) {
-    if (log.action !== "admin_adjust" || log.pointsDelta === undefined) {
+    if (!LEDGER_DELTA_ACTIONS.has(log.action) || log.pointsDelta === undefined) {
       continue;
     }
     if (!Number.isSafeInteger(log.pointsDelta)) {

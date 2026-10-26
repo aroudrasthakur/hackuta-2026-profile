@@ -170,7 +170,9 @@ export const setVolunteerCapabilities = mutation({
   handler: async (ctx, { sessionToken, volunteerAdminId, canCheckIn, canFoodCheckIn }) => {
     const actor = await requireAdminRole(ctx, sessionToken);
     const volunteer = await requireVolunteerAccount(ctx, volunteerAdminId);
-    const before = volunteerCapabilities(volunteer);
+    const current = volunteerCapabilities(volunteer);
+    // Shop access has its own mutation (`setVolunteerShopAccess`).
+    const before = { canCheckIn: current.canCheckIn, canFoodCheckIn: current.canFoodCheckIn };
     const after = { canCheckIn, canFoodCheckIn };
     const changedFields = (Object.keys(after) as Array<keyof typeof after>)
       .filter((key) => before[key] !== after[key]);

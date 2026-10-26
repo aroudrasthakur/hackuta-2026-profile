@@ -25,6 +25,7 @@ type StaffRecord = {
   participantId?: string;
   canCheckIn?: boolean;
   canFoodCheckIn?: boolean;
+  canRedeemShop?: boolean;
 };
 
 type ParticipantRecord = {
@@ -83,7 +84,9 @@ type SessionRecord = {
 };
 
 type ScanParticipantRecord = {
+  participantId: string;
   name: string;
+  points: number;
   eligible: boolean;
   foodRestriction?: string;
   checkedInAt?: number;
@@ -163,6 +166,82 @@ const volunteerActionLogs: VolunteerActionLogRecord[] = [];
 const staffConfigLogs: StaffConfigLogRecord[] = [];
 let nextEventId = 1;
 
+// --- Shop (mirrors convex/admin/shop*.ts closely enough for browser tests) ---
+
+type ShopItemRecord = {
+  itemId: string;
+  name: string;
+  description: string;
+  pointsCost: number;
+  stockQuantity: number;
+  lowStockThreshold: number | null;
+  status: "active" | "inactive" | "archived";
+  featured: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type ShopSaleRecord = {
+  flashSaleId: string;
+  title: string;
+  message: string;
+  startsAt: number;
+  endsAt: number;
+  cancelledAt: number | null;
+  items: Array<{ itemId: string; salePointsCost: number }>;
+  createdAt: number;
+};
+
+type ShopRedemptionRecord = {
+  redemptionId: string;
+  participantToken: string;
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  unitPointsCost: number;
+  basePointsCost: number;
+  totalPointsSpent: number;
+  pointsBefore: number;
+  pointsAfter: number;
+  redeemedBy: string;
+  redeemedAt: number;
+  flashSaleId: string | null;
+  idempotencyKey: string;
+  refund: { refundedBy: string; refundedAt: number; reason: string; restocked: boolean; pointsRestored: number } | null;
+};
+
+type ShopAdjustmentRecord = {
+  adjustmentId: string;
+  itemId: string;
+  kind: "initial" | "manual" | "restock" | "purchase" | "refund_restock";
+  previousQuantity: number;
+  newQuantity: number;
+  delta: number;
+  reason: string | null;
+  actorAdminId: string;
+  createdAt: number;
+};
+
+const shopItems = new Map<string, ShopItemRecord>();
+const shopSales: ShopSaleRecord[] = [];
+const shopRedemptions: ShopRedemptionRecord[] = [];
+const shopAdjustments: ShopAdjustmentRecord[] = [];
+let nextShopId = 1;
+/** When set, the next purchase is saved but its response is lost, like a dropped connection. */
+let dropNextPurchaseResponse = false;
+
+/** Shop item and sale ids seeded for browser tests. */
+export const E2E_SHOP = {
+  tee: "e2e-item-tee",
+  stickers: "e2e-item-stickers",
+  bottle: "e2e-item-bottle",
+  mug: "e2e-item-mug",
+  keyboard: "e2e-item-keyboard",
+  sale: "e2e-sale-midnight",
+} as const;
+
+const SHOP_MAX_QUANTITY = 10;
+
 function seedStaff(record: StaffRecord) {
   staffById.set(record.adminId, record);
   staffByEmail.set(record.email, record);
@@ -229,6 +308,7 @@ function resetStore() {
     role: E2E_SCAN_VOLUNTEER.role,
     canCheckIn: true,
     canFoodCheckIn: true,
+    canRedeemShop: true,
   });
 
   const now = Date.now();
@@ -237,6 +317,7 @@ function resetStore() {
       ...event, active: true, startsAt: now - 60_000, endsAt: now + 3_600_000, createdAt: now - 86_400_000, updatedAt: now - 86_400_000,
     });
   }
+  seedShop(now);
   eventAssignments.set("e2e-admin-lead", Object.values(E2E_EVENTS).map(({ eventId }) => eventId));
   volunteerActionLogs.push(
     { logId: "e2e-action-seed-1", actorAdminId: "e2e-admin-lead", action: "check_in", participantName: "Morgan Present", createdAt: now - 600_000 },
@@ -246,20 +327,26 @@ function resetStore() {
     },
   );
   participantsByToken.set(E2E_QR_TOKENS.ready, {
+    participantId: "e2e-participant-ready",
     name: "Riley Ready",
+    points: 1250,
     eligible: true,
     foodRestriction: "Vegetarian; Allergies: peanuts",
     awardedEventIds: new Set(),
   });
   participantsByToken.set(E2E_QR_TOKENS.checkedIn, {
+    participantId: "e2e-participant-present",
     name: "Morgan Present",
+    points: 40,
     eligible: true,
     checkedInAt: now - 600_000,
     foodCheckedInAt: now - 300_000,
     awardedEventIds: new Set([E2E_EVENTS.panel.eventId]),
   });
   participantsByToken.set(E2E_QR_TOKENS.ineligible, {
+    participantId: "e2e-participant-pending",
     name: "Pat Pending",
+    points: 0,
     eligible: false,
     awardedEventIds: new Set(),
   });
@@ -361,6 +448,11 @@ resetStore();
 
 export function resetE2eMockStore() {
   resetStore();
+}
+
+/** Saves the next shop purchase but fails its response, so a retry must come back as a duplicate. */
+export function dropNextE2eShopPurchaseResponse() {
+  dropNextPurchaseResponse = true;
 }
 
 /** Deterministic browser fixtures; exposed only when VITE_E2E_MOCK is enabled. */
@@ -483,6 +575,7 @@ function logVolunteerAction(record: Omit<VolunteerActionLogRecord, "logId" | "cr
 function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: string) {
   if (purpose === "check_in" && staff.canCheckIn !== true) return { failure: "not_authorized" as const };
   if (purpose === "food_check_in" && staff.canFoodCheckIn !== true) return { failure: "not_authorized" as const };
+  if (purpose === "shop" && staff.canRedeemShop !== true) return { failure: "not_authorized" as const };
   let event: EventRecord | undefined;
   if (purpose === "point_scan") {
     const eventId = String(args.eventId ?? "");
@@ -590,6 +683,7 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
       return {
         canCheckIn: admin.canCheckIn === true,
         canFoodCheckIn: admin.canFoodCheckIn === true,
+        canRedeemShop: admin.canRedeemShop === true,
         events: assignedEvents(admin.adminId).map(({ eventId, name, pointsAwarded, startsAt, endsAt }) => ({ eventId, name, pointsAwarded, startsAt, endsAt })),
       };
     }
@@ -603,6 +697,7 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
         role: admin.role,
         canCheckIn: admin.canCheckIn === true,
         canFoodCheckIn: admin.canFoodCheckIn === true,
+        canRedeemShop: admin.canRedeemShop === true,
         expiresAt: Number(sessionToken.split("-").pop()) + SESSION_TTL_MS,
       };
     }
@@ -814,8 +909,11 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
         continueCursor: end >= filtered.length ? null : String(end),
       };
     }
-    default:
+    default: {
+      const shop = runShopQuery(path, args, sessionToken);
+      if (shop !== NOT_SHOP) return shop;
       throw new Error(`Unhandled E2E mock query: ${path}`);
+    }
   }
 }
 
@@ -832,6 +930,9 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
         return { status: target.failure === "event_denied" || target.failure === "event_inactive" ? "not_authorized" : target.failure };
       }
       const { participant, event } = target;
+      if (purpose === "shop") {
+        return { status: "ok", purpose: "shop", participant: { participantId: participant.participantId, name: participant.name, points: participant.points } };
+      }
       if (event) {
         return {
           status: "ok",
@@ -1162,7 +1263,380 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       bump();
       return { sent: ids.length, failed: 0, total: ids.length };
     }
-    default:
+    default: {
+      const shop = runShopMutation(path, args, sessionToken);
+      if (shop !== NOT_SHOP) return shop;
       throw new Error(`Unhandled E2E mock mutation: ${path}`);
+    }
+  }
+}
+
+
+function shopId(prefix: string) {
+  nextShopId += 1;
+  return `e2e-${prefix}-${nextShopId}`;
+}
+
+function seedShop(now: number) {
+  shopItems.clear();
+  shopSales.length = 0;
+  shopRedemptions.length = 0;
+  shopAdjustments.length = 0;
+  nextShopId = 1;
+  dropNextPurchaseResponse = false;
+  const seed = (itemId: string, fields: Omit<ShopItemRecord, "itemId" | "createdAt" | "updatedAt">, age: number) => {
+    shopItems.set(itemId, { itemId, ...fields, createdAt: now - age, updatedAt: now - age });
+    if (fields.stockQuantity > 0) {
+      shopAdjustments.push({ adjustmentId: shopId("adj"), itemId, kind: "initial", previousQuantity: 0, newQuantity: fields.stockQuantity, delta: fields.stockQuantity, reason: null, actorAdminId: "e2e-admin-admin", createdAt: now - age });
+    }
+  };
+  seed(E2E_SHOP.tee, { name: "HackUTA 2026 T-shirt", description: "Soft cotton tee with the voyage ship.", pointsCost: 400, stockQuantity: 12, lowStockThreshold: null, status: "active", featured: true }, 5_000);
+  seed(E2E_SHOP.stickers, { name: "Sticker pack", description: "Six die-cut stickers.", pointsCost: 50, stockQuantity: 3, lowStockThreshold: null, status: "active", featured: false }, 4_000);
+  seed(E2E_SHOP.bottle, { name: "Insulated bottle", description: "20 oz steel bottle.", pointsCost: 600, stockQuantity: 0, lowStockThreshold: null, status: "active", featured: false }, 3_000);
+  seed(E2E_SHOP.keyboard, { name: "Mechanical keyboard", description: "Compact 65% board.", pointsCost: 2500, stockQuantity: 2, lowStockThreshold: 1, status: "active", featured: false }, 2_000);
+  seed(E2E_SHOP.mug, { name: "Amphora mug", description: "Black-figure mug.", pointsCost: 350, stockQuantity: 8, lowStockThreshold: null, status: "inactive", featured: false }, 1_000);
+  shopSales.push({
+    flashSaleId: E2E_SHOP.sale,
+    title: "Midnight tee sale",
+    message: "T-shirts are 300 points for one hour.",
+    startsAt: now - 600_000,
+    endsAt: now + 3_600_000,
+    cancelledAt: null,
+    items: [{ itemId: E2E_SHOP.tee, salePointsCost: 300 }],
+    createdAt: now - 700_000,
+  });
+}
+
+function saleStatus(sale: ShopSaleRecord, now: number) {
+  if (sale.cancelledAt !== null) return "cancelled" as const;
+  if (now < sale.startsAt) return "scheduled" as const;
+  if (now < sale.endsAt) return "live" as const;
+  return "ended" as const;
+}
+
+function shopPrice(item: ShopItemRecord, now: number) {
+  for (const sale of shopSales) {
+    if (saleStatus(sale, now) !== "live") continue;
+    const entry = sale.items.find((row) => row.itemId === item.itemId);
+    if (entry) return { unitPointsCost: entry.salePointsCost, basePointsCost: item.pointsCost, flashSaleId: sale.flashSaleId, saleEndsAt: sale.endsAt };
+  }
+  return { unitPointsCost: item.pointsCost, basePointsCost: item.pointsCost, flashSaleId: null, saleEndsAt: null };
+}
+
+function shopStockStatus(item: ShopItemRecord) {
+  if (item.stockQuantity <= 0) return "out" as const;
+  if (item.stockQuantity <= (item.lowStockThreshold ?? 5)) return "low" as const;
+  return "in_stock" as const;
+}
+
+function nextShopPriceChange(now: number) {
+  let next: number | null = null;
+  for (const sale of shopSales) {
+    if (sale.cancelledAt !== null) continue;
+    for (const at of [sale.startsAt, sale.endsAt]) if (at > now) next = Math.min(next ?? at, at);
+  }
+  return next;
+}
+
+function requireShopItem(itemId: unknown) {
+  const item = shopItems.get(String(itemId ?? ""));
+  if (!item) throw adminError("SHOP_ITEM_NOT_FOUND");
+  return item;
+}
+
+function requireShopVolunteer(sessionToken: string) {
+  const staff = requireVolunteer(sessionToken);
+  if (staff.canRedeemShop !== true) throw adminError("CAPABILITY_DENIED");
+  return staff;
+}
+
+function shopReason(reason: unknown) {
+  const trimmed = String(reason ?? "").trim();
+  if (!trimmed || trimmed.length > 200) throw adminError("INVALID_SHOP_REASON");
+  return trimmed;
+}
+
+function changeStock(item: ShopItemRecord, delta: number, kind: ShopAdjustmentRecord["kind"], actorAdminId: string, reason: string | null, now: number) {
+  const next = item.stockQuantity + delta;
+  if (!Number.isSafeInteger(delta) || delta === 0 || next < 0) throw adminError("INVALID_STOCK_ADJUSTMENT");
+  shopAdjustments.push({ adjustmentId: shopId("adj"), itemId: item.itemId, kind, previousQuantity: item.stockQuantity, newQuantity: next, delta, reason, actorAdminId, createdAt: now });
+  item.stockQuantity = next;
+  item.updatedAt = now;
+}
+
+function participantById(participantId: unknown) {
+  return [...participantsByToken.values()].find((row) => row.participantId === participantId);
+}
+
+function receipt(row: ShopRedemptionRecord) {
+  return {
+    redemptionId: row.redemptionId,
+    itemId: row.itemId,
+    itemName: row.itemName,
+    quantity: row.quantity,
+    unitPointsCost: row.unitPointsCost,
+    basePointsCost: row.basePointsCost,
+    totalPointsSpent: row.totalPointsSpent,
+    pointsBefore: row.pointsBefore,
+    pointsAfter: row.pointsAfter,
+    flashSaleId: row.flashSaleId,
+    redeemedAt: row.redeemedAt,
+  };
+}
+
+function validateSale(args: Record<string, unknown>, now: number, ignoreId?: string) {
+  const title = String(args.title ?? "").trim();
+  const startsAt = Number(args.startsAt);
+  const endsAt = Number(args.endsAt);
+  const items = (Array.isArray(args.items) ? args.items : []) as Array<{ itemId: string; salePointsCost: number }>;
+  if (!title || !(startsAt < endsAt) || endsAt <= now || items.length === 0) throw adminError("INVALID_FLASH_SALE");
+  for (const entry of items) {
+    const item = requireShopItem(entry.itemId);
+    if (item.status === "archived" || !(entry.salePointsCost > 0 && entry.salePointsCost < item.pointsCost)) throw adminError("INVALID_FLASH_SALE");
+    const overlap = shopSales.some((sale) => sale.flashSaleId !== ignoreId && sale.cancelledAt === null &&
+      sale.items.some((row) => row.itemId === entry.itemId) && sale.startsAt < endsAt && sale.endsAt > startsAt);
+    if (overlap) throw adminError("FLASH_SALE_OVERLAP");
+  }
+  return { title, message: String(args.message ?? "").trim(), startsAt, endsAt, items: items.map(({ itemId, salePointsCost }) => ({ itemId, salePointsCost })) };
+}
+
+const NOT_SHOP = Symbol("not shop");
+
+function runShopQuery(path: string, args: Record<string, unknown>, sessionToken: string) {
+  const now = Date.now();
+  switch (path) {
+    case "admin/shopAdmin:listShopItemsAdmin": {
+      requireAdmin(sessionToken);
+      const items = [...shopItems.values()].sort((a, b) => b.createdAt - a.createdAt).map((item) => {
+        const price = shopPrice(item, now);
+        return {
+          itemId: item.itemId, name: item.name, description: item.description, imageUrl: null,
+          pointsCost: item.pointsCost, effectivePointsCost: price.unitPointsCost, flashSaleId: price.flashSaleId, saleEndsAt: price.saleEndsAt,
+          stockQuantity: item.stockQuantity, stockStatus: shopStockStatus(item), lowStockThreshold: item.lowStockThreshold,
+          status: item.status, featured: item.featured, createdAt: item.createdAt, updatedAt: item.updatedAt,
+        };
+      });
+      return { items, nextPriceChangeAt: nextShopPriceChange(now) };
+    }
+    case "admin/shopAdmin:listInventoryAdjustments": {
+      requireAdmin(sessionToken);
+      return paginate([...shopAdjustments].reverse().map((row) => ({
+        adjustmentId: row.adjustmentId, itemId: row.itemId, itemName: shopItems.get(row.itemId)?.name ?? "Unknown item", kind: row.kind,
+        previousQuantity: row.previousQuantity, newQuantity: row.newQuantity, delta: row.delta, reason: row.reason, redemptionId: null,
+        admin: { adminId: row.actorAdminId, name: staffName(row.actorAdminId) }, createdAt: row.createdAt,
+      })), args);
+    }
+    case "admin/shopAdmin:listShopRedemptions": {
+      requireAdmin(sessionToken);
+      const term = String(args.search ?? "").trim().toLowerCase();
+      const rows = [...shopRedemptions].reverse().map((row) => {
+        const participant = participantsByToken.get(row.participantToken);
+        return {
+          redemptionId: row.redemptionId,
+          participant: { participantId: participant?.participantId ?? "", name: participant?.name ?? "Participant" },
+          item: { itemId: row.itemId, name: row.itemName },
+          quantity: row.quantity, unitPointsCost: row.unitPointsCost, basePointsCost: row.basePointsCost, totalPointsSpent: row.totalPointsSpent,
+          pointsBefore: row.pointsBefore, pointsAfter: row.pointsAfter,
+          volunteer: { adminId: row.redeemedBy, name: staffName(row.redeemedBy) },
+          redeemedAt: row.redeemedAt,
+          flashSale: row.flashSaleId ? { flashSaleId: row.flashSaleId, title: shopSales.find((sale) => sale.flashSaleId === row.flashSaleId)?.title ?? "Flash sale" } : null,
+          refund: row.refund ? { ...row.refund, refundedBy: { adminId: row.refund.refundedBy, name: staffName(row.refund.refundedBy) } } : null,
+        };
+      }).filter((row) => !term || [row.participant.name, row.item.name, row.volunteer.name].some((name) => name.toLowerCase().includes(term)));
+      return paginate(rows, args);
+    }
+    case "admin/shopAdmin:listShopVolunteers": {
+      requireAdmin(sessionToken);
+      return [...staffById.values()].filter((staff) => staff.role === "volunteer")
+        .map((staff) => ({ adminId: staff.adminId, name: staff.name, email: staff.email, canRedeemShop: staff.canRedeemShop === true }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
+    case "admin/shopFlashSales:listFlashSales": {
+      requireAdmin(sessionToken);
+      return [...shopSales].sort((a, b) => b.startsAt - a.startsAt).map((sale) => ({
+        flashSaleId: sale.flashSaleId, title: sale.title, message: sale.message, startsAt: sale.startsAt, endsAt: sale.endsAt,
+        status: saleStatus(sale, now), cancelledAt: sale.cancelledAt, createdAt: sale.createdAt,
+        items: sale.items.map((row) => ({ itemId: row.itemId, name: shopItems.get(row.itemId)?.name ?? "Unknown item", pointsCost: shopItems.get(row.itemId)?.pointsCost ?? null, salePointsCost: row.salePointsCost })),
+      }));
+    }
+    case "admin/shopRedemption:listShopCatalogForVolunteer": {
+      requireShopVolunteer(sessionToken);
+      const items = [...shopItems.values()].filter((item) => item.status === "active").map((item) => ({
+        itemId: item.itemId, name: item.name, description: item.description, imageUrl: null, ...shopPrice(item, now),
+        stockQuantity: item.stockQuantity, stockStatus: shopStockStatus(item), featured: item.featured,
+      })).sort((a, b) => Number(b.featured) - Number(a.featured) || a.name.localeCompare(b.name));
+      return { items, maxQuantity: SHOP_MAX_QUANTITY, nextPriceChangeAt: nextShopPriceChange(now) };
+    }
+    case "admin/shopRedemption:getShopCustomer": {
+      requireShopVolunteer(sessionToken);
+      const participant = participantById(args.participantId);
+      return participant?.eligible ? { participantId: participant.participantId, name: participant.name, points: participant.points } : null;
+    }
+    case "admin/shopRedemption:previewShopPurchase": {
+      requireShopVolunteer(sessionToken);
+      const participant = participantById(args.participantId);
+      if (!participant?.eligible) return { status: "participant_not_eligible" };
+      const item = shopItems.get(String(args.itemId ?? ""));
+      if (item?.status !== "active") return { status: "item_unavailable" };
+      const quantity = Number(args.quantity);
+      if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > SHOP_MAX_QUANTITY) return { status: "invalid_quantity", maxQuantity: SHOP_MAX_QUANTITY };
+      const price = shopPrice(item, now);
+      const totalPointsCost = price.unitPointsCost * quantity;
+      return {
+        status: "ok", ...price, quantity, totalPointsCost, stockQuantity: item.stockQuantity, points: participant.points,
+        pointsAfter: participant.points - totalPointsCost, hasEnoughPoints: participant.points >= totalPointsCost, hasEnoughStock: item.stockQuantity >= quantity,
+      };
+    }
+    default:
+      return NOT_SHOP;
+  }
+}
+
+function runShopMutation(path: string, args: Record<string, unknown>, sessionToken: string) {
+  const now = Date.now();
+  switch (path) {
+    case "admin/shopAdmin:generateShopImageUploadUrl": {
+      requireAdmin(sessionToken);
+      return "https://e2e-upload.invalid/upload";
+    }
+    case "admin/shopAdmin:createShopItem": {
+      const admin = requireAdmin(sessionToken);
+      const name = String(args.name ?? "").trim();
+      const pointsCost = Number(args.pointsCost);
+      const stockQuantity = Number(args.stockQuantity);
+      if (!name || !Number.isSafeInteger(pointsCost) || pointsCost <= 0 || !Number.isSafeInteger(stockQuantity) || stockQuantity < 0) throw adminError("INVALID_SHOP_ITEM");
+      const item: ShopItemRecord = {
+        itemId: shopId("item"), name, description: String(args.description ?? "").trim(), pointsCost, stockQuantity: 0,
+        lowStockThreshold: typeof args.lowStockThreshold === "number" ? args.lowStockThreshold : null,
+        status: args.active === false ? "inactive" : "active", featured: args.featured === true, createdAt: now, updatedAt: now,
+      };
+      shopItems.set(item.itemId, item);
+      if (stockQuantity > 0) changeStock(item, stockQuantity, "initial", admin.adminId, null, now);
+      bump();
+      return { itemId: item.itemId };
+    }
+    case "admin/shopAdmin:updateShopItem": {
+      requireAdmin(sessionToken);
+      const item = requireShopItem(args.itemId);
+      const name = String(args.name ?? "").trim();
+      const pointsCost = Number(args.pointsCost);
+      if (!name || !Number.isSafeInteger(pointsCost) || pointsCost <= 0) throw adminError("INVALID_SHOP_ITEM");
+      Object.assign(item, {
+        name, description: String(args.description ?? "").trim(), pointsCost, featured: args.featured === true,
+        lowStockThreshold: typeof args.lowStockThreshold === "number" ? args.lowStockThreshold : null, updatedAt: now,
+      });
+      bump();
+      return { ok: true, changed: true };
+    }
+    case "admin/shopAdmin:setShopItemStatus": {
+      requireAdmin(sessionToken);
+      requireShopItem(args.itemId).status = args.status as ShopItemRecord["status"];
+      bump();
+      return { ok: true, changed: true };
+    }
+    case "admin/shopAdmin:adjustShopStock": {
+      const admin = requireAdmin(sessionToken);
+      const item = requireShopItem(args.itemId);
+      const hasDelta = typeof args.delta === "number";
+      if (hasDelta === (typeof args.newQuantity === "number")) throw adminError("INVALID_STOCK_ADJUSTMENT");
+      const delta = hasDelta ? Number(args.delta) : Number(args.newQuantity) - item.stockQuantity;
+      if (args.kind === "restock" && delta <= 0) throw adminError("INVALID_STOCK_ADJUSTMENT");
+      const previousQuantity = item.stockQuantity;
+      changeStock(item, delta, args.kind === "restock" ? "restock" : "manual", admin.adminId, shopReason(args.reason), now);
+      bump();
+      return { ok: true, previousQuantity, newQuantity: item.stockQuantity };
+    }
+    case "admin/shopAdmin:refundShopRedemption": {
+      const admin = requireAdmin(sessionToken);
+      const row = shopRedemptions.find((candidate) => candidate.redemptionId === args.redemptionId);
+      if (!row) throw adminError("REDEMPTION_NOT_FOUND");
+      if (row.refund) throw adminError("REDEMPTION_ALREADY_REFUNDED");
+      const reason = shopReason(args.reason);
+      const participant = participantsByToken.get(row.participantToken);
+      if (participant) participant.points += row.totalPointsSpent;
+      const item = shopItems.get(row.itemId);
+      const restocked = args.restock === true && item !== undefined;
+      if (item && restocked) changeStock(item, row.quantity, "refund_restock", admin.adminId, reason, now);
+      row.refund = { refundedBy: admin.adminId, refundedAt: now, reason, restocked, pointsRestored: row.totalPointsSpent };
+      bump();
+      return { ok: true, pointsRestored: row.totalPointsSpent, restocked };
+    }
+    case "admin/shopAdmin:setVolunteerShopAccess": {
+      requireAdmin(sessionToken);
+      const volunteer = staffById.get(String(args.volunteerAdminId ?? ""));
+      if (!volunteer || volunteer.role !== "volunteer") throw adminError("VOLUNTEER_NOT_FOUND");
+      volunteer.canRedeemShop = args.canRedeemShop === true;
+      bump();
+      return { ok: true, changed: true };
+    }
+    case "admin/shopFlashSales:createFlashSale": {
+      requireAdmin(sessionToken);
+      const input = validateSale(args, now);
+      const flashSaleId = shopId("sale");
+      shopSales.push({ flashSaleId, ...input, cancelledAt: null, createdAt: now });
+      bump();
+      return { flashSaleId };
+    }
+    case "admin/shopFlashSales:updateFlashSale": {
+      requireAdmin(sessionToken);
+      const sale = shopSales.find((candidate) => candidate.flashSaleId === args.flashSaleId);
+      if (!sale) throw adminError("FLASH_SALE_NOT_FOUND");
+      if (saleStatus(sale, now) !== "scheduled") throw adminError("FLASH_SALE_NOT_EDITABLE");
+      Object.assign(sale, validateSale(args, now, sale.flashSaleId));
+      bump();
+      return { ok: true };
+    }
+    case "admin/shopFlashSales:cancelFlashSale": {
+      requireAdmin(sessionToken);
+      const sale = shopSales.find((candidate) => candidate.flashSaleId === args.flashSaleId);
+      if (!sale) throw adminError("FLASH_SALE_NOT_FOUND");
+      const status = saleStatus(sale, now);
+      if (status === "ended" || status === "cancelled") throw adminError("FLASH_SALE_NOT_EDITABLE");
+      sale.cancelledAt = now;
+      bump();
+      return { ok: true };
+    }
+    case "admin/shopRedemption:purchaseShopItem": {
+      const volunteer = requireShopVolunteer(sessionToken);
+      const key = String(args.idempotencyKey ?? "");
+      if (!/^[A-Za-z0-9_-]{16,100}$/.test(key)) return { status: "invalid_request" };
+      const token = String(args.qrCodeToken ?? "");
+      const participant = participantsByToken.get(token);
+      if (!participant) return { status: "qr_not_found" };
+      const quantity = Number(args.quantity);
+      const existing = shopRedemptions.find((row) => row.idempotencyKey === key);
+      if (existing) {
+        const same = existing.participantToken === token && existing.itemId === args.itemId && existing.quantity === quantity && existing.redeemedBy === volunteer.adminId;
+        return same ? { status: "duplicate", receipt: receipt(existing) } : { status: "invalid_request" };
+      }
+      if (!participant.eligible) return { status: "participant_not_eligible" };
+      const item = shopItems.get(String(args.itemId ?? ""));
+      if (item?.status !== "active") return { status: "item_unavailable" };
+      if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > SHOP_MAX_QUANTITY) return { status: "invalid_quantity", maxQuantity: SHOP_MAX_QUANTITY };
+      const price = shopPrice(item, now);
+      if (price.unitPointsCost !== args.expectedUnitPointsCost) {
+        return { status: "price_changed", unitPointsCost: price.unitPointsCost, totalPointsCost: price.unitPointsCost * quantity };
+      }
+      if (item.stockQuantity < quantity) return { status: "insufficient_stock", stockQuantity: item.stockQuantity };
+      const totalPointsCost = price.unitPointsCost * quantity;
+      if (participant.points < totalPointsCost) return { status: "insufficient_points", points: participant.points, totalPointsCost };
+      const row: ShopRedemptionRecord = {
+        redemptionId: shopId("redemption"), participantToken: token, itemId: item.itemId, itemName: item.name, quantity,
+        unitPointsCost: price.unitPointsCost, basePointsCost: price.basePointsCost, totalPointsSpent: totalPointsCost,
+        pointsBefore: participant.points, pointsAfter: participant.points - totalPointsCost, redeemedBy: volunteer.adminId,
+        redeemedAt: now, flashSaleId: price.flashSaleId, idempotencyKey: key, refund: null,
+      };
+      participant.points -= totalPointsCost;
+      changeStock(item, -quantity, "purchase", volunteer.adminId, null, now);
+      shopRedemptions.push(row);
+      bump();
+      if (dropNextPurchaseResponse) {
+        dropNextPurchaseResponse = false;
+        throw new TypeError("Failed to fetch");
+      }
+      return { status: "success", receipt: receipt(row) };
+    }
+    default:
+      return NOT_SHOP;
   }
 }

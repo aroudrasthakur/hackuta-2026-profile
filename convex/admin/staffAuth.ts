@@ -88,7 +88,7 @@ export async function requireAdminRole(
   return admin;
 }
 
-export type VolunteerCapability = "canCheckIn" | "canFoodCheckIn";
+export type VolunteerCapability = "canCheckIn" | "canFoodCheckIn" | "canRedeemShop";
 
 /**
  * Missing capability flags are denied. Only an explicit `true` grants the scan.
@@ -96,19 +96,22 @@ export type VolunteerCapability = "canCheckIn" | "canFoodCheckIn";
 export function volunteerCapabilities(admin: {
   canCheckIn?: boolean;
   canFoodCheckIn?: boolean;
+  canRedeemShop?: boolean;
 }) {
   return {
     canCheckIn: admin.canCheckIn === true,
     canFoodCheckIn: admin.canFoodCheckIn === true,
+    canRedeemShop: admin.canRedeemShop === true,
   };
 }
 
-/** Fields for a newly appointed volunteer. Both scans start denied. */
+/** Fields for a newly appointed volunteer. Every scan starts denied. */
 export function newVolunteerFields() {
   return {
     role: "volunteer" as const,
     canCheckIn: false,
     canFoodCheckIn: false,
+    canRedeemShop: false,
   };
 }
 
