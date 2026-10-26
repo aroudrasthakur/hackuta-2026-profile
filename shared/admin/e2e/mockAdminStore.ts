@@ -106,7 +106,10 @@ const decisionQueue = new Map<string, {
   decision: "accepted" | "rejected" | "waitlisted";
   status: "queued" | "held" | "sending" | "sent" | "failed";
   queuedAt: number;
+  errorMessage?: string;
 }>();
+export type DecisionQueueScenario = "mixed" | "sending" | "empty" | "loading" | "error" | "ready" | "long-content";
+let decisionQueueScenario: DecisionQueueScenario = "ready";
 let nextLogId = 100;
 const participantsByToken = new Map<string, ParticipantRecord>();
 const events = new Map<string, EventRecord>();
@@ -141,6 +144,7 @@ function resetStore() {
   reviews.clear();
   logs.length = 0;
   decisionQueue.clear();
+  decisionQueueScenario = "ready";
   nextLogId = 100;
   participantsByToken.clear();
   events.clear();
@@ -286,6 +290,30 @@ resetStore();
 
 export function resetE2eMockStore() {
   resetStore();
+}
+
+/** Deterministic browser fixtures; exposed only when VITE_E2E_MOCK is enabled. */
+export function configureE2eDecisionQueue(scenario: DecisionQueueScenario) {
+  decisionQueueScenario = scenario;
+  if (scenario === "long-content") {
+    for (const staff of staffById.values()) staff.name = "Alexandria Montgomery-Wellington, HackUTA Operations";
+    for (const application of applications.values()) {
+      application.lastName = "Montgomery-Wellington-With-A-Very-Long-Family-Name";
+      application.email = `${"longemail".repeat(8)}@example.com`;
+      application.school = "The International University of Engineering, Technology, and Applied Sciences";
+    }
+  }
+  if (scenario === "mixed" || scenario === "sending" || scenario === "empty") {
+    decisionQueue.clear();
+    if (scenario !== "empty") {
+      const now = Date.now();
+      decisionQueue.set(E2E_APPLICATION_IDS.readyForDecision, { decision: "accepted", status: scenario === "sending" ? "sending" : "queued", queuedAt: now });
+      decisionQueue.set(E2E_APPLICATION_IDS.underReview, { decision: "rejected", status: "held", queuedAt: now - 1000 });
+      decisionQueue.set(E2E_APPLICATION_IDS.unreviewed, { decision: "waitlisted", status: "failed", queuedAt: now - 2000, errorMessage: "Email service unavailable. Retry this delivery." });
+      decisionQueue.set(E2E_APPLICATION_IDS.accepted, { decision: "accepted", status: "sent", queuedAt: now - 3000 });
+    }
+  }
+  bump();
 }
 
 function adminFromSessionToken(sessionToken: string) {
@@ -495,6 +523,8 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
     }
     case "admin/decisionEmailQueue:listDecisionEmailQueue": {
       requireReviewer(sessionToken);
+      if (decisionQueueScenario === "loading") return undefined;
+      if (decisionQueueScenario === "error") throw new Error("Mock decision queue unavailable");
       const rows = [...decisionQueue.entries()].map(([applicationId, row]) => {
         const application = applications.get(applicationId);
         const applicantName = [application?.firstName, application?.lastName].filter(Boolean).join(" ");
@@ -507,7 +537,7 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
           status: row.status,
           queuedAt: row.queuedAt,
           sentAt: row.status === "sent" ? row.queuedAt : null,
-          errorMessage: null,
+          errorMessage: row.status === "failed" ? row.errorMessage ?? "Delivery failed" : null,
         };
       });
       const counts = { queued: 0, held: 0, sending: 0, failed: 0, sent: 0 };
