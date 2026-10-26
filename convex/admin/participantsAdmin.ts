@@ -150,7 +150,6 @@ export const getParticipantDetails = query({
       pointsConsistent: points === ledgerPoints,
       checkedInAt: participant.checkedInAt ?? null,
       foodCheckedInAt: participant.foodCheckedInAt ?? null,
-      dietaryInfo: participant.foodRestriction ?? null,
       awards,
       volunteer: volunteer
         ? {

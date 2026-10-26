@@ -103,6 +103,7 @@ export async function promoteParticipant(
   const email = await requireAvailableStaffEmail(ctx, args.email ?? registrationEmail);
   return insertVolunteer(ctx, actorAdminId, {
     email, name, password: args.password, participantId: args.participantId,
-    canCheckIn: args.canCheckIn, canFoodCheckIn: args.canFoodCheckIn,
+    ...(args.canCheckIn !== undefined ? { canCheckIn: args.canCheckIn } : {}),
+    ...(args.canFoodCheckIn !== undefined ? { canFoodCheckIn: args.canFoodCheckIn } : {}),
   });
 }
