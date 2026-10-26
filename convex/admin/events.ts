@@ -4,9 +4,9 @@
  *
  * Every export calls `requireAdminRole` first. Changes are audited in
  * `staffConfigLogs` with `targetEventId` and before/after values. Points lock
- * once a participant has been awarded them (`eventHasAwards`). Awards are
- * possible only while `eventStatus` is `active` (switched on and inside the
- * window); the frontend derives the same status from these fields.
+ * once a participant has been awarded them (`eventHasAwards`). Awards need a
+ * switched-on event; `startsAt` / `endsAt` are stored for reference and do not
+ * gate scanning. The frontend uses those fields only for status labels.
  */
 import { paginationOptsValidator, type DocumentByName } from "convex/server";
 import { v } from "convex/values";

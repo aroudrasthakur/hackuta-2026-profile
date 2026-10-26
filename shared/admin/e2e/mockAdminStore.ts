@@ -1,5 +1,5 @@
 import { ADMIN_ERROR_MESSAGES, adminError } from "../errors.ts";
-import { assertEventPoints, eventStatus, normalizeEventInput, type EventScheduleInput } from "../volunteerRules.ts";
+import { assertEventPoints, normalizeEventInput, type EventScheduleInput } from "../volunteerRules.ts";
 import { sampleResumeUrl } from "./resumeFixture.ts";
 import {
   E2E_ADMIN,
@@ -488,7 +488,7 @@ function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: 
     const eventId = String(args.eventId ?? "");
     event = (eventAssignments.get(staff.adminId) ?? []).includes(eventId) ? events.get(eventId) : undefined;
     if (!event) return { failure: "event_denied" as const };
-    if (eventStatus(event, Date.now()) !== "active") return { failure: "event_inactive" as const };
+    if (!event.active) return { failure: "event_inactive" as const };
   }
   const participant = participantsByToken.get(String(args.qrCodeToken ?? ""));
   if (!participant) return { failure: "qr_not_found" as const };

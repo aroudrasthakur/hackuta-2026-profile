@@ -10,7 +10,6 @@ import { v, type GenericId } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../lib/dataModel";
 import { sha256Hex } from "../lib/sha256Hex";
 import { adminError } from "../../shared/admin/errors";
-import { eventStatus } from "../../shared/admin/volunteerRules";
 
 /** Organizer session lifetime (24 hours). */
 export const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -142,12 +141,12 @@ export async function requireVolunteerCapability(
 }
 
 /**
- * Checks the volunteer's **current** assignment and that the event is switched on
- * and inside its `startsAt`/`endsAt` window immediately before a point-scan (or
- * similar) operation.
+ * Checks the volunteer's **current** assignment and an active event immediately
+ * before a point-scan (or similar) operation.
  *
  * Invariant: deleting `volunteerEventAccess` takes effect on the next request;
- * there is no session cache of assignments.
+ * there is no session cache of assignments. Schedule fields on `events` are not
+ * checked here (reference only).
  */
 export async function requireVolunteerEventAccess(
   ctx: QueryCtx | MutationCtx,
@@ -168,7 +167,7 @@ export async function requireVolunteerEventAccess(
   if (!event) {
     throw adminError("EVENT_NOT_FOUND");
   }
-  if (eventStatus(event, Date.now()) !== "active") {
+  if (!event.active) {
     throw adminError("EVENT_INACTIVE");
   }
   return { volunteer, event };

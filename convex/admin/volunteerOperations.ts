@@ -9,14 +9,12 @@
  *
  * Same throttle rules as the preview: session failures throw before any
  * write, and every outcome after the attempt row is returned, not thrown.
- * Point awards need a switched-on event inside its `startsAt` / `endsAt`
- * window by server time; anything else returns `event_inactive`.
+ * Point awards need a switched-on event; schedule times are reference only.
  */
 import { v } from "convex/values";
 import type { GenericId } from "convex/values";
 import { mutation } from "../_generated/server";
 import type { MutationCtx } from "../lib/dataModel";
-import { eventStatus } from "../../shared/admin/volunteerRules";
 import { applyEventAward, isParticipantEligible } from "./pointsLedger";
 import { requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
 import { findParticipantByQrToken } from "./volunteerScan";
@@ -138,7 +136,7 @@ export const awardEventPoints = mutation({
       .unique();
     const event = assignment ? await ctx.db.get(eventId) : null;
     if (!event) return deny(ctx, scan, "event_denied");
-    if (eventStatus(event, scan.now) !== "active") return deny(ctx, scan, "event_inactive");
+    if (!event.active) return deny(ctx, scan, "event_inactive");
 
     const found = await eligibleParticipant(ctx, scan, qrCodeToken);
     if ("failure" in found) return found.failure;

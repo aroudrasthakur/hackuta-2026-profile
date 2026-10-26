@@ -30,8 +30,9 @@ const SNAPSHOT_KEYS: Record<string, "boolean" | "integer"> = {
 export type EventStatus = "inactive" | "upcoming" | "active" | "ended";
 
 /**
- * Points can be awarded only while an event is `active`: switched on and
- * `startsAt <= now < endsAt`. Award mutations re-check this with server time.
+ * Display label for an event's switch and schedule. `startsAt` / `endsAt` are
+ * reference only and do not gate awards; only `active === false` (`inactive`)
+ * blocks scanning.
  */
 export function eventStatus(event: { active: boolean; startsAt: number; endsAt: number }, now: number): EventStatus {
   if (!event.active) return "inactive";

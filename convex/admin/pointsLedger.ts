@@ -12,7 +12,6 @@ import { adminError } from "../../shared/admin/errors";
 import {
   assertAdjustmentDelta,
   assertPointBalance,
-  eventStatus,
   normalizeAdjustmentReason,
 } from "../../shared/admin/volunteerRules";
 
@@ -22,12 +21,12 @@ type AdminId = GenericId<"admins">;
 type ParticipantDoc = DocumentByName<DataModel, "participants">;
 type EventDoc = DocumentByName<DataModel, "events">;
 
-async function requireOpenEvent(ctx: MutationCtx, eventId: EventId, now: number) {
+async function requireStoredEvent(ctx: MutationCtx, eventId: EventId) {
   const event = await ctx.db.get(eventId);
   if (!event) {
     throw adminError("EVENT_NOT_FOUND");
   }
-  if (eventStatus(event, now) !== "active") {
+  if (!event.active) {
     throw adminError("EVENT_INACTIVE");
   }
   return event;
@@ -67,7 +66,7 @@ export async function requireEligibleParticipant(ctx: MutationCtx, participantId
  * Public scan mutations must call `requireVolunteerEventAccess` (and capability
  * guards) first, then pass `actorAdminId` from the guard result.
  *
- * The event must be switched on and `args.now` inside its window. Award row,
+ * The event must be switched on. Schedule times are not checked. Award row,
  * balance, and log are written in the caller's mutation transaction.
  */
 export async function awardEventPoints(
@@ -80,7 +79,7 @@ export async function awardEventPoints(
   },
 ) {
   const participant = await requireEligibleParticipant(ctx, args.participantId);
-  const event = await requireOpenEvent(ctx, args.eventId, args.now);
+  const event = await requireStoredEvent(ctx, args.eventId);
   const result = await applyEventAward(ctx, {
     actorAdminId: args.actorAdminId,
     participant,
