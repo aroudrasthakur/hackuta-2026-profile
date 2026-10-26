@@ -11,10 +11,10 @@
  * Applicant `users` / `authAccounts` rows are never created or modified:
  * volunteers always get a separate `admins` identity with its own credentials.
  */
-import { paginationOptsValidator } from "convex/server";
+import { paginationOptsValidator, type DocumentByName } from "convex/server";
 import { v, type GenericId } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import type { MutationCtx } from "../lib/dataModel";
+import type { DataModel, MutationCtx, QueryCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
 import { buildStaffConfigDetails } from "../../shared/admin/volunteerRules";
 import { validatePasswordRequirements } from "../../shared/auth/password";
@@ -67,6 +67,33 @@ export const createVolunteer = mutation({
   },
 });
 
+async function volunteerRow(
+  ctx: QueryCtx,
+  names: ReturnType<typeof nameLookups>,
+  volunteer: DocumentByName<DataModel, "admins">,
+) {
+  const assignments = await ctx.db.query("volunteerEventAccess")
+    .withIndex("by_volunteer", (q) => q.eq("volunteerAdminId", volunteer._id)).collect();
+  const events = [];
+  for (const eventId of new Set(assignments.map((row) => row.eventId))) {
+    const event = await ctx.db.get(eventId);
+    if (event) events.push({ eventId, name: event.name, active: event.active });
+  }
+  return {
+    adminId: volunteer._id,
+    name: volunteer.name,
+    email: volunteer.email,
+    active: volunteer.active,
+    participant: volunteer.participantId
+      ? { participantId: volunteer.participantId, name: await names.participantName(volunteer.participantId) }
+      : null,
+    ...volunteerCapabilities(volunteer),
+    events,
+    createdAt: volunteer.createdAt,
+    updatedAt: volunteer.updatedAt,
+  };
+}
+
 /** Paginated volunteer roster. Never returns credentials, sessions, QR tokens, or points. */
 export const listVolunteers = query({
   args: { ...sessionTokenArgs, paginationOpts: paginationOptsValidator },
@@ -77,29 +104,19 @@ export const listVolunteers = query({
       .paginate(paginationOpts);
     const names = nameLookups(ctx);
     const page = [];
-    for (const volunteer of result.page) {
-      const assignments = await ctx.db.query("volunteerEventAccess")
-        .withIndex("by_volunteer", (q) => q.eq("volunteerAdminId", volunteer._id)).collect();
-      const events = [];
-      for (const eventId of new Set(assignments.map((row) => row.eventId))) {
-        const event = await ctx.db.get(eventId);
-        if (event) events.push({ eventId, name: event.name, active: event.active });
-      }
-      page.push({
-        adminId: volunteer._id,
-        name: volunteer.name,
-        email: volunteer.email,
-        active: volunteer.active,
-        participant: volunteer.participantId
-          ? { participantId: volunteer.participantId, name: await names.participantName(volunteer.participantId) }
-          : null,
-        ...volunteerCapabilities(volunteer),
-        events,
-        createdAt: volunteer.createdAt,
-        updatedAt: volunteer.updatedAt,
-      });
-    }
+    for (const volunteer of result.page) page.push(await volunteerRow(ctx, names, volunteer));
     return { ...result, page };
+  },
+});
+
+/** One volunteer with the same fields as the roster, or null for a missing or non-volunteer id. */
+export const getVolunteer = query({
+  args: volunteerArgs,
+  handler: async (ctx, { sessionToken, volunteerAdminId }) => {
+    await requireAdminRole(ctx, sessionToken);
+    const volunteer = await ctx.db.get(volunteerAdminId);
+    if (!volunteer || volunteer.role !== "volunteer") return null;
+    return volunteerRow(ctx, nameLookups(ctx), volunteer);
   },
 });
 

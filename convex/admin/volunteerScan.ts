@@ -17,6 +17,7 @@ import type { GenericId } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { formatApplicantFullName } from "../lib/applications";
 import type { MutationCtx } from "../lib/dataModel";
+import { eventStatus } from "../../shared/admin/volunteerRules";
 import { isParticipantEligible } from "./pointsLedger";
 import { requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
 import {
@@ -45,7 +46,11 @@ export async function findParticipantByQrToken(ctx: MutationCtx, qrCodeToken: st
     .first();
 }
 
-/** Lists the caller's own scan permissions and assigned active events. No participant data. */
+/**
+ * Lists the caller's own scan permissions and assigned switched-on events with
+ * their schedule. No participant data. Not filtered by the clock: cached query
+ * results would not refresh when a window opens, so awards check it instead.
+ */
 export const listMyScanOptions = query({
   args: sessionTokenArgs,
   handler: async (ctx, { sessionToken }) => {
@@ -72,14 +77,15 @@ export const listMyScanOptions = query({
 });
 
 /**
- * Event for a point-scan preview, or null. Missing, unassigned, and inactive
- * events look the same so volunteers learn nothing about events outside their
- * assignments. Schedule fields are reference only and are not checked.
+ * Event for a point-scan preview, or null. Missing, unassigned, switched-off,
+ * and out-of-window events look the same so volunteers learn nothing about
+ * events outside their assignments.
  */
-async function assignedActiveEvent(
+async function assignedOpenEvent(
   ctx: MutationCtx,
   volunteer: AdminDoc,
   eventId: GenericId<"events"> | undefined,
+  now: number,
 ) {
   if (!eventId) return null;
   const assignment = await ctx.db
@@ -90,7 +96,7 @@ async function assignedActiveEvent(
     .unique();
   if (!assignment) return null;
   const event = await ctx.db.get(eventId);
-  return event?.active ? event : null;
+  return event && eventStatus(event, now) === "active" ? event : null;
 }
 
 async function participantName(ctx: MutationCtx, applicationId: GenericId<"applications">) {
@@ -109,7 +115,7 @@ async function resolveQr(
   if (args.purpose === "check_in" && !capabilities.canCheckIn) return null;
   if (args.purpose === "food_check_in" && !capabilities.canFoodCheckIn) return null;
   if (args.purpose === "point_scan") {
-    event = await assignedActiveEvent(ctx, volunteer, args.eventId);
+    event = await assignedOpenEvent(ctx, volunteer, args.eventId, now);
     if (!event) return null;
   }
 
