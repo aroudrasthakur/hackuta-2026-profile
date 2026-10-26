@@ -154,6 +154,7 @@ export default defineSchema({
     qrCodeToken: v.string(),
     foodRestriction: v.optional(v.string()),
     checkedInAt: v.optional(v.number()),
+    /** Legacy single-use food timestamp; preserved when meal redemptions replace food check-in. */
     foodCheckedInAt: v.optional(v.number()),
     /** Cached balance; optional until backfill, then required in a later deploy. */
     points: v.optional(v.number()),
@@ -163,6 +164,45 @@ export default defineSchema({
     .index("by_application", ["applicationId"])
     .index("by_auth_user", ["authUserId"])
     .index("by_qr_token", ["qrCodeToken"]),
+
+  /**
+   * Configurable serving windows, stored as Unix timestamps in milliseconds.
+   * Mutations must validate startsAt < endsAt and prevent overlapping active windows.
+   * Meals with redemption history must be deactivated rather than deleted.
+   */
+  mealPeriods: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    startsAt: v.number(),
+    endsAt: v.number(),
+    active: v.boolean(),
+    createdBy: v.id("admins"),
+    /** Cached count, maintained atomically with redemptions; absent on legacy meals. */
+    servedCount: v.optional(v.number()),
+    /** Present until the bounded legacy-redemption backfill finishes. */
+    servedCountBackfillCursor: v.optional(v.union(v.string(), v.null())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_active_startsAt", ["active", "startsAt"])
+    .index("by_startsAt", ["startsAt"]),
+
+  /**
+   * Authoritative meal collection history, independent of legacy foodCheckedInAt.
+   * The redemption mutation must check by_participant_meal and insert atomically;
+   * indexes do not enforce uniqueness. Duplicate scans must preserve redeemedAt.
+   */
+  mealRedemptions: defineTable({
+    participantId: v.id("participants"),
+    mealPeriodId: v.id("mealPeriods"),
+    scannedBy: v.id("admins"),
+    redeemedAt: v.number(),
+    /** Legacy rows are counted once by the resumable served-count backfill. */
+    countedInServedCount: v.optional(v.boolean()),
+  })
+    .index("by_participant_meal", ["participantId", "mealPeriodId"])
+    .index("by_meal", ["mealPeriodId", "redeemedAt"])
+    .index("by_participant", ["participantId", "redeemedAt"]),
 
   /** Point-bearing hackathon activities volunteers may award (fixed points per event). */
   events: defineTable({
@@ -206,6 +246,7 @@ export default defineSchema({
     participantId: v.id("participants"),
     action: volunteerActionLogAction,
     eventId: v.optional(v.id("events")),
+    mealPeriodId: v.optional(v.id("mealPeriods")),
     pointsDelta: v.optional(v.number()),
     previousPoints: v.optional(v.number()),
     newPoints: v.optional(v.number()),
@@ -220,12 +261,13 @@ export default defineSchema({
     .index("by_event_createdAt", ["eventId", "createdAt"])
     .index("by_action_createdAt", ["action", "createdAt"]),
 
-  /** Admin-only audit for volunteer, event, and access configuration changes. */
+  /** Admin-only audit for volunteer, event, meal, and access configuration changes. */
   staffConfigLogs: defineTable({
     actorAdminId: v.id("admins"),
     action: staffConfigLogAction,
     targetAdminId: v.optional(v.id("admins")),
     targetEventId: v.optional(v.id("events")),
+    targetMealPeriodId: v.optional(v.id("mealPeriods")),
     targetParticipantId: v.optional(v.id("participants")),
     details: v.optional(v.string()),
     createdAt: v.number(),

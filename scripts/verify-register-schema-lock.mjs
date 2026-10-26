@@ -14,6 +14,8 @@ const ADMIN_EDITABLE_TABLES = [
   "admins",
   "applicationReviewLogs",
   "participants",
+  "mealPeriods",
+  "mealRedemptions",
   "events",
   "volunteerEventAccess",
   "participantEventAwards",

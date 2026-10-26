@@ -17,7 +17,7 @@ import { mutation } from "../_generated/server";
 import type { MutationCtx } from "../lib/dataModel";
 import { applyEventAward, isParticipantEligible } from "./pointsLedger";
 import { requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
-import { findParticipantByQrToken } from "./volunteerScan";
+import { findParticipantByQrToken, redeemMealForVolunteer } from "./volunteerScan";
 import {
   isVolunteerScanThrottled,
   recordVolunteerScanAttempt,
@@ -91,27 +91,14 @@ export const checkInParticipant = mutation({
 });
 
 /**
- * Food redemption. Needs `canFoodCheckIn === true`; door check-in is not
- * required. A repeat returns the first timestamp.
+ * Compatibility entry point for food clients. A selected meal is required to
+ * redeem; the legacy timestamp is never read or changed. New clients use redeemMeal.
  */
 export const foodCheckInParticipant = mutation({
-  args: scanArgs,
-  handler: async (ctx, { sessionToken, qrCodeToken }) => {
+  args: { ...scanArgs, mealPeriodId: v.optional(v.id("mealPeriods")) },
+  handler: async (ctx, { sessionToken, ...args }) => {
     const volunteer = await requireVolunteerAccess(ctx, sessionToken);
-    const scan = await beginScan(ctx, volunteer);
-    if (!scan) return RATE_LIMITED;
-    if (!volunteerCapabilities(volunteer).canFoodCheckIn) return deny(ctx, scan, "not_authorized");
-
-    const found = await eligibleParticipant(ctx, scan, qrCodeToken);
-    if ("failure" in found) return found.failure;
-    const { participant } = found;
-    if (participant.foodCheckedInAt !== undefined) {
-      return { status: "already_food_checked_in" as const, foodCheckedInAt: participant.foodCheckedInAt };
-    }
-
-    await ctx.db.patch(participant._id, { foodCheckedInAt: scan.now, updatedAt: scan.now });
-    await logScan(ctx, scan, participant._id, "food_check_in");
-    return { status: "success" as const, foodCheckedInAt: scan.now };
+    return redeemMealForVolunteer(ctx, volunteer, args);
   },
 });
 
