@@ -13,5 +13,16 @@ npm run convex:push-dev
 | Module | Purpose |
 | --- | --- |
 | [`dashboard.ts`](dashboard.ts) | `getMyParticipantDashboard` — returns the signed-in user's application status, event timeline fields, and check-in QR token when a participant row exists |
+| [`seedTestProfile.ts`](seedTestProfile.ts) | Dev-only internal seed for a signed-in accepted participant (`seedTestAcceptedParticipant`) |
+| [`seedTestVolunteer.ts`](seedTestVolunteer.ts) | Dev-only internal seed for an admin-app volunteer with scan access (`seedTestVolunteer`) |
 
 Do not expose participant or QR data by application id or email. Always scope reads to the authenticated `users` row.
+
+### Dev test accounts (standing-manatee-425 only)
+
+```bash
+npx convex run profile/seedTestProfile:seedTestAcceptedParticipant --env-file .env.local
+npx convex run profile/seedTestVolunteer:seedTestVolunteer --env-file .env.local
+```
+
+The volunteer seed creates **Testing Volunteer** (`testing-volunteer@hackuta.dev` / `HackutaVolunteerTest1`) with check-in, food, and two active event assignments for scanner QA on the admin app.
