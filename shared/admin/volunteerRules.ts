@@ -30,9 +30,12 @@ const SNAPSHOT_KEYS: Record<string, "boolean" | "integer"> = {
 export type EventStatus = "inactive" | "upcoming" | "active" | "ended";
 
 /**
- * Display label for an event's switch and schedule. `startsAt` / `endsAt` are
- * reference only and do not gate awards; only `active === false` (`inactive`)
- * blocks scanning.
+ * UI schedule label only. Not an authorization helper — do not use this to
+ * allow or deny awards.
+ *
+ * `"active"` here means "switched on and currently inside `startsAt`/`endsAt`".
+ * Award, preview, ledger, and staff-guard code check `event.active` only.
+ * `startsAt` / `endsAt` are reference metadata and do not gate scanning.
  */
 export function eventStatus(event: { active: boolean; startsAt: number; endsAt: number }, now: number): EventStatus {
   if (!event.active) return "inactive";
