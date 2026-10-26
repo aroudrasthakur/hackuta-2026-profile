@@ -36,6 +36,15 @@ export function isWellFormedQrToken(token: string) {
   return token.length === 64 && QR_TOKEN_PATTERN.test(token);
 }
 
+/** Participant for a QR token, or null. Malformed tokens are never looked up. */
+export async function findParticipantByQrToken(ctx: MutationCtx, qrCodeToken: string) {
+  if (!isWellFormedQrToken(qrCodeToken)) return null;
+  return ctx.db
+    .query("participants")
+    .withIndex("by_qr_token", (q) => q.eq("qrCodeToken", qrCodeToken))
+    .first();
+}
+
 /** Lists the caller's own scan permissions and assigned active events. No participant data. */
 export const listMyScanOptions = query({
   args: sessionTokenArgs,
@@ -104,12 +113,7 @@ async function resolveQr(
     if (!event) return null;
   }
 
-  const participant = isWellFormedQrToken(args.qrCodeToken)
-    ? await ctx.db
-      .query("participants")
-      .withIndex("by_qr_token", (q) => q.eq("qrCodeToken", args.qrCodeToken))
-      .first()
-    : null;
+  const participant = await findParticipantByQrToken(ctx, args.qrCodeToken);
   if (!participant) {
     await recordVolunteerScanFailure(ctx, volunteer._id, now);
     return { status: "qr_not_found" as const };

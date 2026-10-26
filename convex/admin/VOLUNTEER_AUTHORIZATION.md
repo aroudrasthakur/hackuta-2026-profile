@@ -31,8 +31,10 @@ Acting identity always comes from the guard return value (`admin._id`). Never tr
 
 ## Ledger helpers are not auth boundaries
 
-[pointsLedger.ts](pointsLedger.ts) exports **internal** helpers (`awardEventPoints`, `adjustPoints`, `requireEligibleParticipant`, `computeLedgerPoints`). They are **not** registered as public Convex functions.
+[pointsLedger.ts](pointsLedger.ts) exports **internal** helpers (`awardEventPoints`, `applyEventAward`, `adjustPoints`, `assertEventPointsEditable`, `requireEligibleParticipant`, `computeLedgerPoints`). They are **not** registered as public Convex functions. (The public scan mutation in `volunteerOperations.ts` is also named `awardEventPoints`; it is a different function.)
 
+- `applyEventAward` is the non-throwing award core used by the scan mutation. It returns `already_awarded` instead of throwing.
+- `assertEventPointsEditable` must be called by any future mutation that changes `events.pointsAwarded`. Once an event has one award, changing its points throws `EVENT_POINTS_LOCKED`. Fix balances with `adjustPoints` instead.
 - `awardEventPoints` writes awards, balances, and `point_scan` logs. It does **not** verify volunteer session, capability, or event assignment. A public point-scan mutation **must** call `requireVolunteerEventAccess` (and any capability guard) first, then pass `actorAdminId` from the returned volunteer and `now` from the server.
 - `adjustPoints` enforces admin role on the **stored** `actorAdminId` argument only. Public admin-adjust APIs must call `requireAdminRole` first and pass that admin's id.
 
@@ -56,6 +58,7 @@ If you add a new public mutation that imports `pointsLedger`, add a row to the e
 | `participantsAdmin.ts` | all exports (`listParticipants`, `getParticipantDetails`, `setParticipantPoints`, `listPointAdjustments`, `promoteParticipantToVolunteer`) | `requireAdminRole` |
 | `volunteerProvisioning.ts`, `adminQueryHelpers.ts` | — | **Helpers only** (callers must guard first) |
 | `volunteerScan.ts` | `listMyScanOptions`, `resolveQrForScan` | `requireVolunteerAccess`, then per-purpose capability / assignment checks |
+| `volunteerOperations.ts` | `checkInParticipant`, `foodCheckInParticipant`, `awardEventPoints` | `requireVolunteerAccess`, then capability / assignment checks |
 | `volunteerScanRateLimit.ts` | `pruneVolunteerScanRateLimits` | **Internal only** (`internalMutation`) |
 | `participants.ts` | — | **Internal only** (`internalMutation`) |
 | `pointsLedger.ts`, `pointsBackfill.ts` | — | **Helpers / internal only** |
@@ -64,7 +67,7 @@ Future volunteer scan modules belong in `convex/admin/` and must follow the guar
 
 ## QR scan preview (`volunteerScan.ts`)
 
-`resolveQrForScan` only **previews** a participant. It writes nothing except rate-limit rows. The check-in, food, and point-award mutations that come later must re-run the session guard, the capability or assignment check, the eligibility check (`requireEligibleParticipant`), and the event check themselves. A preview result is never proof of permission.
+`resolveQrForScan` only **previews** a participant. It writes nothing except rate-limit rows. The check-in, food, and point-award mutations in `volunteerOperations.ts` re-run the session guard, the capability or assignment check, the eligibility check, and the event check themselves. A preview result is never proof of permission.
 
 Order inside the handler:
 
@@ -86,6 +89,23 @@ Response fields by purpose. Point totals, emails, applications, and QR tokens ar
 | `point_scan` | name, event name, event `pointsAwarded`, `alreadyAwarded` |
 
 Event `startsAt` / `endsAt` are not checked for point scans (reference schedule only, same as `awardEventPoints`).
+
+## Scan operations (`volunteerOperations.ts`)
+
+These mutations do the real work. Each one re-checks everything itself and shares the preview's rate limits (one attempt row per call, so a preview plus a scan uses two).
+
+| Mutation | Needs | Writes on success |
+| --- | --- | --- |
+| `checkInParticipant` | `canCheckIn === true`, accepted participant | `checkedInAt`, `updatedAt`, one `check_in` log |
+| `foodCheckInParticipant` | `canFoodCheckIn === true`, accepted participant (door check-in not needed) | `foodCheckedInAt`, `updatedAt`, one `food_check_in` log |
+| `awardEventPoints` | Current assignment, active event, accepted participant who is door checked in | Award row, `points`, one `point_scan` log with delta and previous/new balance |
+
+- Points always come from the stored event. There is no points argument.
+- Repeat scans change nothing and return `already_checked_in` (with `checkedInAt`), `already_food_checked_in` (with `foodCheckedInAt`), or `already_awarded`.
+- Other results: `qr_not_found`, `not_authorized` (missing capability), `event_denied` (unassigned or missing event), `event_inactive`, `participant_not_checked_in`, `participant_not_eligible`, `rate_limited`.
+- One award per participant and event comes from the `by_participant_event` lookup inside the mutation's transaction. If two scans race, Convex retries one of them, and the retry sees the first award. The index alone does not enforce uniqueness.
+- Event times are not checked, same as the preview.
+- Logs never contain QR tokens, session tokens, or dietary data.
 
 ### Rate limits
 

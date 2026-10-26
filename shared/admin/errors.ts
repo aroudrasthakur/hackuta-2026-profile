@@ -41,6 +41,8 @@ export const ADMIN_ERROR_MESSAGES = {
   EVENT_INACTIVE: "This event isn't active.",
   EVENT_ACCESS_DENIED: "You aren't assigned to this event.",
   POINTS_ALREADY_AWARDED: "This participant already received points for that event.",
+  EVENT_POINTS_LOCKED:
+    "This event's points can't change because participants have already received them.",
   PARTICIPANT_NOT_FOUND: "We couldn't find this participant.",
   PARTICIPANT_NOT_ELIGIBLE: "This participant isn't eligible for that action.",
   VOLUNTEER_ONLY: "Only volunteers can perform this action.",

@@ -334,6 +334,12 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
   const sessionToken = String(args.sessionToken ?? "");
 
   switch (path) {
+    case "admin/volunteerScan:listMyScanOptions": {
+      const admin = adminFromSessionToken(sessionToken);
+      if (!admin) throw adminError("NOT_AUTHENTICATED");
+      if (admin.role !== "volunteer") throw adminError("VOLUNTEER_ONLY");
+      return { canCheckIn: admin.canCheckIn === true, canFoodCheckIn: admin.canFoodCheckIn === true, events: [] };
+    }
     case "admin/auth:getCurrentStaff": {
       const admin = adminFromSessionToken(sessionToken);
       if (!admin) return null;

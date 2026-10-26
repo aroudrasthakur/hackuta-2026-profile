@@ -99,6 +99,7 @@ Accounting: `participants.points` = event awards + admin adjustments. Correction
 | Participant creation | Internal only; accepting staff must be active reviewer/admin |
 | Point ledger and participant eligibility helpers | Ordinary server helpers, not public Convex APIs |
 | Own scan options and QR scan preview | Volunteer, plus the purpose's capability or event assignment |
+| Check-in, food redemption, event point award (`volunteerOperations.ts`) | Volunteer, plus the capability or event assignment, re-checked on every call |
 
 The participant roster and point corrections (`participantsAdmin.ts`) are admin-only. Scanner endpoints must independently call the relevant volunteer guard **inside their query/mutation** before using participant or ledger helpers. In particular, `awardEventPoints` is a ledger helper, not an authorization boundary: its caller must use `requireVolunteerEventAccess` and derive the actor and timestamp on the server. Scanner and management screens are separate work from this authentication foundation.
 
