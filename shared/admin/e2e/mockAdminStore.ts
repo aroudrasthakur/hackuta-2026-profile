@@ -1,5 +1,9 @@
 import { ADMIN_ERROR_MESSAGES, adminError } from "../errors.ts";
 import { assertEventPoints, normalizeEventInput, type EventScheduleInput } from "../volunteerRules.ts";
+import {
+  mockMealsMutation, mockMealsQuery, resetMockMeals, mockActiveMeals,
+  getMockMeal, mockMealRedemption, recordMockMealRedemption, configureMockMeals, type MockMealScenario,
+} from "./mockMeals.ts";
 import { sampleResumeUrl } from "./resumeFixture.ts";
 import {
   E2E_ADMIN,
@@ -264,6 +268,7 @@ function seedApplication(
 }
 
 function resetStore() {
+  resetMockMeals();
   staffById.clear();
   staffByEmail.clear();
   sessions.clear();
@@ -589,6 +594,32 @@ function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: 
   return { participant, event };
 }
 
+export function configureE2eMeals(scenario: MockMealScenario) {
+  configureMockMeals(scenario);
+  bump();
+}
+
+function runMockMealScan(staff: StaffRecord, args: Record<string, unknown>, redeem: boolean) {
+  const target = scanTarget(staff, args, "food_check_in");
+  if ("failure" in target) return { status: target.failure === "participant_not_eligible" ? "participant_ineligible" : target.failure };
+  const meal = getMockMeal(String(args.mealPeriodId ?? ""));
+  const now = Date.now();
+  if (!meal?.active) return { status: "meal_not_active" };
+  if (now < meal.startsAt) return { status: "meal_not_started" };
+  if (now >= meal.endsAt) return { status: "meal_ended" };
+  const selected = { mealPeriodId: meal._id, name: meal.name };
+  const previous = mockMealRedemption(meal._id, target.participant.name);
+  if (!redeem) return {
+    status: "ok", purpose: "food_check_in", meal: selected,
+    participant: { name: target.participant.name, alreadyRedeemed: previous !== undefined,
+      redeemedAt: previous?.redeemedAt ?? null, dietaryInfo: target.participant.foodRestriction ?? null },
+  };
+  if (previous) return { status: "already_redeemed", redeemedAt: previous.redeemedAt, meal: selected };
+  recordMockMealRedemption(meal._id, target.participant.name, staff.name, now);
+  bump();
+  return { status: "success", redeemedAt: now, meal: selected };
+}
+
 function requireReviewer(sessionToken: string) {
   const staff = requireSession(sessionToken);
   if (staff.role === "volunteer") throw adminError("NOT_AUTHORIZED");
@@ -674,8 +705,16 @@ export function e2eMockSignOut(sessionToken: string) {
 
 export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
   const sessionToken = String(args.sessionToken ?? "");
+  if (path.startsWith("admin/meals:")) {
+    requireAdmin(sessionToken);
+    return mockMealsQuery(path, args);
+  }
 
   switch (path) {
+    case "admin/volunteerScan:listActiveMealPeriods": {
+      const staff = requireVolunteer(sessionToken);
+      return staff.canFoodCheckIn === true ? mockActiveMeals() : [];
+    }
     case "admin/volunteerScan:listMyScanOptions": {
       const admin = adminFromSessionToken(sessionToken);
       if (!admin) throw adminError("NOT_AUTHENTICATED");
@@ -920,11 +959,22 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
 export async function e2eMockRunMutation(path: string, args: Record<string, unknown>) {
   const sessionToken = String(args.sessionToken ?? "");
   const now = Date.now();
+  if (path.startsWith("admin/meals:")) {
+    const admin = requireAdmin(sessionToken);
+    const result = mockMealsMutation(path, args, admin.adminId);
+    bump();
+    return result;
+  }
 
   switch (path) {
+    case "admin/volunteerScan:resolveQrForMeal":
+      return runMockMealScan(requireVolunteer(sessionToken), args, false);
+    case "admin/volunteerScan:redeemMeal":
+      return runMockMealScan(requireVolunteer(sessionToken), args, true);
     case "admin/volunteerScan:resolveQrForScan": {
       const staff = requireVolunteer(sessionToken);
       const purpose = String(args.purpose ?? "");
+      if (purpose === "food_check_in") return runMockMealScan(staff, args, false);
       const target = scanTarget(staff, args, purpose);
       if ("failure" in target) {
         return { status: target.failure === "event_denied" || target.failure === "event_inactive" ? "not_authorized" : target.failure };
@@ -949,16 +999,7 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
           participant: { name: participant.name, checkedIn: participant.checkedInAt !== undefined, checkedInAt: participant.checkedInAt ?? null },
         };
       }
-      return {
-        status: "ok",
-        purpose: "food_check_in",
-        participant: {
-          name: participant.name,
-          foodCheckedIn: participant.foodCheckedInAt !== undefined,
-          foodCheckedInAt: participant.foodCheckedInAt ?? null,
-          dietaryInfo: participant.foodRestriction ?? null,
-        },
-      };
+      throw new Error("Unexpected scan purpose");
     }
     case "admin/volunteerOperations:checkInParticipant": {
       const staff = requireVolunteer(sessionToken);
@@ -971,16 +1012,7 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       return { status: "success", checkedInAt: now };
     }
     case "admin/volunteerOperations:foodCheckInParticipant": {
-      const staff = requireVolunteer(sessionToken);
-      const target = scanTarget(staff, args, "food_check_in");
-      if ("failure" in target) return { status: target.failure };
-      if (target.participant.foodCheckedInAt !== undefined) {
-        return { status: "already_food_checked_in", foodCheckedInAt: target.participant.foodCheckedInAt };
-      }
-      target.participant.foodCheckedInAt = now;
-      logVolunteerAction({ actorAdminId: staff.adminId, action: "food_check_in", participantName: target.participant.name });
-      bump();
-      return { status: "success", foodCheckedInAt: now };
+      return runMockMealScan(requireVolunteer(sessionToken), args, true);
     }
     case "admin/volunteerOperations:awardEventPoints": {
       const staff = requireVolunteer(sessionToken);

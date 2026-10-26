@@ -30,6 +30,7 @@ const UNNAMED_PARTICIPANT = "Participant";
 
 type AdminDoc = Awaited<ReturnType<typeof requireVolunteerAccess>>;
 type ScanPurpose = "check_in" | "food_check_in" | "point_scan" | "shop";
+type MealScanArgs = { qrCodeToken: string; mealPeriodId?: GenericId<"mealPeriods"> };
 
 /** 256-bit lowercase hex, matching `createQrCodeToken`. Length is checked before the regex. */
 export function isWellFormedQrToken(token: string) {
@@ -101,16 +102,120 @@ async function participantName(ctx: MutationCtx, applicationId: GenericId<"appli
   return (application && formatApplicantFullName(application)) ?? UNNAMED_PARTICIPANT;
 }
 
+/**
+ * Enabled meal schedules, including future windows so the scanner can follow
+ * clock boundaries without depending on a database write or resetting an active
+ * request every time a polling query changes arguments. The UI filters serving
+ * windows; preview and redemption always check the server's current time.
+ */
+export const listActiveMealPeriods = query({
+  args: sessionTokenArgs,
+  handler: async (ctx, { sessionToken }) => {
+    const volunteer = await requireVolunteerAccess(ctx, sessionToken);
+    if (!volunteerCapabilities(volunteer).canFoodCheckIn) return [];
+    const meals = await ctx.db.query("mealPeriods")
+      .withIndex("by_active_startsAt", (q) => q.eq("active", true)).collect();
+    return meals.map((meal) => ({
+      mealPeriodId: meal._id, name: meal.name, startsAt: meal.startsAt,
+      endsAt: meal.endsAt, updatedAt: meal.updatedAt,
+    }));
+  },
+});
+
+/** All checks run inside the caller's mutation; returned failures commit throttle counters. */
+async function prepareMealScan(ctx: MutationCtx, volunteer: AdminDoc, args: MealScanArgs) {
+  const now = Date.now();
+  if (await isVolunteerScanThrottled(ctx, volunteer._id, now)) return { status: "rate_limited" as const };
+  await recordVolunteerScanAttempt(ctx, volunteer._id, now);
+  if (!volunteerCapabilities(volunteer).canFoodCheckIn) {
+    await recordVolunteerScanFailure(ctx, volunteer._id, now);
+    return { status: "not_authorized" as const };
+  }
+  // Old clients must select a meal too; there is no single-use eligibility fallback.
+  if (!args.mealPeriodId) return { status: "meal_not_active" as const };
+  const participant = await findParticipantByQrToken(ctx, args.qrCodeToken);
+  if (!participant) {
+    await recordVolunteerScanFailure(ctx, volunteer._id, now);
+    return { status: "qr_not_found" as const };
+  }
+  if (!await isParticipantEligible(ctx, participant)) return { status: "participant_ineligible" as const };
+  const meal = await ctx.db.get(args.mealPeriodId);
+  if (!meal?.active) return { status: "meal_not_active" as const };
+  if (now < meal.startsAt) return { status: "meal_not_started" as const };
+  if (now >= meal.endsAt) return { status: "meal_ended" as const };
+  const redemption = await ctx.db.query("mealRedemptions")
+    .withIndex("by_participant_meal", (q) => q.eq("participantId", participant._id).eq("mealPeriodId", meal._id))
+    .first();
+  return { participant, meal, redemption, now };
+}
+
+/** Internal implementation shared with the legacy preview entry point. */
+async function previewMeal(ctx: MutationCtx, volunteer: AdminDoc, args: MealScanArgs) {
+  const target = await prepareMealScan(ctx, volunteer, args);
+  if (target.status !== undefined) return { status: target.status };
+  const { participant, meal, redemption } = target;
+  return {
+    status: "ok" as const, purpose: "food_check_in" as const,
+    meal: { mealPeriodId: meal._id, name: meal.name },
+    participant: {
+      name: await participantName(ctx, participant.applicationId),
+      alreadyRedeemed: redemption !== null, redeemedAt: redemption?.redeemedAt ?? null,
+      dietaryInfo: participant.foodRestriction ?? null,
+    },
+  };
+}
+
+/** Shared with the legacy food mutation so it cannot bypass meal restrictions. */
+export async function redeemMealForVolunteer(ctx: MutationCtx, volunteer: AdminDoc, args: MealScanArgs) {
+  const target = await prepareMealScan(ctx, volunteer, args);
+  if (target.status !== undefined) return { status: target.status };
+  const { participant, meal, redemption, now } = target;
+  const selectedMeal = { mealPeriodId: meal._id, name: meal.name };
+  if (redemption) return { status: "already_redeemed" as const, redeemedAt: redemption.redeemedAt, meal: selectedMeal };
+  await ctx.db.insert("mealRedemptions", {
+    participantId: participant._id, mealPeriodId: meal._id, scannedBy: volunteer._id, redeemedAt: now,
+    countedInServedCount: true,
+  });
+  await ctx.db.patch(meal._id, {
+    servedCount: (meal.servedCount ?? 0) + 1,
+    // New collections are already counted even if legacy history is still being backfilled.
+    ...(meal.servedCount === undefined ? { servedCountBackfillCursor: null } : {}),
+  });
+  await ctx.db.insert("volunteerActionLogs", {
+    actorAdminId: volunteer._id, participantId: participant._id, mealPeriodId: meal._id,
+    action: "food_check_in", createdAt: now,
+  });
+  return { status: "success" as const, redeemedAt: now, meal: selectedMeal };
+}
+
+const mealScanArgs = { ...sessionTokenArgs, qrCodeToken: v.string(), mealPeriodId: v.id("mealPeriods") };
+
+export const resolveQrForMeal = mutation({
+  args: mealScanArgs,
+  handler: async (ctx, { sessionToken, ...args }) => {
+    const volunteer = await requireVolunteerAccess(ctx, sessionToken);
+    return previewMeal(ctx, volunteer, args);
+  },
+});
+
+/** The indexed duplicate check, insertion, and audit write form a single transaction. */
+export const redeemMeal = mutation({
+  args: mealScanArgs,
+  handler: async (ctx, { sessionToken, ...args }) => {
+    const volunteer = await requireVolunteerAccess(ctx, sessionToken);
+    return redeemMealForVolunteer(ctx, volunteer, args);
+  },
+});
+
 async function resolveQr(
   ctx: MutationCtx,
   volunteer: AdminDoc,
-  args: { qrCodeToken: string; purpose: ScanPurpose; eventId?: GenericId<"events"> },
+  args: { qrCodeToken: string; purpose: Exclude<ScanPurpose, "food_check_in">; eventId?: GenericId<"events"> },
   now: number,
 ) {
   const capabilities = volunteerCapabilities(volunteer);
   let event = null;
   if (args.purpose === "check_in" && !capabilities.canCheckIn) return null;
-  if (args.purpose === "food_check_in" && !capabilities.canFoodCheckIn) return null;
   if (args.purpose === "shop" && !capabilities.canRedeemShop) return null;
   if (args.purpose === "point_scan") {
     event = await assignedActiveEvent(ctx, volunteer, args.eventId);
@@ -155,25 +260,13 @@ async function resolveQr(
       },
     };
   }
-  if (args.purpose === "check_in") {
-    return {
-      status: "ok" as const,
-      purpose: "check_in" as const,
-      participant: {
-        name,
-        checkedIn: participant.checkedInAt !== undefined,
-        checkedInAt: participant.checkedInAt ?? null,
-      },
-    };
-  }
   return {
     status: "ok" as const,
-    purpose: "food_check_in" as const,
+    purpose: "check_in" as const,
     participant: {
       name,
-      foodCheckedIn: participant.foodCheckedInAt !== undefined,
-      foodCheckedInAt: participant.foodCheckedInAt ?? null,
-      dietaryInfo: participant.foodRestriction ?? null,
+      checkedIn: participant.checkedInAt !== undefined,
+      checkedInAt: participant.checkedInAt ?? null,
     },
   };
 }
@@ -193,16 +286,18 @@ export const resolveQrForScan = mutation({
     qrCodeToken: v.string(),
     purpose: v.union(v.literal("check_in"), v.literal("food_check_in"), v.literal("point_scan"), v.literal("shop")),
     eventId: v.optional(v.id("events")),
+    mealPeriodId: v.optional(v.id("mealPeriods")),
   },
   handler: async (ctx, { sessionToken, ...args }) => {
     const volunteer = await requireVolunteerAccess(ctx, sessionToken);
+    if (args.purpose === "food_check_in") return previewMeal(ctx, volunteer, args);
     const now = Date.now();
     if (await isVolunteerScanThrottled(ctx, volunteer._id, now)) {
       return { status: "rate_limited" as const };
     }
     await recordVolunteerScanAttempt(ctx, volunteer._id, now);
 
-    const result = await resolveQr(ctx, volunteer, args, now);
+    const result = await resolveQr(ctx, volunteer, { ...args, purpose: args.purpose }, now);
     if (result) return result;
     await recordVolunteerScanFailure(ctx, volunteer._id, now);
     return { status: "not_authorized" as const };

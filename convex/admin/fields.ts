@@ -41,8 +41,12 @@ export const volunteerActionLogAction = v.union(
   v.literal("shop_refund"),
 );
 
-/** Admin-only staff and event configuration audit on `staffConfigLogs.action`. */
+/** Admin-only staff, event, and meal configuration audit on `staffConfigLogs.action`. */
 export const staffConfigLogAction = v.union(
+  v.literal("meal_created"),
+  v.literal("meal_updated"),
+  v.literal("meal_active_changed"),
+  v.literal("meal_removed"),
   v.literal("volunteer_created"),
   v.literal("volunteer_promoted"),
   v.literal("volunteer_restored"),
