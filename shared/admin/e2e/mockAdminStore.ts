@@ -1,6 +1,14 @@
 import { ADMIN_ERROR_MESSAGES, adminError } from "../errors.ts";
 import { sampleResumeUrl } from "./resumeFixture.ts";
-import { E2E_ADMIN, E2E_APPLICATION_IDS, E2E_REVIEWER, E2E_VOLUNTEER } from "./credentials.ts";
+import {
+  E2E_ADMIN,
+  E2E_APPLICATION_IDS,
+  E2E_EVENTS,
+  E2E_QR_TOKENS,
+  E2E_REVIEWER,
+  E2E_SCAN_VOLUNTEER,
+  E2E_VOLUNTEER,
+} from "./credentials.ts";
 
 const ACTIVE_REVIEW_STALE_MS = 30 * 60 * 1000;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -53,6 +61,24 @@ type SessionRecord = {
   expiresAt: number;
 };
 
+type ParticipantRecord = {
+  name: string;
+  eligible: boolean;
+  foodRestriction?: string;
+  checkedInAt?: number;
+  foodCheckedInAt?: number;
+  awardedEventIds: Set<string>;
+};
+
+type EventRecord = {
+  eventId: string;
+  name: string;
+  pointsAwarded: number;
+  active: boolean;
+  startsAt: number;
+  endsAt: number;
+};
+
 let revision = 0;
 const listeners = new Set<() => void>();
 
@@ -82,6 +108,9 @@ const decisionQueue = new Map<string, {
   queuedAt: number;
 }>();
 let nextLogId = 100;
+const participantsByToken = new Map<string, ParticipantRecord>();
+const events = new Map<string, EventRecord>();
+const eventAssignments = new Map<string, string[]>();
 
 function seedStaff(record: StaffRecord) {
   staffById.set(record.adminId, record);
@@ -113,6 +142,9 @@ function resetStore() {
   logs.length = 0;
   decisionQueue.clear();
   nextLogId = 100;
+  participantsByToken.clear();
+  events.clear();
+  eventAssignments.clear();
 
   seedStaff({
     adminId: "e2e-admin-reviewer",
@@ -134,8 +166,38 @@ function resetStore() {
     canCheckIn: true,
     canFoodCheckIn: false,
   });
+  seedStaff({
+    adminId: "e2e-admin-lead",
+    email: E2E_SCAN_VOLUNTEER.email,
+    name: E2E_SCAN_VOLUNTEER.name,
+    role: E2E_SCAN_VOLUNTEER.role,
+    canCheckIn: true,
+    canFoodCheckIn: true,
+  });
 
   const now = Date.now();
+  for (const event of Object.values(E2E_EVENTS)) {
+    events.set(event.eventId, { ...event, active: true, startsAt: now - 60_000, endsAt: now + 3_600_000 });
+  }
+  eventAssignments.set("e2e-admin-lead", Object.values(E2E_EVENTS).map(({ eventId }) => eventId));
+  participantsByToken.set(E2E_QR_TOKENS.ready, {
+    name: "Riley Ready",
+    eligible: true,
+    foodRestriction: "Vegetarian; Allergies: peanuts",
+    awardedEventIds: new Set(),
+  });
+  participantsByToken.set(E2E_QR_TOKENS.checkedIn, {
+    name: "Morgan Present",
+    eligible: true,
+    checkedInAt: now - 600_000,
+    foodCheckedInAt: now - 300_000,
+    awardedEventIds: new Set([E2E_EVENTS.panel.eventId]),
+  });
+  participantsByToken.set(E2E_QR_TOKENS.ineligible, {
+    name: "Pat Pending",
+    eligible: false,
+    awardedEventIds: new Set(),
+  });
   seedApplication(E2E_APPLICATION_IDS.unreviewed, {
     authUserId: "e2e-user-1",
     email: "taylor.unreviewed@example.com",
@@ -227,7 +289,7 @@ export function resetE2eMockStore() {
 }
 
 function adminFromSessionToken(sessionToken: string) {
-  const embedded = /^e2e-session-(e2e-admin-(?:reviewer|admin|volunteer))-(\d+)$/.exec(sessionToken);
+  const embedded = /^e2e-session-(e2e-admin-(?:reviewer|admin|volunteer|lead))-(\d+)$/.exec(sessionToken);
   if (embedded?.[1]) {
     if (Number(embedded[2]) + SESSION_TTL_MS <= Date.now()) return null;
     const admin = staffById.get(embedded[1]);
@@ -246,6 +308,35 @@ function requireSession(sessionToken: string) {
     throw adminError("NOT_AUTHENTICATED");
   }
   return admin;
+}
+
+function requireVolunteer(sessionToken: string) {
+  const staff = requireSession(sessionToken);
+  if (staff.role !== "volunteer") throw adminError("VOLUNTEER_ONLY");
+  return staff;
+}
+
+function assignedEvents(adminId: string) {
+  return (eventAssignments.get(adminId) ?? [])
+    .map((eventId) => events.get(eventId))
+    .filter((event): event is EventRecord => event?.active === true);
+}
+
+/** Same capability, assignment, token, and eligibility order as the Convex scan functions. */
+function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: string) {
+  if (purpose === "check_in" && staff.canCheckIn !== true) return { failure: "not_authorized" as const };
+  if (purpose === "food_check_in" && staff.canFoodCheckIn !== true) return { failure: "not_authorized" as const };
+  let event: EventRecord | undefined;
+  if (purpose === "point_scan") {
+    const eventId = String(args.eventId ?? "");
+    event = (eventAssignments.get(staff.adminId) ?? []).includes(eventId) ? events.get(eventId) : undefined;
+    if (!event) return { failure: "event_denied" as const };
+    if (!event.active) return { failure: "event_inactive" as const };
+  }
+  const participant = participantsByToken.get(String(args.qrCodeToken ?? ""));
+  if (!participant) return { failure: "qr_not_found" as const };
+  if (!participant.eligible) return { failure: "participant_not_eligible" as const };
+  return { participant, event };
 }
 
 function requireReviewer(sessionToken: string) {
@@ -302,7 +393,8 @@ export function e2eMockSignIn(email: string, password: string) {
   const valid =
     (normalized === E2E_REVIEWER.email && password === E2E_REVIEWER.password) ||
     (normalized === E2E_ADMIN.email && password === E2E_ADMIN.password) ||
-    (normalized === E2E_VOLUNTEER.email && password === E2E_VOLUNTEER.password);
+    (normalized === E2E_VOLUNTEER.email && password === E2E_VOLUNTEER.password) ||
+    (normalized === E2E_SCAN_VOLUNTEER.email && password === E2E_SCAN_VOLUNTEER.password);
   if (!staff || !valid) {
     return {
       ok: false as const,
@@ -338,7 +430,11 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
       const admin = adminFromSessionToken(sessionToken);
       if (!admin) throw adminError("NOT_AUTHENTICATED");
       if (admin.role !== "volunteer") throw adminError("VOLUNTEER_ONLY");
-      return { canCheckIn: admin.canCheckIn === true, canFoodCheckIn: admin.canFoodCheckIn === true, events: [] };
+      return {
+        canCheckIn: admin.canCheckIn === true,
+        canFoodCheckIn: admin.canFoodCheckIn === true,
+        events: assignedEvents(admin.adminId).map(({ eventId, name, pointsAwarded, startsAt, endsAt }) => ({ eventId, name, pointsAwarded, startsAt, endsAt })),
+      };
     }
     case "admin/auth:getCurrentStaff": {
       const admin = adminFromSessionToken(sessionToken);
@@ -453,6 +549,69 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
   const now = Date.now();
 
   switch (path) {
+    case "admin/volunteerScan:resolveQrForScan": {
+      const staff = requireVolunteer(sessionToken);
+      const purpose = String(args.purpose ?? "");
+      const target = scanTarget(staff, args, purpose);
+      if ("failure" in target) {
+        return { status: target.failure === "event_denied" || target.failure === "event_inactive" ? "not_authorized" : target.failure };
+      }
+      const { participant, event } = target;
+      if (event) {
+        return {
+          status: "ok",
+          purpose: "point_scan",
+          participant: { name: participant.name },
+          event: { eventId: event.eventId, name: event.name, pointsAwarded: event.pointsAwarded },
+          alreadyAwarded: participant.awardedEventIds.has(event.eventId),
+        };
+      }
+      if (purpose === "check_in") {
+        return {
+          status: "ok",
+          purpose,
+          participant: { name: participant.name, checkedIn: participant.checkedInAt !== undefined, checkedInAt: participant.checkedInAt ?? null },
+        };
+      }
+      return {
+        status: "ok",
+        purpose: "food_check_in",
+        participant: {
+          name: participant.name,
+          foodCheckedIn: participant.foodCheckedInAt !== undefined,
+          foodCheckedInAt: participant.foodCheckedInAt ?? null,
+          dietaryInfo: participant.foodRestriction ?? null,
+        },
+      };
+    }
+    case "admin/volunteerOperations:checkInParticipant": {
+      const target = scanTarget(requireVolunteer(sessionToken), args, "check_in");
+      if ("failure" in target) return { status: target.failure };
+      if (target.participant.checkedInAt !== undefined) return { status: "already_checked_in", checkedInAt: target.participant.checkedInAt };
+      target.participant.checkedInAt = now;
+      bump();
+      return { status: "success", checkedInAt: now };
+    }
+    case "admin/volunteerOperations:foodCheckInParticipant": {
+      const target = scanTarget(requireVolunteer(sessionToken), args, "food_check_in");
+      if ("failure" in target) return { status: target.failure };
+      if (target.participant.foodCheckedInAt !== undefined) {
+        return { status: "already_food_checked_in", foodCheckedInAt: target.participant.foodCheckedInAt };
+      }
+      target.participant.foodCheckedInAt = now;
+      bump();
+      return { status: "success", foodCheckedInAt: now };
+    }
+    case "admin/volunteerOperations:awardEventPoints": {
+      const target = scanTarget(requireVolunteer(sessionToken), args, "point_scan");
+      if ("failure" in target) return { status: target.failure };
+      const { participant, event } = target;
+      if (participant.checkedInAt === undefined) return { status: "participant_not_checked_in" };
+      if (participant.awardedEventIds.has(event!.eventId)) return { status: "already_awarded" };
+      participant.awardedEventIds.add(event!.eventId);
+      bump();
+      return { status: "success", pointsAwarded: event!.pointsAwarded };
+    }
     case "admin/applicationReviewLogs:logApplicationReviewAction": {
       const admin = requireReviewer(sessionToken);
       const applicationId = String(args.applicationId ?? "");
