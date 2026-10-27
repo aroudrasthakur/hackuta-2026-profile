@@ -9,6 +9,7 @@ import {
   applicantVisibleReviewStatus,
   openDecisionEmailForApplication,
 } from "./openDecisionEmail";
+import { participantPortalView } from "./participantCheckIn";
 import { buildSubmittedApplicationPayload, normalizeApplicantEmail } from "./submissionPayload";
 
 /** Participant-only dashboard payload; never exposes another user's data or tokens. */
@@ -71,12 +72,7 @@ export const getMyParticipantDashboard = query({
           }
         : null,
       reviewStatus,
-      participant: visibleParticipant
-        ? {
-            qrCodeToken: visibleParticipant.qrCodeToken,
-            acceptedAt: visibleParticipant.acceptedAt,
-          }
-        : null,
+      participant: visibleParticipant ? participantPortalView(visibleParticipant) : null,
       hackathon: {
         name: hackathonName,
         startsAt: eventConfig?.startsAt ?? null,

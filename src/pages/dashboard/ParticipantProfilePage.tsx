@@ -50,7 +50,7 @@ export default function ParticipantProfilePage() {
           <nav className="participant-profile__shortcuts" aria-label="Quick links">
             <Link to="/dashboard/scan" className="participant-profile__shortcut">
               <NavScanIcon className="participant-profile__shortcut-icon" />
-              <span>Scan</span>
+              <span>Check-in</span>
             </Link>
             <Link
               to="/dashboard/profile"
@@ -76,7 +76,7 @@ export default function ParticipantProfilePage() {
             </div>
             <ResumePreviewDialog resume={resume} variant="compact" />
           </li>
-          {data.reviewStatus === "accepted" ? (
+          {data.reviewStatus === "accepted" && data.participant?.status !== "checked_in" ? (
             <li className="participant-profile-row">
               <Link to="/dashboard/scan" className="participant-profile-row__link">
                 <div className="participant-profile-row__body">

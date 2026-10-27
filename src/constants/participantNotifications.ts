@@ -22,7 +22,7 @@ export const PARTICIPANT_NOTIFICATIONS: ParticipantNotification[] = [
   {
     id: "check-in-qr",
     title: "Check-in QR code",
-    body: "Accepted hackers can open the Scan tab for their personal QR code. Keep it private and show it only at check-in.",
+    body: "Accepted hackers can open the Check-in tab for their personal QR code. It is only for your first check-in at the desk. After that, the QR code on your physical badge is your pass for meals, event points, and the shop.",
     postedAt: "2026-10-20",
   },
 ];

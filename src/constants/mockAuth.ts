@@ -9,6 +9,8 @@ export const MOCK_OTP = "042681";
 /** E2E hook mounted by MockAuthProvider when mock API is enabled. */
 export type HackutaMockAuthWindow = {
   setScenario: (scenario: MockAuthScenario) => void;
+  /** Simulates a volunteer check-in scan arriving through Convex. */
+  setParticipantCheckedIn: (checkedIn: boolean) => void;
 };
 
 declare global {

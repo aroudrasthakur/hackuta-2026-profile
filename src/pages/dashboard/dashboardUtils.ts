@@ -9,6 +9,28 @@ export function formatCardDate(timestamp: number | null) {
   };
 }
 
+/** ICU may join the time and AM/PM with a narrow no-break space; keep a plain space for display and tests. */
+function formatCheckInClock(date: Date, timeZone?: string) {
+  return date
+    .toLocaleString("en-US", { hour: "numeric", minute: "2-digit", timeZone })
+    .replace(/\u202f/g, " ");
+}
+
+/** Desktop check-in line, e.g. "9:42 AM · 25/10". `timeZone` defaults to the viewer's local zone. */
+export function formatCheckInShort(timestamp: number, timeZone?: string) {
+  const date = new Date(timestamp);
+  const day = date.toLocaleString("en-US", { day: "2-digit", timeZone });
+  const month = date.toLocaleString("en-US", { month: "2-digit", timeZone });
+  return `${formatCheckInClock(date, timeZone)} · ${day}/${month}`;
+}
+
+/** Mobile check-in line, e.g. "Checked in Sat, Oct 25 · 9:42 AM". `timeZone` defaults to the viewer's local zone. */
+export function formatCheckInLong(timestamp: number, timeZone?: string) {
+  const date = new Date(timestamp);
+  const day = date.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone });
+  return `Checked in ${day} · ${formatCheckInClock(date, timeZone)}`;
+}
+
 export function statusLabel(status: string | null) {
   switch (status) {
     case "accepted":

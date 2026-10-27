@@ -23,7 +23,9 @@ export function useParticipantDashboard(): {
         profile: { displayName: "Sam Test", email: mockAuth.verifiedEmail },
         application: { submitted: true, submittedAt: MOCK_NOW, school: "UT Arlington" },
         reviewStatus: "accepted",
-        participant: { qrCodeToken: "a".repeat(64), acceptedAt: MOCK_NOW },
+        participant: mockAuth.participantCheckedIn
+          ? { status: "checked_in", acceptedAt: MOCK_NOW, checkedInAt: MOCK_NOW + 86_400_000 }
+          : { status: "awaiting_check_in", acceptedAt: MOCK_NOW, qrCodeToken: "a".repeat(64) },
         hackathon: {
           name: "HackUTA 2026",
           startsAt: MOCK_NOW + 86_400_000,

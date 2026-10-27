@@ -94,10 +94,11 @@ export type ParticipantDashboard = {
     | "waitlisted"
     | "withdrawn"
     | null;
-  participant: {
-    qrCodeToken: string;
-    acceptedAt: number;
-  } | null;
+  /** Registration QR token only before check-in; after check-in the physical badge is the pass. */
+  participant:
+    | { status: "awaiting_check_in"; acceptedAt: number; qrCodeToken: string }
+    | { status: "checked_in"; acceptedAt: number; checkedInAt: number }
+    | null;
   hackathon: {
     name: string;
     startsAt: number | null;
