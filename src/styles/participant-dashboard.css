@@ -606,6 +606,88 @@
     height: 300px;
   }
 
+  .participant-wallet {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .participant-wallet__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    min-height: 3rem;
+    padding: 0.5rem 1.15rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgb(255 255 255 / 0.24);
+    background: #000;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans);
+    box-shadow: 0 8px 20px rgb(16 47 70 / 0.18);
+    cursor: pointer;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease,
+      opacity 0.15s ease;
+  }
+
+  .participant-wallet__button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 26px rgb(16 47 70 / 0.24);
+  }
+
+  .participant-wallet__button:focus-visible {
+    outline: 2px solid var(--color-ocean);
+    outline-offset: 3px;
+  }
+
+  .participant-wallet__button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .participant-wallet__icon {
+    flex-shrink: 0;
+  }
+
+  .participant-wallet__copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.1;
+    text-align: left;
+  }
+
+  .participant-wallet__kicker {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: rgb(255 255 255 / 0.88);
+  }
+
+  .participant-wallet__label {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #fff;
+  }
+
+  .participant-wallet__error {
+    margin: 0;
+    max-width: 24rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgb(239 68 68 / 0.45);
+    background: #fef2f2;
+    color: #7f1d1d;
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
   .participant-scan__hint,
   .participant-scan__email {
     margin: 0;
