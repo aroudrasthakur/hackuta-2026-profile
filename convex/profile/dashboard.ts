@@ -9,6 +9,7 @@ import {
   applicantVisibleReviewStatus,
   openDecisionEmailForApplication,
 } from "./openDecisionEmail";
+import { participantPortalView } from "./participantCheckIn";
 import { buildSubmittedApplicationPayload, normalizeApplicantEmail } from "./submissionPayload";
 
 /** Participant-only dashboard payload; never exposes another user's data or tokens. */
@@ -71,14 +72,8 @@ export const getMyParticipantDashboard = query({
           }
         : null,
       reviewStatus,
-      participant: visibleParticipant
-        ? {
-            // After badge check-in, `qrCodeToken` holds the physical badge's value; only the badge itself may present it.
-            qrCodeToken: visibleParticipant.badgeQrCodeToken === undefined ? visibleParticipant.qrCodeToken : null,
-            hasBadge: visibleParticipant.badgeQrCodeToken !== undefined,
-            acceptedAt: visibleParticipant.acceptedAt,
-          }
-        : null,
+      // After badge check-in, `qrCodeToken` on the row is the badge value; participantPortalView never returns it.
+      participant: visibleParticipant ? participantPortalView(visibleParticipant) : null,
       hackathon: {
         name: hackathonName,
         startsAt: eventConfig?.startsAt ?? null,

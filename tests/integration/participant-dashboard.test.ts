@@ -82,7 +82,11 @@ describe("participant dashboard query", () => {
       email: "accepted@example.com",
     });
     const dashboard = await asAccepted.query(getMyParticipantDashboardRef, {});
-    expect(dashboard?.participant?.qrCodeToken).toBe("b".repeat(64));
+    expect(dashboard?.participant).toEqual({
+      status: "awaiting_check_in",
+      acceptedAt: 1,
+      qrCodeToken: "b".repeat(64),
+    });
     expect(dashboard?.profile.displayName).toBe("Taylor Student");
     expect(dashboard?.submittedApplication?.sections.length).toBeGreaterThan(0);
     expect(dashboard?.submittedApplication?.sections[0]?.rows).toEqual(
@@ -97,8 +101,8 @@ describe("participant dashboard query", () => {
       email: "other@example.com",
     });
     const otherDashboard = await asOther.query(getMyParticipantDashboardRef, {});
-    expect(otherDashboard?.participant?.qrCodeToken).toBe("c".repeat(64));
-    expect(otherDashboard?.participant?.qrCodeToken).not.toBe(dashboard?.participant?.qrCodeToken);
+    expect(otherDashboard?.participant).toMatchObject({ qrCodeToken: "c".repeat(64) });
+    expect(JSON.stringify(otherDashboard)).not.toContain("b".repeat(64));
   });
 
   it("hides every QR value once a badge is assigned at check-in", async () => {
@@ -131,7 +135,12 @@ describe("participant dashboard query", () => {
     const dashboard = await t
       .withIdentity({ subject: applicant.userId, email: "badged@example.com" })
       .query(getMyParticipantDashboardRef, {});
-    expect(dashboard?.participant).toEqual({ qrCodeToken: null, hasBadge: true, acceptedAt: 1 });
+    expect(dashboard?.participant).toEqual({
+      status: "checked_in",
+      acceptedAt: 1,
+      checkedInAt: 2,
+    });
+    expect(dashboard?.participant && "qrCodeToken" in dashboard.participant).toBe(false);
     expect(JSON.stringify(dashboard)).not.toMatch(/HACKUTA-BADGE-0001|ffffffff/);
   });
 

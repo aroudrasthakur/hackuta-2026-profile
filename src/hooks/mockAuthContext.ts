@@ -7,6 +7,7 @@ export type MockAuthContextValue = {
   isAuthenticated: boolean;
   verifiedEmail: string | null;
   hasSubmittedRegistration: boolean;
+  participantCheckedIn: boolean;
   setScenario: (scenario: MockAuthScenario) => void;
   requestOtp: (email: string) => void;
   verifyOtp: (code: string) => boolean;
@@ -20,6 +21,7 @@ export const defaultMockAuthValue: MockAuthContextValue = {
   isAuthenticated: false,
   verifiedEmail: null,
   hasSubmittedRegistration: false,
+  participantCheckedIn: false,
   setScenario: () => undefined,
   requestOtp: () => undefined,
   verifyOtp: () => false,

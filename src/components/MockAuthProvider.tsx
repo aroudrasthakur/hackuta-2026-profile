@@ -15,7 +15,7 @@ function scenarioState(
   email: string | null,
 ): Omit<
   MockAuthContextValue,
-  "enabled" | "setScenario" | "requestOtp" | "verifyOtp" | "signInWithEmail" | "signOut"
+  "enabled" | "participantCheckedIn" | "setScenario" | "requestOtp" | "verifyOtp" | "signInWithEmail" | "signOut"
 > {
   switch (scenario) {
     case "signedOut":
@@ -54,6 +54,7 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
   const [scenario, setScenarioState] = useState<MockAuthScenario>("signedOut");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [participantCheckedIn, setParticipantCheckedIn] = useState(false);
 
   const setScenario = useCallback((next: MockAuthScenario) => {
     setScenarioState(next);
@@ -93,7 +94,7 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!enabled) return;
-    window.__hackutaMockAuth = { setScenario };
+    window.__hackutaMockAuth = { setScenario, setParticipantCheckedIn };
     return () => {
       delete window.__hackutaMockAuth;
     };
@@ -107,6 +108,7 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
 
     return {
       enabled: true,
+      participantCheckedIn,
       setScenario,
       requestOtp,
       verifyOtp,
@@ -116,6 +118,7 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     };
   }, [
     enabled,
+    participantCheckedIn,
     pendingEmail,
     requestOtp,
     scenario,
