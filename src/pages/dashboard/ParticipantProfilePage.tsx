@@ -50,7 +50,7 @@ export default function ParticipantProfilePage() {
         description="Your account, application, and event settings."
       />
 
-      <div className="participant-profile__inner">
+      <div className="participant-portal__inner">
         <div className="participant-schedule__tablist participant-profile__tablist" role="tablist" aria-label="Profile sections">
           {PROFILE_TABS.map(({ to, end, label, icon: Icon }) => (
             <NavLink

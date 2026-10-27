@@ -1464,6 +1464,14 @@
   }
 
   @media (max-width: 640px) {
+    .participant-home__tablist {
+      grid-template-columns: 1fr;
+    }
+
+    .participant-link-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .participant-leaderboard__you-stats {
       gap: 1.25rem;
     }
@@ -1521,6 +1529,7 @@
   }
 
   /* Profile — schedule tablist + double-ruled panels (same language as Schedule / Leaderboard). */
+  .participant-home,
   .participant-profile {
     display: flex;
     flex-direction: column;
@@ -1528,9 +1537,95 @@
     width: 100%;
   }
 
-  .participant-profile__inner {
+  .participant-portal__inner {
     display: grid;
     gap: clamp(1.125rem, 2.6vh, 2rem);
+  }
+
+  .participant-home__tablist {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .participant-home__lead {
+    margin: 0 0 0.75rem;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--color-ocean);
+  }
+
+  .participant-home__head-link {
+    margin: 0;
+    font-size: clamp(0.6875rem, 1.05vw, 0.8125rem);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--color-ocean);
+  }
+
+  .participant-home__head-link:hover {
+    color: var(--color-ink);
+  }
+
+  .participant-home__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    min-height: var(--spacing-control, 2.75rem);
+    padding: 0.65rem 1.25rem;
+    border: 1.5px solid var(--color-ink);
+    background: var(--color-ink);
+    color: var(--color-clay);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background 0.2s var(--ease-out),
+      color 0.2s var(--ease-out);
+  }
+
+  .participant-home__cta:hover {
+    background: var(--color-night);
+    border-color: var(--color-night);
+  }
+
+  .participant-home__cta--block {
+    width: 100%;
+  }
+
+  .participant-home__cta:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .participant-schedule__day-head .participant-dashboard__badge {
+    align-self: center;
+  }
+
+  .participant-link-grid--portal {
+    margin-top: 0.25rem;
+  }
+
+  .participant-link-grid--portal .participant-link-card {
+    min-height: 5.75rem;
+    border: 1.5px solid color-mix(in srgb, var(--color-ink) 30%, transparent);
+    background: var(--color-light);
+    color: var(--color-night);
+  }
+
+  .participant-link-grid--portal .participant-link-card:hover {
+    border-color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-sand) 35%, var(--color-light));
+  }
+
+  .participant-link-grid--portal .participant-link-card__icon {
+    color: var(--color-ocean);
+  }
+
+  .participant-link-grid--portal .participant-link-card__external {
+    color: color-mix(in srgb, var(--color-ink) 45%, transparent);
   }
 
   .participant-profile__tablist {
@@ -1980,6 +2075,10 @@
 
     .participant-scan__hint {
       font-size: 0.875rem;
+    }
+
+    .participant-home__tablist {
+      grid-template-columns: 1fr;
     }
 
     .participant-application__row {
