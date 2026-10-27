@@ -110,9 +110,14 @@ export default function ParticipantHomePage() {
           <ol className="participant-schedule__timeline">
             {importantDates.map((event) => {
               const parts = formatCardDate(event.timestamp);
+              const when = `${parts.month} ${parts.day}`;
               return (
                 <li key={event.id} className="participant-schedule__slot">
-                  <time dateTime={new Date(event.timestamp).toISOString()}>{`${parts.month} ${parts.day}`}</time>
+                  {event.timestamp !== null ? (
+                    <time dateTime={new Date(event.timestamp).toISOString()}>{when}</time>
+                  ) : (
+                    <span>{when}</span>
+                  )}
                   <span>{event.label}</span>
                 </li>
               );
