@@ -63,14 +63,13 @@ async function requireItem(ctx: MutationCtx, itemId: GenericId<"shopItems">) {
   return item;
 }
 
-/** Table row for one item, with the price charged right now. */
-export async function shopItemView(ctx: QueryCtx | MutationCtx, item: ShopItemDoc, now: number) {
+/** Admin listing row. Omits image URLs; stored images are kept for other surfaces. */
+export async function shopItemAdminView(ctx: QueryCtx | MutationCtx, item: ShopItemDoc, now: number) {
   const price = await effectivePrice(ctx, item, now);
   return {
     itemId: item._id,
     name: item.name,
     description: item.description,
-    imageUrl: item.imageStorageId ? await ctx.storage.getUrl(item.imageStorageId) : null,
     pointsCost: item.pointsCost,
     effectivePointsCost: price.unitPointsCost,
     flashSaleId: price.flashSaleId,
@@ -241,7 +240,7 @@ export const listShopItemsAdmin = query({
     const items = [];
     for (const item of rows) {
       if (term && !item.name.toLowerCase().includes(term)) continue;
-      items.push(await shopItemView(ctx, item, now));
+      items.push(await shopItemAdminView(ctx, item, now));
     }
     return { items, nextPriceChangeAt: await nextPriceChangeAt(ctx, rows.map((row) => row._id), now) };
   },

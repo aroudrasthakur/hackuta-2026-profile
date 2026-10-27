@@ -1442,7 +1442,7 @@ function runShopQuery(path: string, args: Record<string, unknown>, sessionToken:
       const items = [...shopItems.values()].sort((a, b) => b.createdAt - a.createdAt).map((item) => {
         const price = shopPrice(item, now);
         return {
-          itemId: item.itemId, name: item.name, description: item.description, imageUrl: null,
+          itemId: item.itemId, name: item.name, description: item.description,
           pointsCost: item.pointsCost, effectivePointsCost: price.unitPointsCost, flashSaleId: price.flashSaleId, saleEndsAt: price.saleEndsAt,
           stockQuantity: item.stockQuantity, stockStatus: shopStockStatus(item), lowStockThreshold: item.lowStockThreshold,
           status: item.status, featured: item.featured, createdAt: item.createdAt, updatedAt: item.updatedAt,
