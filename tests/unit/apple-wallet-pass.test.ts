@@ -74,6 +74,10 @@ describe("Apple Wallet pass builder and PKCS#7 signer", () => {
     expect(passJson.teamIdentifier).toBe("HACKUTA26T");
     expect(passJson.serialNumber).toBe("hackuta-2026-p1");
     expect(passJson.organizationName).toBe("HackUTA");
+    expect(passJson.sharingProhibited).toBe(true);
+    expect(passJson.groupingIdentifier).toBe("hackuta-2026-checkin");
+    expect(passJson.semantics.eventName).toBe("HackUTA 2026");
+    expect(passJson.locations).toHaveLength(1);
     expect(passJson.barcodes).toEqual([
       {
         format: "PKBarcodeFormatQR",
@@ -132,8 +136,10 @@ describe("Apple Wallet pass builder and PKCS#7 signer", () => {
     expect(Object.keys(entries).sort()).toEqual([
       "icon.png",
       "icon@2x.png",
+      "icon@3x.png",
       "logo.png",
       "logo@2x.png",
+      "logo@3x.png",
       "manifest.json",
       "pass.json",
       "signature",
@@ -161,7 +167,7 @@ describe("Apple Wallet pass builder and PKCS#7 signer", () => {
       const caPath = join(tempDir, "ca.pem");
       writeFileSync(manifestPath, entries["manifest.json"]!);
       writeFileSync(signaturePath, entries["signature"]!);
-      writeFileSync(caPath, creds.signerCertPem);
+      writeFileSync(caPath, creds.wwdrCertPem);
 
       const output = execFileSync(
         "openssl",

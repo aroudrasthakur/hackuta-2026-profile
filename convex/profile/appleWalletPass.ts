@@ -137,11 +137,32 @@ export function buildAppleWalletPassJson(
     organizationName: "HackUTA",
     description: `${input.hackathonName} Check-in Pass`,
     logoText: "HackUTA",
+    sharingProhibited: true,
+    groupingIdentifier: "hackuta-2026-checkin",
     backgroundColor: "rgb(16, 47, 70)",
     foregroundColor: "rgb(246, 237, 223)",
     labelColor: "rgb(140, 161, 170)",
     relevantDate,
     expirationDate,
+    locations: [
+      {
+        latitude: 32.7299,
+        longitude: -97.1161,
+        relevantText:
+          "Welcome to HackUTA! Show this pass at the check-in desk to pick up your badge.",
+      },
+    ],
+    semantics: {
+      eventName: input.hackathonName,
+      eventType: "PKEventTypeConference" as const,
+      eventStartDate: relevantDate,
+      eventEndDate: expirationDate,
+      venueName: "The University of Texas at Arlington",
+      venueLocation: {
+        latitude: 32.7299,
+        longitude: -97.1161,
+      },
+    },
     barcodes: [barcodePayload],
     barcode: barcodePayload,
     eventTicket: {
@@ -296,8 +317,10 @@ export function renderHackutaPassPng(width: number, height: number): Buffer {
 const PASS_STATIC_IMAGES: Readonly<Record<string, Buffer>> = {
   "icon.png": renderHackutaPassPng(29, 29),
   "icon@2x.png": renderHackutaPassPng(58, 58),
+  "icon@3x.png": renderHackutaPassPng(87, 87),
   "logo.png": renderHackutaPassPng(160, 50),
   "logo@2x.png": renderHackutaPassPng(320, 100),
+  "logo@3x.png": renderHackutaPassPng(480, 150),
 };
 
 // --- ASN.1 DER helpers for CMS / PKCS#7 detached signature ---

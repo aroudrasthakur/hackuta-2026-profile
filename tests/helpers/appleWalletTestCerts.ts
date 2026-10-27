@@ -40,45 +40,77 @@ function derOid(oid: string): Buffer {
   return derNode(0x06, Uint8Array.from(body));
 }
 
-function derUtf8String(value: string): Buffer {
-  return derNode(0x0c, Buffer.from(value, "utf8"));
-}
-
 function derUtcTime(value: string): Buffer {
   return derNode(0x17, Buffer.from(value, "ascii"));
 }
 
-function buildName(commonName: string): Buffer {
-  return derSequence([
-    derSet([derSequence([derOid("2.5.4.3"), derUtf8String(commonName)])]),
-  ]);
+function buildName(attrs: Array<{ oid: string; value: string; printable?: boolean }>): Buffer {
+  return derSequence(
+    attrs.map((attr) =>
+      derSet([
+        derSequence([
+          derOid(attr.oid),
+          derNode(attr.printable ? 0x13 : 0x0c, Buffer.from(attr.value, "utf8")),
+        ]),
+      ]),
+    ),
+  );
 }
 
-function buildSelfSignedX509Pem(
-  commonName: string,
-  serialByte: number,
-  publicKey: KeyObject,
-  privateKey: KeyObject,
-  signatureOid: string,
-  withNullParam: boolean,
-): string {
-  const algId = withNullParam
-    ? derSequence([derOid(signatureOid), Buffer.from([0x05, 0x00])])
-    : derSequence([derOid(signatureOid)]);
-  const spkiDer = publicKey.export({ type: "spki", format: "der" });
-  const nameDer = buildName(commonName);
+function buildX509CertificatePem(options: {
+  subjectAttrs: Array<{ oid: string; value: string; printable?: boolean }>;
+  issuerAttrs: Array<{ oid: string; value: string; printable?: boolean }>;
+  serialByte: number;
+  subjectPublicKey: KeyObject;
+  issuerPrivateKey: KeyObject;
+  signatureOid: string;
+  withNullParam: boolean;
+  isCa?: boolean;
+  passTypeId?: string;
+}): string {
+  const algId = options.withNullParam
+    ? derSequence([derOid(options.signatureOid), Buffer.from([0x05, 0x00])])
+    : derSequence([derOid(options.signatureOid)]);
+  const spkiDer = options.subjectPublicKey.export({ type: "spki", format: "der" });
+  const issuerDer = buildName(options.issuerAttrs);
+  const subjectDer = buildName(options.subjectAttrs);
 
-  const tbsCertificate = derSequence([
+  const extensions: Buffer[] = [];
+  if (options.isCa) {
+    // basicConstraints: critical, CA:TRUE
+    extensions.push(
+      derSequence([
+        derOid("2.5.29.19"),
+        Buffer.from([0x01, 0x01, 0xff]),
+        derNode(0x04, derSequence([Buffer.from([0x01, 0x01, 0xff])])),
+      ]),
+    );
+  }
+  if (options.passTypeId) {
+    // Apple PassKit Pass Type ID marker extension (1.2.840.113635.100.6.1.16)
+    extensions.push(
+      derSequence([
+        derOid("1.2.840.113635.100.6.1.16"),
+        derNode(0x04, Buffer.from([0x05, 0x00])),
+      ]),
+    );
+  }
+
+  const tbsItems: Uint8Array[] = [
     derNode(0xa0, Buffer.from([0x02, 0x01, 0x02])), // v3
-    Buffer.from([0x02, 0x01, serialByte & 0x7f]), // serialNumber
+    Buffer.from([0x02, 0x01, options.serialByte & 0x7f]), // serialNumber
     algId,
-    nameDer,
+    issuerDer,
     derSequence([derUtcTime("250101000000Z"), derUtcTime("350101000000Z")]),
-    nameDer,
+    subjectDer,
     spkiDer,
-  ]);
+  ];
+  if (extensions.length > 0) {
+    tbsItems.push(derNode(0xa3, derSequence(extensions)));
+  }
 
-  const sigBytes = cryptoSign("sha256", tbsCertificate, privateKey);
+  const tbsCertificate = derSequence(tbsItems);
+  const sigBytes = cryptoSign("sha256", tbsCertificate, options.issuerPrivateKey);
   const bitString = derNode(0x03, Buffer.concat([Buffer.from([0x00]), sigBytes]));
   const certDer = derSequence([tbsCertificate, algId, bitString]);
   const b64 = certDer.toString("base64").replace(/(.{64})/g, "$1\n").trim();
@@ -99,22 +131,43 @@ export function getRuntimeTestAppleWalletCredentials(): AppleWalletSigningCreden
   const signer = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const wwdr = generateKeyPairSync("rsa", { modulusLength: 2048 });
 
-  const signerCertPem = buildSelfSignedX509Pem(
-    "Pass Type ID: pass.org.hackuta.checkin",
-    1,
-    signer.publicKey,
-    signer.privateKey,
-    "1.2.840.113549.1.1.11",
-    true,
-  );
-  const wwdrCertPem = buildSelfSignedX509Pem(
-    "Apple Worldwide Developer Relations Certification Authority",
-    2,
-    wwdr.publicKey,
-    wwdr.privateKey,
-    "1.2.840.113549.1.1.11",
-    true,
-  );
+  const wwdrAttrs = [
+    {
+      oid: "2.5.4.3",
+      value: "Apple Worldwide Developer Relations Certification Authority",
+    },
+    { oid: "2.5.4.11", value: "G4" },
+    { oid: "2.5.4.10", value: "Apple Inc." },
+    { oid: "2.5.4.6", value: "US", printable: true },
+  ];
+  const signerAttrs = [
+    { oid: "0.9.2342.19200300.100.1.1", value: "pass.org.hackuta.checkin" },
+    { oid: "2.5.4.3", value: "Pass Type ID: pass.org.hackuta.checkin" },
+    { oid: "2.5.4.11", value: "HACKUTA26T" },
+    { oid: "2.5.4.10", value: "HackUTA" },
+    { oid: "2.5.4.6", value: "US", printable: true },
+  ];
+
+  const wwdrCertPem = buildX509CertificatePem({
+    subjectAttrs: wwdrAttrs,
+    issuerAttrs: wwdrAttrs,
+    serialByte: 2,
+    subjectPublicKey: wwdr.publicKey,
+    issuerPrivateKey: wwdr.privateKey,
+    signatureOid: "1.2.840.113549.1.1.11",
+    withNullParam: true,
+    isCa: true,
+  });
+  const signerCertPem = buildX509CertificatePem({
+    subjectAttrs: signerAttrs,
+    issuerAttrs: wwdrAttrs,
+    serialByte: 1,
+    subjectPublicKey: signer.publicKey,
+    issuerPrivateKey: wwdr.privateKey,
+    signatureOid: "1.2.840.113549.1.1.11",
+    withNullParam: true,
+    passTypeId: "pass.org.hackuta.checkin",
+  });
   const signerKeyPem = signer.privateKey
     .export({ type: "pkcs8", format: "pem" })
     .toString();
@@ -133,22 +186,33 @@ export function getRuntimeEcTestAppleWalletCredentials(): AppleWalletSigningCred
   const signer = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
   const wwdr = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
 
-  const signerCertPem = buildSelfSignedX509Pem(
-    "Pass Type ID EC: pass.org.hackuta.checkin",
-    3,
-    signer.publicKey,
-    signer.privateKey,
-    "1.2.840.10045.4.3.2",
-    false,
-  );
-  const wwdrCertPem = buildSelfSignedX509Pem(
-    "Apple WWDR EC Test",
-    4,
-    wwdr.publicKey,
-    wwdr.privateKey,
-    "1.2.840.10045.4.3.2",
-    false,
-  );
+  const wwdrAttrs = [{ oid: "2.5.4.3", value: "Apple WWDR EC Test" }];
+  const signerAttrs = [
+    { oid: "0.9.2342.19200300.100.1.1", value: "pass.org.hackuta.checkin" },
+    { oid: "2.5.4.3", value: "Pass Type ID EC: pass.org.hackuta.checkin" },
+    { oid: "2.5.4.11", value: "HACKUTA26T" },
+  ];
+
+  const wwdrCertPem = buildX509CertificatePem({
+    subjectAttrs: wwdrAttrs,
+    issuerAttrs: wwdrAttrs,
+    serialByte: 4,
+    subjectPublicKey: wwdr.publicKey,
+    issuerPrivateKey: wwdr.privateKey,
+    signatureOid: "1.2.840.10045.4.3.2",
+    withNullParam: false,
+    isCa: true,
+  });
+  const signerCertPem = buildX509CertificatePem({
+    subjectAttrs: signerAttrs,
+    issuerAttrs: wwdrAttrs,
+    serialByte: 3,
+    subjectPublicKey: signer.publicKey,
+    issuerPrivateKey: wwdr.privateKey,
+    signatureOid: "1.2.840.10045.4.3.2",
+    withNullParam: false,
+    passTypeId: "pass.org.hackuta.checkin",
+  });
   const signerKeyPem = signer.privateKey
     .export({ type: "pkcs8", format: "pem" })
     .toString();
