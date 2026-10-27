@@ -1,5 +1,6 @@
 import { ADMIN_ERROR_MESSAGES, adminError } from "../errors.ts";
 import { assertEventPoints, normalizeEventInput, type EventScheduleInput } from "../volunteerRules.ts";
+import { normalizeBadgeQr, scanLookupCandidates } from "../qrValues.ts";
 import {
   mockMealsMutation, mockMealsQuery, resetMockMeals, mockActiveMeals,
   getMockMeal, mockMealRedemption, recordMockMealRedemption, configureMockMeals, type MockMealScenario,
@@ -8,6 +9,7 @@ import { sampleResumeUrl } from "./resumeFixture.ts";
 import {
   E2E_ADMIN,
   E2E_APPLICATION_IDS,
+  E2E_BADGES,
   E2E_EVENTS,
   E2E_QR_TOKENS,
   E2E_REVIEWER,
@@ -40,6 +42,8 @@ type ParticipantRecord = {
   points: number;
   checkedInAt: number | null;
   foodCheckedInAt: number | null;
+  badgeToken?: string;
+  badge: { assignedAt: number; assignedBy: { adminId: string; name: string } | null } | null;
   volunteerAdminId?: string;
   awards: Array<{
     eventId: string;
@@ -89,6 +93,10 @@ type SessionRecord = {
 
 type ScanParticipantRecord = {
   participantId: string;
+  /** Map key; kept as the participant's stable id in shop rows. */
+  registrationToken: string;
+  badgeToken?: string;
+  retiredBadges?: string[];
   name: string;
   points: number;
   eligible: boolean;
@@ -113,10 +121,11 @@ type EventRecord = {
 type VolunteerActionLogRecord = {
   logId: string;
   actorAdminId: string;
-  action: "check_in" | "food_check_in" | "point_scan" | "admin_adjust";
+  action: "check_in" | "food_check_in" | "point_scan" | "admin_adjust" | "badge_assigned" | "badge_replaced";
   participantName: string;
   eventId?: string;
   pointsDelta?: number;
+  reason?: string;
   createdAt: number;
 };
 
@@ -164,6 +173,8 @@ export type DecisionQueueScenario = "mixed" | "sending" | "empty" | "loading" | 
 let decisionQueueScenario: DecisionQueueScenario = "ready";
 let nextLogId = 100;
 const participantsByToken = new Map<string, ScanParticipantRecord>();
+/** Badges retired from roster participants by an admin replacement. */
+const retiredRosterBadges = new Set<string>();
 const events = new Map<string, EventRecord>();
 const eventAssignments = new Map<string, string[]>();
 const volunteerActionLogs: VolunteerActionLogRecord[] = [];
@@ -280,6 +291,7 @@ function resetStore() {
   decisionQueueScenario = "ready";
   nextLogId = 100;
   participantsByToken.clear();
+  retiredRosterBadges.clear();
   events.clear();
   eventAssignments.clear();
   volunteerActionLogs.length = 0;
@@ -331,16 +343,23 @@ function resetStore() {
       eventId: E2E_EVENTS.panel.eventId, pointsDelta: E2E_EVENTS.panel.pointsAwarded, createdAt: now - 500_000,
     },
   );
-  participantsByToken.set(E2E_QR_TOKENS.ready, {
+  const seedScanParticipant = (record: ScanParticipantRecord) => participantsByToken.set(record.registrationToken, record);
+  seedScanParticipant({
     participantId: "e2e-participant-ready",
+    registrationToken: E2E_QR_TOKENS.ready,
+    badgeToken: E2E_BADGES.ready,
     name: "Riley Ready",
     points: 1250,
     eligible: true,
     foodRestriction: "Vegetarian; Allergies: peanuts",
+    checkedInAt: now - 900_000,
     awardedEventIds: new Set(),
   });
-  participantsByToken.set(E2E_QR_TOKENS.checkedIn, {
+  seedScanParticipant({
     participantId: "e2e-participant-present",
+    registrationToken: E2E_QR_TOKENS.checkedIn,
+    badgeToken: E2E_BADGES.checkedIn,
+    retiredBadges: [E2E_BADGES.retired],
     name: "Morgan Present",
     points: 40,
     eligible: true,
@@ -348,8 +367,26 @@ function resetStore() {
     foodCheckedInAt: now - 300_000,
     awardedEventIds: new Set([E2E_EVENTS.panel.eventId]),
   });
-  participantsByToken.set(E2E_QR_TOKENS.ineligible, {
+  seedScanParticipant({
+    participantId: "e2e-participant-arrival",
+    registrationToken: E2E_QR_TOKENS.arrival,
+    name: "Avery Arrival",
+    points: 0,
+    eligible: true,
+    awardedEventIds: new Set(),
+  });
+  seedScanParticipant({
+    participantId: "e2e-participant-legacy",
+    registrationToken: E2E_QR_TOKENS.legacy,
+    name: "Lee Legacy",
+    points: 0,
+    eligible: true,
+    checkedInAt: now - 1_200_000,
+    awardedEventIds: new Set(),
+  });
+  seedScanParticipant({
     participantId: "e2e-participant-pending",
+    registrationToken: E2E_QR_TOKENS.ineligible,
     name: "Pat Pending",
     points: 0,
     eligible: false,
@@ -441,8 +478,10 @@ function resetStore() {
     name: "Alex Accepted",
     email: "alex.accepted@example.com",
     points: 20,
-    checkedInAt: null,
+    checkedInAt: now - 1_800_000,
     foodCheckedInAt: null,
+    badgeToken: E2E_BADGES.alex,
+    badge: { assignedAt: now - 1_800_000, assignedBy: { adminId: "e2e-admin-lead", name: E2E_SCAN_VOLUNTEER.name } },
     awards: [],
   });
 
@@ -576,9 +615,51 @@ function logVolunteerAction(record: Omit<VolunteerActionLogRecord, "logId" | "cr
   volunteerActionLogs.push({ ...record, logId: `e2e-action-${nextLogId++}`, createdAt: Date.now() });
 }
 
-/** Same capability, assignment, token, and eligibility order as the Convex scan functions. */
+type MockScan =
+  | { kind: "registration" | "badge" | "registration_replaced"; participant: ScanParticipantRecord }
+  | { kind: "badge_retired" | "not_found" };
+
+/** Same classification as `resolveScannedQr`. */
+function resolveMockScan(raw: string): MockScan {
+  const candidates = scanLookupCandidates(raw);
+  const rows = [...participantsByToken.values()];
+  for (const value of candidates) {
+    const badge = rows.find((row) => row.badgeToken === value);
+    if (badge) return { kind: "badge", participant: badge };
+    const registration = rows.find((row) => row.registrationToken === value);
+    if (registration) return { kind: registration.badgeToken === undefined ? "registration" : "registration_replaced", participant: registration };
+  }
+  if (candidates.some((value) => rows.some((row) => row.retiredBadges?.includes(value)))) return { kind: "badge_retired" };
+  return { kind: "not_found" };
+}
+
+/** Same as `resolveBadgeHolder`: only an assigned badge resolves. */
+function mockBadgeHolder(raw: string) {
+  const scanned = resolveMockScan(raw);
+  if (scanned.kind === "badge") return { participant: scanned.participant };
+  if (scanned.kind === "registration") {
+    return { failure: scanned.participant.checkedInAt === undefined ? "participant_not_checked_in" as const : "badge_not_assigned" as const };
+  }
+  if (scanned.kind === "registration_replaced") return { failure: "registration_qr_replaced" as const };
+  if (scanned.kind === "badge_retired") return { failure: "badge_retired" as const };
+  return { failure: "qr_not_found" as const };
+}
+
+type MockBadgeConflict = "badge_invalid" | "badge_is_registration" | "badge_in_use" | "badge_retired";
+
+/** Same as `checkBadgeAvailable`, across scan and roster participants. */
+function mockBadgeConflict(raw: string): { badge: string } | { conflict: MockBadgeConflict } {
+  const badge = normalizeBadgeQr(raw);
+  if (badge === null) return { conflict: "badge_invalid" as const };
+  const scanned = resolveMockScan(badge);
+  if (scanned.kind === "registration" || scanned.kind === "registration_replaced") return { conflict: "badge_is_registration" as const };
+  if (scanned.kind === "badge" || [...participants.values()].some((row) => row.badgeToken === badge)) return { conflict: "badge_in_use" as const };
+  if (scanned.kind === "badge_retired" || retiredRosterBadges.has(badge)) return { conflict: "badge_retired" as const };
+  return { badge };
+}
+
+/** Same capability, assignment, badge, and eligibility order as the Convex scan functions. */
 function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: string) {
-  if (purpose === "check_in" && staff.canCheckIn !== true) return { failure: "not_authorized" as const };
   if (purpose === "food_check_in" && staff.canFoodCheckIn !== true) return { failure: "not_authorized" as const };
   if (purpose === "shop" && staff.canRedeemShop !== true) return { failure: "not_authorized" as const };
   let event: EventRecord | undefined;
@@ -588,10 +669,38 @@ function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: 
     if (!event) return { failure: "event_denied" as const };
     if (!event.active) return { failure: "event_inactive" as const };
   }
-  const participant = participantsByToken.get(String(args.qrCodeToken ?? ""));
-  if (!participant) return { failure: "qr_not_found" as const };
+  const found = mockBadgeHolder(String(args.qrCodeToken ?? ""));
+  if ("failure" in found) return { failure: found.failure };
+  const { participant } = found;
   if (!participant.eligible) return { failure: "participant_not_eligible" as const };
   return { participant, event };
+}
+
+/** Mirrors `badgeCheckIn.ts`: registration step, then badge step, then the atomic check-in. */
+function mockCheckIn(staff: StaffRecord, args: Record<string, unknown>, stage: "registration" | "badge" | "commit") {
+  if (staff.canCheckIn !== true) return { status: "not_authorized" };
+  const registrationRaw = String(args.registrationQrCodeToken ?? "");
+  const badgeRaw = String(args.badgeQrCodeToken ?? "");
+  const scanned = resolveMockScan(registrationRaw);
+  if (stage === "commit" && scanned.kind === "registration_replaced" && scanned.participant.badgeToken === normalizeBadgeQr(badgeRaw)) {
+    return { status: "already_checked_in", participant: { name: scanned.participant.name, checkedInAt: scanned.participant.checkedInAt ?? null } };
+  }
+  if (!("participant" in scanned)) return { status: "qr_not_found" };
+  const { participant } = scanned;
+  const summary = { name: participant.name, checkedInAt: participant.checkedInAt ?? null };
+  if (scanned.kind === "registration_replaced") return { status: "registration_qr_used", participant: summary };
+  if (!participant.eligible) return { status: "participant_not_eligible" };
+  if (scanned.kind === "badge" || participant.checkedInAt !== undefined) return { status: "already_checked_in", participant: summary };
+  if (stage === "registration") return { status: "ok", participant: { name: participant.name } };
+  const checked = mockBadgeConflict(badgeRaw);
+  if ("conflict" in checked) return { status: checked.conflict };
+  if (stage === "badge") return { status: "ok", participant: { name: participant.name } };
+  const now = Date.now();
+  participant.badgeToken = checked.badge;
+  participant.checkedInAt = now;
+  logVolunteerAction({ actorAdminId: staff.adminId, action: "check_in", participantName: participant.name });
+  bump();
+  return { status: "success", checkedInAt: now };
 }
 
 export function configureE2eMeals(scenario: MockMealScenario) {
@@ -764,7 +873,7 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
           participant: { participantId: `e2e-participant-${log.participantName}`, name: log.participantName },
           event: log.eventId ? { eventId: log.eventId, name: events.get(log.eventId)?.name ?? null } : null,
           pointsDelta: log.pointsDelta ?? null,
-          reason: null,
+          reason: log.reason ?? null,
           createdAt: log.createdAt,
         }));
       return paginate(rows, args);
@@ -841,6 +950,7 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
           points: participant.points,
           checkedInAt: participant.checkedInAt,
           foodCheckedInAt: participant.foodCheckedInAt,
+          badgeAssigned: participant.badge !== null,
           volunteer: volunteer ? { adminId: volunteer.adminId, active: volunteer.active !== false } : null,
         };
       });
@@ -866,6 +976,7 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
         pointsConsistent: true,
         checkedInAt: participant.checkedInAt,
         foodCheckedInAt: participant.foodCheckedInAt,
+        badge: participant.badge,
         awards: participant.awards,
         volunteer: volunteer ? {
           adminId: volunteer.adminId,
@@ -992,24 +1103,36 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
           alreadyAwarded: participant.awardedEventIds.has(event.eventId),
         };
       }
-      if (purpose === "check_in") {
-        return {
-          status: "ok",
-          purpose,
-          participant: { name: participant.name, checkedIn: participant.checkedInAt !== undefined, checkedInAt: participant.checkedInAt ?? null },
-        };
-      }
       throw new Error("Unexpected scan purpose");
     }
-    case "admin/volunteerOperations:checkInParticipant": {
-      const staff = requireVolunteer(sessionToken);
-      const target = scanTarget(staff, args, "check_in");
-      if ("failure" in target) return { status: target.failure };
-      if (target.participant.checkedInAt !== undefined) return { status: "already_checked_in", checkedInAt: target.participant.checkedInAt };
-      target.participant.checkedInAt = now;
-      logVolunteerAction({ actorAdminId: staff.adminId, action: "check_in", participantName: target.participant.name });
+    case "admin/badgeCheckIn:resolveRegistrationForCheckIn":
+      return mockCheckIn(requireVolunteer(sessionToken), args, "registration");
+    case "admin/badgeCheckIn:resolveBadgeForCheckIn":
+      return mockCheckIn(requireVolunteer(sessionToken), args, "badge");
+    case "admin/badgeCheckIn:checkInWithBadge":
+      return mockCheckIn(requireVolunteer(sessionToken), args, "commit");
+    case "admin/badgeAdmin:assignParticipantBadge": {
+      const admin = requireAdmin(sessionToken);
+      const participant = participants.get(String(args.participantId ?? ""));
+      if (!participant) throw adminError("PARTICIPANT_NOT_FOUND");
+      const reason = String(args.reason ?? "").trim();
+      if (!reason || reason.length > 200) throw adminError("INVALID_BADGE_REASON");
+      if (participant.checkedInAt === null) throw adminError("PARTICIPANT_NOT_CHECKED_IN");
+      if ((participant.badge?.assignedAt ?? null) !== args.expectedBadgeAssignedAt) throw adminError("BADGE_ASSIGNMENT_CHANGED");
+      const checked = mockBadgeConflict(String(args.badgeQrCodeToken ?? ""));
+      if ("conflict" in checked) {
+        throw adminError(({
+          badge_invalid: "INVALID_BADGE", badge_is_registration: "BADGE_IS_REGISTRATION",
+          badge_in_use: "BADGE_IN_USE", badge_retired: "BADGE_RETIRED",
+        } as const)[checked.conflict]);
+      }
+      const replaced = participant.badge !== null;
+      if (participant.badgeToken) retiredRosterBadges.add(participant.badgeToken);
+      participant.badgeToken = checked.badge;
+      participant.badge = { assignedAt: now, assignedBy: { adminId: admin.adminId, name: admin.name } };
+      logVolunteerAction({ actorAdminId: admin.adminId, action: replaced ? "badge_replaced" : "badge_assigned", participantName: participant.name, reason });
       bump();
-      return { status: "success", checkedInAt: now };
+      return { ok: true, replaced, assignedAt: now };
     }
     case "admin/volunteerOperations:foodCheckInParticipant": {
       return runMockMealScan(requireVolunteer(sessionToken), args, true);
@@ -1632,9 +1755,10 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       const volunteer = requireShopVolunteer(sessionToken);
       const key = String(args.idempotencyKey ?? "");
       if (!/^[A-Za-z0-9_-]{16,100}$/.test(key)) return { status: "invalid_request" };
-      const token = String(args.qrCodeToken ?? "");
-      const participant = participantsByToken.get(token);
-      if (!participant) return { status: "qr_not_found" };
+      const found = mockBadgeHolder(String(args.qrCodeToken ?? ""));
+      if ("failure" in found) return { status: found.failure };
+      const { participant } = found;
+      const token = participant.registrationToken;
       const quantity = Number(args.quantity);
       const existing = shopRedemptions.find((row) => row.idempotencyKey === key);
       if (existing) {

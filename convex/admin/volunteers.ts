@@ -247,6 +247,9 @@ export const setVolunteerEventAccess = mutation({
  * Volunteer scan and point-adjustment history, newest first. The most
  * selective filter picks the index; the rest are applied to that range.
  */
+/** Actions whose admin-entered reason is shown in the activity log. */
+const REASON_ACTIONS = new Set<string>(["admin_adjust", "badge_assigned", "badge_replaced"]);
+
 export const listVolunteerActionLogs = query({
   args: {
     ...sessionTokenArgs,
@@ -296,7 +299,7 @@ export const listVolunteerActionLogs = query({
         participant: { participantId: log.participantId, name: await names.participantName(log.participantId) },
         event: log.eventId ? { eventId: log.eventId, name: await names.eventName(log.eventId) } : null,
         pointsDelta: log.pointsDelta ?? null,
-        reason: log.action === "admin_adjust" ? (log.reason ?? null) : null,
+        reason: REASON_ACTIONS.has(log.action) ? (log.reason ?? null) : null,
         createdAt: log.createdAt,
       });
     }

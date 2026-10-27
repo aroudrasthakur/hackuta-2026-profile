@@ -3,6 +3,7 @@ import type { GenericId } from "convex/values";
 import type { DataModel, MutationCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
 import { foodRestrictionFromApplication } from "../../shared/admin/participantFoodRestriction";
+import { resolveScannedQr } from "./participantQr";
 
 type ParticipantDoc = DocumentByName<DataModel, "participants">;
 
@@ -19,14 +20,10 @@ export function createQrCodeToken() {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+/** Unused by any active, replaced, or retired code. */
 async function generateUniqueQrCodeToken(ctx: MutationCtx) {
   let qrCodeToken = createQrCodeToken();
-  while (
-    await ctx.db
-      .query("participants")
-      .withIndex("by_qr_token", (q) => q.eq("qrCodeToken", qrCodeToken))
-      .first()
-  ) {
+  while ((await resolveScannedQr(ctx, qrCodeToken)).kind !== "not_found") {
     qrCodeToken = createQrCodeToken();
   }
   return qrCodeToken;

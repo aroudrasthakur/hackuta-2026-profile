@@ -95,7 +95,9 @@ export type ParticipantDashboard = {
     | "withdrawn"
     | null;
   participant: {
-    qrCodeToken: string;
+    /** Registration QR; null once a badge is assigned at check-in. */
+    qrCodeToken: string | null;
+    hasBadge?: boolean;
     acceptedAt: number;
   } | null;
   hackathon: {

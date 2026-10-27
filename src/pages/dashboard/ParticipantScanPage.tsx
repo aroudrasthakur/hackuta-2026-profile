@@ -10,7 +10,17 @@ export default function ParticipantScanPage() {
       <h1 id="participant-scan-title" className="participant-page-title">QR Code</h1>
       <p className="participant-page-lead">Show this at check-in, meals, and events.</p>
 
-      {data.participant ? (
+      {data.participant && data.participant.qrCodeToken === null ? (
+        <div className="participant-scan__empty">
+          <p role="status">
+            You're checked in. Use the QR code on your HackUTA badge for meals, events, and the shop. This
+            registration code no longer works.
+          </p>
+          <Link to="/dashboard" className="participant-dashboard__link">
+            Back to home
+          </Link>
+        </div>
+      ) : data.participant?.qrCodeToken ? (
         <>
           <div className="participant-scan__frame">
             <QRCode

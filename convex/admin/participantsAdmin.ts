@@ -104,6 +104,7 @@ export const listParticipants = query({
         points: participant.points ?? 0,
         checkedInAt: participant.checkedInAt ?? null,
         foodCheckedInAt: participant.foodCheckedInAt ?? null,
+        badgeAssigned: participant.badgeQrCodeToken !== undefined,
         volunteer: volunteer ? { adminId: volunteer._id, active: volunteer.active } : null,
       });
     }
@@ -112,8 +113,9 @@ export const listParticipants = query({
 });
 
 /**
- * One accepted participant with event awards and a ledger cross-check.
- * Returns null for missing or non-accepted participants. No QR token.
+ * One accepted participant with event awards, a ledger cross-check, and who
+ * assigned their badge and when. Returns null for missing or non-accepted
+ * participants. No QR or badge value.
  */
 export const getParticipantDetails = query({
   args: { ...sessionTokenArgs, participantId: v.id("participants") },
@@ -150,6 +152,14 @@ export const getParticipantDetails = query({
       pointsConsistent: points === ledgerPoints,
       checkedInAt: participant.checkedInAt ?? null,
       foodCheckedInAt: participant.foodCheckedInAt ?? null,
+      badge: participant.badgeQrCodeToken !== undefined && participant.badgeAssignedAt !== undefined
+        ? {
+          assignedAt: participant.badgeAssignedAt,
+          assignedBy: participant.badgeAssignedBy
+            ? { adminId: participant.badgeAssignedBy, name: await names.staffName(participant.badgeAssignedBy) }
+            : null,
+        }
+        : null,
       awards,
       volunteer: volunteer
         ? {

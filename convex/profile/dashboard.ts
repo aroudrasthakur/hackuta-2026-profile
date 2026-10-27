@@ -73,7 +73,9 @@ export const getMyParticipantDashboard = query({
       reviewStatus,
       participant: visibleParticipant
         ? {
-            qrCodeToken: visibleParticipant.qrCodeToken,
+            // After badge check-in, `qrCodeToken` holds the physical badge's value; only the badge itself may present it.
+            qrCodeToken: visibleParticipant.badgeQrCodeToken === undefined ? visibleParticipant.qrCodeToken : null,
+            hasBadge: visibleParticipant.badgeQrCodeToken !== undefined,
             acceptedAt: visibleParticipant.acceptedAt,
           }
         : null,

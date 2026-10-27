@@ -28,12 +28,28 @@ export const E2E_SCAN_VOLUNTEER = {
   role: "volunteer" as const,
 };
 
-/** Participant QR tokens seeded in the E2E mock store. */
+/**
+ * Registration QR tokens seeded in the E2E mock store. `ready` and
+ * `checkedIn` were replaced by badges at check-in, so they no longer scan;
+ * `arrival` has not checked in, and `legacy` checked in before badges.
+ */
 export const E2E_QR_TOKENS = {
   ready: "a1".repeat(32),
   checkedIn: "b2".repeat(32),
   ineligible: "c3".repeat(32),
   unknown: "d4".repeat(32),
+  arrival: "e5".repeat(32),
+  legacy: "f6".repeat(32),
+} as const;
+
+/** Preprinted badge values seeded in the E2E mock store. `unused*` belong to nobody yet. */
+export const E2E_BADGES = {
+  ready: "HACKUTA-BADGE-0001",
+  checkedIn: "HACKUTA-BADGE-0002",
+  alex: "HACKUTA-BADGE-0003",
+  retired: "HACKUTA-BADGE-0099",
+  unused: "HACKUTA-BADGE-0101",
+  unusedSecond: "HACKUTA-BADGE-0102",
 } as const;
 
 export const E2E_EVENTS = {

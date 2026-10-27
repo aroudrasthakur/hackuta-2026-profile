@@ -101,6 +101,40 @@ describe("participant dashboard query", () => {
     expect(otherDashboard?.participant?.qrCodeToken).not.toBe(dashboard?.participant?.qrCodeToken);
   });
 
+  it("hides every QR value once a badge is assigned at check-in", async () => {
+    const t = createConvexTest();
+    const applicant = await seedApplicant(t, { email: "badged@example.com", submitted: true });
+    const staff = await seedStaff(t);
+    await t.run(async (ctx) => {
+      const review = await ctx.db
+        .query("applicationReviews")
+        .withIndex("by_application", (q) => q.eq("applicationId", applicant.applicationId))
+        .unique();
+      if (!review) throw new Error("Expected review row from seedApplicant");
+      await ctx.db.patch(review._id, { status: "accepted", reviewedBy: staff.adminId, completedAt: Date.now() });
+      await ctx.db.insert("participants", {
+        applicationId: applicant.applicationId,
+        authUserId: applicant.userId,
+        acceptedAt: 1,
+        acceptedBy: staff.adminId,
+        qrCodeToken: "HACKUTA-BADGE-0001",
+        badgeQrCodeToken: "HACKUTA-BADGE-0001",
+        registrationQrCodeToken: "f".repeat(64),
+        badgeAssignedAt: 2,
+        badgeAssignedBy: staff.adminId,
+        checkedInAt: 2,
+        createdAt: 1,
+        updatedAt: 2,
+      });
+    });
+
+    const dashboard = await t
+      .withIdentity({ subject: applicant.userId, email: "badged@example.com" })
+      .query(getMyParticipantDashboardRef, {});
+    expect(dashboard?.participant).toEqual({ qrCodeToken: null, hasBadge: true, acceptedAt: 1 });
+    expect(JSON.stringify(dashboard)).not.toMatch(/HACKUTA-BADGE-0001|ffffffff/);
+  });
+
   it("returns submitted application sections from the dedicated submission query", async () => {
     const t = createConvexTest();
     const applicant = await seedApplicant(t, {

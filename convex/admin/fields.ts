@@ -39,6 +39,8 @@ export const volunteerActionLogAction = v.union(
   v.literal("admin_adjust"),
   v.literal("shop_purchase"),
   v.literal("shop_refund"),
+  v.literal("badge_assigned"),
+  v.literal("badge_replaced"),
 );
 
 /** Admin-only staff, event, and meal configuration audit on `staffConfigLogs.action`. */
