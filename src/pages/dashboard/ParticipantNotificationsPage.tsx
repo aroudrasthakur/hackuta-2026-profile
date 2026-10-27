@@ -1,12 +1,14 @@
+import { ParticipantPageHeader } from "../../components/participant/ParticipantPageHeader";
 import { PARTICIPANT_NOTIFICATIONS } from "../../constants/participantNotifications";
 
 export default function ParticipantNotificationsPage() {
   return (
     <section className="participant-notifications" aria-labelledby="participant-notifications-title">
-      <h1 id="participant-notifications-title" className="participant-page-title">
-        Notifications
-      </h1>
-      <p className="participant-page-lead">Updates from the HackUTA team about the event.</p>
+      <ParticipantPageHeader
+        id="participant-notifications-title"
+        title="Notifications"
+        description="Updates from the HackUTA team about the event."
+      />
       <ul className="participant-notifications__list">
         {PARTICIPANT_NOTIFICATIONS.map((item) => (
           <li key={item.id}>

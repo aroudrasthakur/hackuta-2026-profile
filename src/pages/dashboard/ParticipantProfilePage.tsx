@@ -5,6 +5,7 @@ import { SignOutButton } from "../../components/SignOutButton";
 import type { ParticipantDashboard } from "../../convex/api";
 import { useMockAuth } from "../../hooks/useMockAuth";
 import { participantSignOutButton } from "./dashboardStyles";
+import { ParticipantPageHeader } from "../../components/participant/ParticipantPageHeader";
 import { NavScanIcon, NavSettingsIcon } from "../../components/participant/ParticipantNavIcons";
 import { ParticipantAvatar } from "../../components/participant/ParticipantAvatar";
 
@@ -38,13 +39,16 @@ export default function ParticipantProfilePage() {
 
   return (
     <section className="participant-profile" aria-labelledby="participant-profile-title">
+      <ParticipantPageHeader
+        id="participant-profile-title"
+        title="Profile"
+        description="Your account, application, and event settings."
+      />
       <header className="participant-profile__hero">
         <div className="participant-profile__hero-row">
           <div className="participant-profile__identity-block">
             <ParticipantAvatar displayName={data.profile.displayName} size="profile" />
-            <h1 id="participant-profile-title" className="participant-profile__name">
-              {data.profile.displayName}
-            </h1>
+            <h2 className="participant-profile__name">{data.profile.displayName}</h2>
             {data.profile.email ? <p className="participant-profile__email">{data.profile.email}</p> : null}
           </div>
           <nav className="participant-profile__shortcuts" aria-label="Quick links">

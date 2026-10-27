@@ -1,4 +1,5 @@
 import { Link, useOutletContext } from "react-router-dom";
+import { ParticipantPageHeader } from "../../components/participant/ParticipantPageHeader";
 import { ResumePreviewDialog } from "../../components/resume/ResumePreviewDialog";
 import type { ParticipantDashboard, SubmittedApplication } from "../../convex/api";
 import { useMockAuth } from "../../hooks/useMockAuth";
@@ -62,14 +63,16 @@ export default function ParticipantApplicationPage() {
 
   return (
     <section className="participant-application" aria-labelledby="participant-application-title">
-      <header className="participant-application__head">
-        <Link to="/dashboard" className="participant-application__back">
-          ← Back
-        </Link>
-        <h1 id="participant-application-title" className="participant-page-title">
-          Your submission
-        </h1>
-      </header>
+      <ParticipantPageHeader
+        id="participant-application-title"
+        title="Your submission"
+        description="Review the answers you sent with your HackUTA application."
+        actions={
+          <Link to="/dashboard" className="participant-application__back">
+            ← Back
+          </Link>
+        }
+      />
 
       {sections.length === 0 ? (
         <p className="participant-application__empty" role="status">

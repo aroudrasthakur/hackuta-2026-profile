@@ -1,3 +1,5 @@
+import { OliveBranch } from "../../components/art/OliveBranch";
+import { ParticipantPageHeader } from "../../components/participant/ParticipantPageHeader";
 import type { LeaderboardEntry, PointsLeaderboard } from "../../convex/api";
 import { usePointsLeaderboard } from "./usePointsLeaderboard";
 
@@ -86,8 +88,8 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
 
   return (
     <ol className="participant-leaderboard__podium" aria-label="Top three">
-      <PodiumCard entry={first} place={1} />
       {second ? <PodiumCard entry={second} place={2} /> : null}
+      <PodiumCard entry={first} place={1} />
       {third ? <PodiumCard entry={third} place={3} /> : null}
     </ol>
   );
@@ -133,44 +135,90 @@ function LeaderboardSkeleton() {
   );
 }
 
+function LeaderboardAtmosphere() {
+  return (
+    <div className="participant-leaderboard__atmosphere" aria-hidden="true">
+      <div className="participant-leaderboard__sky" />
+      <img
+        className="participant-leaderboard__scene participant-leaderboard__scene--pillar participant-leaderboard__scene--left"
+        src="/images/landing/pillars-clear.webp"
+        alt=""
+        width={320}
+        height={480}
+        decoding="async"
+      />
+      <img
+        className="participant-leaderboard__scene participant-leaderboard__scene--pillar participant-leaderboard__scene--right"
+        src="/images/landing/pillars-clear.webp"
+        alt=""
+        width={320}
+        height={480}
+        decoding="async"
+      />
+      <img
+        className="participant-leaderboard__scene participant-leaderboard__scene--temple"
+        src="/images/landing/temple-clear.webp"
+        alt=""
+        width={640}
+        height={360}
+        decoding="async"
+      />
+      <img
+        className="participant-leaderboard__scene participant-leaderboard__scene--ground"
+        src="/images/landing/ground-clear.webp"
+        alt=""
+        width={800}
+        height={200}
+        decoding="async"
+      />
+      <OliveBranch className="participant-leaderboard__laurel participant-leaderboard__laurel--left" />
+      <OliveBranch className="participant-leaderboard__laurel participant-leaderboard__laurel--right" />
+    </div>
+  );
+}
+
 export default function ParticipantLeaderboardPage() {
   const { loading, data } = usePointsLeaderboard();
 
   return (
-    <section className="participant-leaderboard" aria-labelledby="participant-leaderboard-title">
-      <header>
-        <h1 id="participant-leaderboard-title" className="participant-page-title">
-          Leaderboard
-        </h1>
-        <p className="participant-page-lead">
-          Top 10 participants by points. Rankings update live as events and adjustments come in.
-        </p>
-      </header>
+    <section className="participant-leaderboard participant-leaderboard--immersive" aria-labelledby="participant-leaderboard-title">
+      <ParticipantPageHeader
+        id="participant-leaderboard-title"
+        title="Leaderboard"
+        description="Top 10 participants by points. Rankings update live as events and adjustments come in."
+      />
 
-      {loading ? (
-        <>
-          <p className="sr-only" role="status">Loading leaderboard…</p>
-          <LeaderboardSkeleton />
-        </>
-      ) : data === null ? (
-        <p role="alert" className="participant-leaderboard__empty">
-          We could not load the leaderboard. Try signing in again.
-        </p>
-      ) : (
-        <>
-          <YourRankCard you={data.you} />
-          {data.entries.length === 0 ? (
-            <p role="status" className="participant-leaderboard__empty">
-              No one has earned points yet. Check back after the first event awards.
+      <div className="participant-leaderboard__stage">
+        <LeaderboardAtmosphere />
+        <div className="participant-leaderboard__body">
+          {loading ? (
+            <>
+              <p className="sr-only" role="status">
+                Loading leaderboard…
+              </p>
+              <LeaderboardSkeleton />
+            </>
+          ) : data === null ? (
+            <p role="alert" className="participant-leaderboard__empty">
+              We could not load the leaderboard. Try signing in again.
             </p>
           ) : (
             <>
-              <Podium entries={data.entries} />
-              <RankList entries={data.entries} />
+              <YourRankCard you={data.you} />
+              {data.entries.length === 0 ? (
+                <p role="status" className="participant-leaderboard__empty">
+                  No one has earned points yet. Check back after the first event awards.
+                </p>
+              ) : (
+                <>
+                  <Podium entries={data.entries} />
+                  <RankList entries={data.entries} />
+                </>
+              )}
             </>
           )}
-        </>
-      )}
+        </div>
+      </div>
     </section>
   );
 }

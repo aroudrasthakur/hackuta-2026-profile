@@ -1,4 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from "react";
+import { ParticipantPageHeader } from "./ParticipantPageHeader";
 import { WEEKEND_SCHEDULE_DAYS, WEEKEND_SCHEDULE_WHEN } from "../../../shared/admin/weekendSchedule";
 
 const dayAnchors = WEEKEND_SCHEDULE_DAYS.map((day) => Date.parse(`${day.isoDate}T12:00:00`));
@@ -51,12 +52,11 @@ export function ParticipantSchedulePanel() {
   return (
     <section className="participant-schedule" aria-labelledby="participant-schedule-title">
       <div className="participant-schedule__inner">
-        <header className="participant-schedule__intro">
-          <h1 id="participant-schedule-title" className="participant-schedule__title">
-            Schedule
-          </h1>
-          <p className="participant-schedule__when">{WEEKEND_SCHEDULE_WHEN}</p>
-        </header>
+        <ParticipantPageHeader
+          id="participant-schedule-title"
+          title="Schedule"
+          description={WEEKEND_SCHEDULE_WHEN}
+        />
 
         <div className="participant-schedule__tablist" role="tablist" aria-label="Schedule days">
           {WEEKEND_SCHEDULE_DAYS.map((day, index) => (

@@ -1,4 +1,5 @@
 import { Link, useOutletContext } from "react-router-dom";
+import { ParticipantPageHeader } from "../../components/participant/ParticipantPageHeader";
 import type { ParticipantDashboard } from "../../convex/api";
 import { ImportantLinksGrid } from "../../components/participant/ImportantLinksGrid";
 import { REGISTER_URL } from "../../constants/site";
@@ -30,9 +31,11 @@ export default function ParticipantHomePage() {
 
   return (
     <>
-      <header className="participant-dashboard__header">
-        <h1 className="participant-dashboard__title">Welcome back, {data.profile.displayName}</h1>
-      </header>
+      <ParticipantPageHeader
+        id="participant-home-title"
+        title={`Welcome back, ${data.profile.displayName}`}
+        description="Your HackUTA hub for check-in, schedule, and event updates."
+      />
 
       {submitted ? (
         <Link to="/dashboard/application" className="participant-dashboard__banner participant-dashboard__banner--link">
