@@ -56,9 +56,9 @@ function linkIcon(id: string) {
   }
 }
 
-export function ImportantLinksGrid() {
+export function ImportantLinksGrid({ variant = "dark" }: { variant?: "dark" | "portal" }) {
   return (
-    <ul className="participant-link-grid">
+    <ul className={`participant-link-grid${variant === "portal" ? " participant-link-grid--portal" : ""}`}>
       {PARTICIPANT_IMPORTANT_LINKS.map((link) => (
         <li key={link.id}>
           <a
