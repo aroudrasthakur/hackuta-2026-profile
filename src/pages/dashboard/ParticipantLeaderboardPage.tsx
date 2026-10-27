@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import { OliveBranch } from "../../components/art/OliveBranch";
 import { ParticipantPageHeader } from "../../components/participant/ParticipantPageHeader";
 import type { LeaderboardEntry, PointsLeaderboard } from "../../convex/api";
 import { profileInitials } from "../../lib/participantDisplay";
@@ -7,7 +6,11 @@ import { usePointsLeaderboard } from "./usePointsLeaderboard";
 
 type Place = 1 | 2 | 3;
 
-const PLACE_TONE: Record<Place, "gold" | "silver" | "bronze"> = { 1: "gold", 2: "silver", 3: "bronze" };
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+
+function roman(rank: number) {
+  return ROMAN[rank] ?? String(rank);
+}
 
 function formatPoints(points: number) {
   return points.toLocaleString("en-US");
@@ -40,6 +43,9 @@ function YourRankCard({ you, entries }: { you: PointsLeaderboard["you"]; entries
 
   return (
     <aside className="participant-leaderboard__you" aria-labelledby="participant-leaderboard-you-title">
+      <span className="participant-leaderboard__numeral participant-leaderboard__numeral--lg" aria-hidden="true">
+        {ranked ? roman(rank) : "—"}
+      </span>
       <div className="participant-leaderboard__you-text">
         <h2 id="participant-leaderboard-you-title" className="participant-leaderboard__you-label">
           Your ranking
@@ -72,22 +78,15 @@ function YourRankCard({ you, entries }: { you: PointsLeaderboard["you"]; entries
 }
 
 function PodiumSpot({ entry, place }: { entry: LeaderboardEntry; place: Place }) {
-  const tone = PLACE_TONE[place];
   return (
     <li
-      className={`participant-leaderboard__spot participant-leaderboard__spot--${tone}${entry.isYou ? " participant-leaderboard__spot--you" : ""}`}
+      className={`participant-leaderboard__spot participant-leaderboard__spot--${place}${entry.isYou ? " participant-leaderboard__spot--you" : ""}`}
       aria-current={entry.isYou ? "true" : undefined}
     >
       <div className="participant-leaderboard__honoree">
-        <div className="participant-leaderboard__crest" aria-hidden="true">
-          {place === 1 ? (
-            <>
-              <OliveBranch className="participant-leaderboard__wreath participant-leaderboard__wreath--left" />
-              <OliveBranch className="participant-leaderboard__wreath participant-leaderboard__wreath--right" />
-            </>
-          ) : null}
-          <span className="participant-leaderboard__initials">{profileInitials(entry.name)}</span>
-        </div>
+        <span className="participant-leaderboard__initials" aria-hidden="true">
+          {profileInitials(entry.name)}
+        </span>
         <p className="participant-leaderboard__podium-name">
           {entry.name}
           {entry.isYou ? <YouTag /> : null}
@@ -95,7 +94,10 @@ function PodiumSpot({ entry, place }: { entry: LeaderboardEntry; place: Place })
         <p className="participant-leaderboard__podium-points">{formatPoints(entry.points)} pts</p>
       </div>
       <div className="participant-leaderboard__plinth">
-        <span className="participant-leaderboard__plinth-rank">{ordinal(entry.rank)}</span>
+        <span className="participant-leaderboard__numeral" aria-hidden="true">
+          {roman(place)}
+        </span>
+        <span className="participant-leaderboard__plinth-label">{ordinal(entry.rank)}</span>
       </div>
     </li>
   );
@@ -119,30 +121,41 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
 function RankList({ entries }: { entries: LeaderboardEntry[] }) {
   const rest = entries.filter((entry) => entry.rank >= 4);
   const firstRest = rest[0];
+  const lastRest = rest[rest.length - 1];
   const leaderPoints = entries[0]?.points ?? 0;
-  if (!firstRest) return null;
+  if (!firstRest || !lastRest) return null;
 
   return (
-    <ol className="participant-leaderboard__list" start={firstRest.rank} aria-label="Ranks 4 through 10">
-      {rest.map((entry) => (
-        <li
-          key={entry.rank}
-          className={`participant-leaderboard__row${entry.isYou ? " participant-leaderboard__row--you" : ""}`}
-          aria-current={entry.isYou ? "true" : undefined}
-          style={{ "--share": leaderPoints > 0 ? entry.points / leaderPoints : 0 } as CSSProperties}
-        >
-          <span className="participant-leaderboard__row-rank">{entry.rank}</span>
-          <span className="participant-leaderboard__row-main">
-            <span className="participant-leaderboard__row-name">
-              {entry.name}
-              {entry.isYou ? <YouTag /> : null}
+    <div className="participant-leaderboard__panel">
+      <div className="participant-leaderboard__panel-head">
+        <h2>The contenders</h2>
+        <p>
+          Ranks {roman(firstRest.rank)}–{roman(lastRest.rank)}
+        </p>
+      </div>
+      <ol className="participant-leaderboard__list" start={firstRest.rank} aria-label="Ranks 4 through 10">
+        {rest.map((entry) => (
+          <li
+            key={entry.rank}
+            className={`participant-leaderboard__row${entry.isYou ? " participant-leaderboard__row--you" : ""}`}
+            aria-current={entry.isYou ? "true" : undefined}
+            style={{ "--share": leaderPoints > 0 ? entry.points / leaderPoints : 0 } as CSSProperties}
+          >
+            <span className="participant-leaderboard__numeral participant-leaderboard__row-rank">
+              {entry.rank}
             </span>
-            <span className="participant-leaderboard__row-bar" aria-hidden="true" />
-          </span>
-          <span className="participant-leaderboard__row-points">{formatPoints(entry.points)} pts</span>
-        </li>
-      ))}
-    </ol>
+            <span className="participant-leaderboard__row-main">
+              <span className="participant-leaderboard__row-name">
+                {entry.name}
+                {entry.isYou ? <YouTag /> : null}
+              </span>
+              <span className="participant-leaderboard__row-bar" aria-hidden="true" />
+            </span>
+            <span className="participant-leaderboard__row-points">{formatPoints(entry.points)} pts</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -150,11 +163,7 @@ function LeaderboardSkeleton() {
   return (
     <div className="participant-leaderboard__skeleton" aria-hidden="true">
       <div className="participant-leaderboard__you participant-leaderboard__pulse" />
-      <div className="participant-leaderboard__list">
-        {Array.from({ length: 5 }, (_, index) => (
-          <div key={index} className="participant-leaderboard__row participant-leaderboard__pulse" />
-        ))}
-      </div>
+      <div className="participant-leaderboard__panel participant-leaderboard__pulse" />
     </div>
   );
 }
@@ -190,7 +199,7 @@ export default function ParticipantLeaderboardPage() {
             </p>
           ) : (
             <>
-              <div className="participant-leaderboard__arena">
+              <div className="participant-leaderboard__panel participant-leaderboard__arena">
                 <img
                   className="participant-leaderboard__temple"
                   src="/images/landing/temple-clear.webp"
