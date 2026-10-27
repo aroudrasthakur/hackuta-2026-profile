@@ -155,7 +155,17 @@ export default defineSchema({
     authUserId: v.id("users"),
     acceptedAt: v.number(),
     acceptedBy: v.id("admins"),
+    /**
+     * The one active scan identity, looked up through `by_qr_token`. Holds the
+     * registration token until check-in assigns a badge, then the badge value.
+     */
     qrCodeToken: v.string(),
+    /** Registration token kept for history after a badge replaces it. Never scannable. */
+    registrationQrCodeToken: v.optional(v.string()),
+    /** Preprinted badge value; equals `qrCodeToken` while assigned. */
+    badgeQrCodeToken: v.optional(v.string()),
+    badgeAssignedAt: v.optional(v.number()),
+    badgeAssignedBy: v.optional(v.id("admins")),
     foodRestriction: v.optional(v.string()),
     checkedInAt: v.optional(v.number()),
     /** Legacy single-use food timestamp; preserved when meal redemptions replace food check-in. */
@@ -167,7 +177,20 @@ export default defineSchema({
   })
     .index("by_application", ["applicationId"])
     .index("by_auth_user", ["authUserId"])
-    .index("by_qr_token", ["qrCodeToken"]),
+    .index("by_qr_token", ["qrCodeToken"])
+    .index("by_registration_qr_token", ["registrationQrCodeToken"])
+    .index("by_badge_qr_token", ["badgeQrCodeToken"]),
+
+  /**
+   * Badges an admin took out of service. Only a SHA-256 hash is stored, so a
+   * lost or damaged badge can never be scanned or assigned again.
+   */
+  retiredBadgeTokens: defineTable({
+    tokenHash: v.string(),
+    participantId: v.id("participants"),
+    retiredBy: v.id("admins"),
+    retiredAt: v.number(),
+  }).index("by_token_hash", ["tokenHash"]),
 
   /**
    * Configurable serving windows, stored as Unix timestamps in milliseconds.

@@ -3,8 +3,8 @@
  * `canRedeemShop === true`. See [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md).
  *
  * Catalog, customer, and preview queries are display only. `purchaseShopItem`
- * re-runs every check, works out the price itself, and needs the scanned QR
- * token again, so a participant id alone can never be charged.
+ * re-runs every check, works out the price itself, and needs the scanned
+ * badge QR again, so a participant id alone can never be charged.
  *
  * Like the other scan mutations, purchase outcomes after the throttle row are
  * returned, not thrown, so the rate-limit rows are kept. Session and
@@ -25,12 +25,8 @@ import { computeLedgerPoints, isParticipantEligible } from "./pointsLedger";
 import { participantBalance, purchaseReceipt, recordPurchase } from "./shopLedger";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
 import { requireVolunteerCapability, sessionTokenArgs } from "./staffAuth";
-import { findParticipantByQrToken } from "./volunteerScan";
-import {
-  isVolunteerScanThrottled,
-  recordVolunteerScanAttempt,
-  recordVolunteerScanFailure,
-} from "./volunteerScanRateLimit";
+import { badgeHolderForScan } from "./volunteerScan";
+import { isVolunteerScanThrottled, recordVolunteerScanAttempt } from "./volunteerScanRateLimit";
 
 /** Most active items the volunteer catalog returns. */
 export const MAX_CATALOG_ITEMS = 200;
@@ -147,8 +143,10 @@ export const previewShopPurchase = query({
  * with a receipt), `price_changed` (with the new price; nothing written),
  * `insufficient_points`, `insufficient_stock`, `item_unavailable`,
  * `invalid_quantity`, `invalid_request` (bad or reused key),
- * `participant_not_eligible`, `self_purchase_denied`, `qr_not_found`, and
- * `rate_limited`.
+ * `participant_not_eligible`, `self_purchase_denied`, the badge statuses
+ * from `resolveQrForScan` (`qr_not_found`, `registration_qr_replaced`,
+ * `badge_retired`, `participant_not_checked_in`, `badge_not_assigned`), and
+ * `rate_limited`. Only an assigned badge QR identifies the buyer.
  *
  * Reusing `idempotencyKey` for the same participant, item, and quantity
  * returns the first receipt and charges nothing.
@@ -169,11 +167,9 @@ export const purchaseShopItem = mutation({
     await recordVolunteerScanAttempt(ctx, volunteer._id, now);
 
     if (!isValidIdempotencyKey(idempotencyKey)) return { status: "invalid_request" as const };
-    const participant = await findParticipantByQrToken(ctx, qrCodeToken);
-    if (!participant) {
-      await recordVolunteerScanFailure(ctx, volunteer._id, now);
-      return { status: "qr_not_found" as const };
-    }
+    const found = await badgeHolderForScan(ctx, volunteer._id, now, qrCodeToken);
+    if ("failure" in found) return found.failure;
+    const { participant } = found;
 
     const existing = await ctx.db.query("shopRedemptions")
       .withIndex("by_idempotency_key", (q) => q.eq("idempotencyKey", idempotencyKey))

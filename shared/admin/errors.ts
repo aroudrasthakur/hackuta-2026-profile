@@ -70,6 +70,13 @@ export const ADMIN_ERROR_MESSAGES = {
   FLASH_SALE_NOT_EDITABLE: "This sale has already started, ended, or been cancelled.",
   REDEMPTION_NOT_FOUND: "We couldn't find that purchase.",
   REDEMPTION_ALREADY_REFUNDED: "This purchase has already been refunded.",
+  PARTICIPANT_NOT_CHECKED_IN: "This participant hasn't checked in yet. Badges are assigned at the check-in desk.",
+  INVALID_BADGE: "That doesn't look like a badge QR code. Scan the code printed on the badge.",
+  BADGE_IS_REGISTRATION: "That's a registration QR code, not a badge. Scan the code printed on the badge.",
+  BADGE_IN_USE: "That badge is already assigned to a participant. Use a different badge.",
+  BADGE_RETIRED: "That badge was taken out of service and can't be used again. Use a different badge.",
+  BADGE_ASSIGNMENT_CHANGED: "This participant's badge changed while you were editing. Review the latest details and try again.",
+  INVALID_BADGE_REASON: "Enter a reason for the badge change (up to 200 characters).",
 } as const;
 
 export type AdminErrorCode = keyof typeof ADMIN_ERROR_MESSAGES;

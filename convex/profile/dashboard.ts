@@ -72,6 +72,7 @@ export const getMyParticipantDashboard = query({
           }
         : null,
       reviewStatus,
+      // After badge check-in, `qrCodeToken` on the row is the badge value; participantPortalView never returns it.
       participant: visibleParticipant ? participantPortalView(visibleParticipant) : null,
       hackathon: {
         name: hackathonName,

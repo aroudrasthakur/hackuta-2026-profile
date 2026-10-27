@@ -52,8 +52,9 @@ export const createVolunteer = mutation({
     email: v.string(),
     name: v.string(),
     password: v.string(),
-    canCheckIn: v.boolean(),
-    canFoodCheckIn: v.boolean(),
+    /** Omitted means denied; new volunteers normally start with no access. */
+    canCheckIn: v.optional(v.boolean()),
+    canFoodCheckIn: v.optional(v.boolean()),
   },
   returns: createdResult,
   handler: async (ctx, { sessionToken, email, name, password, canCheckIn, canFoodCheckIn }) => {
@@ -62,7 +63,8 @@ export const createVolunteer = mutation({
     validatePasswordRequirements(password);
     const normalizedEmail = await requireAvailableStaffEmail(ctx, email);
     return insertVolunteer(ctx, actor._id, {
-      email: normalizedEmail, name: normalizedName, password, canCheckIn, canFoodCheckIn,
+      email: normalizedEmail, name: normalizedName, password,
+      canCheckIn: canCheckIn === true, canFoodCheckIn: canFoodCheckIn === true,
     });
   },
 });
@@ -165,15 +167,25 @@ export const restoreVolunteer = volunteerActiveMutation(true);
 
 /** Sets both capabilities explicitly. Guards re-read them on every request, so changes apply immediately. */
 export const setVolunteerCapabilities = mutation({
-  args: { ...volunteerArgs, canCheckIn: v.boolean(), canFoodCheckIn: v.boolean() },
+  args: {
+    ...volunteerArgs,
+    canCheckIn: v.boolean(),
+    canFoodCheckIn: v.boolean(),
+    /** Omitted leaves shop access unchanged (it can also be set with `setVolunteerShopAccess`). */
+    canRedeemShop: v.optional(v.boolean()),
+  },
   returns: v.object({ ok: v.literal(true), changed: v.boolean() }),
-  handler: async (ctx, { sessionToken, volunteerAdminId, canCheckIn, canFoodCheckIn }) => {
+  handler: async (ctx, { sessionToken, volunteerAdminId, canCheckIn, canFoodCheckIn, canRedeemShop }) => {
     const actor = await requireAdminRole(ctx, sessionToken);
     const volunteer = await requireVolunteerAccount(ctx, volunteerAdminId);
     const current = volunteerCapabilities(volunteer);
-    // Shop access has its own mutation (`setVolunteerShopAccess`).
-    const before = { canCheckIn: current.canCheckIn, canFoodCheckIn: current.canFoodCheckIn };
-    const after = { canCheckIn, canFoodCheckIn };
+    const before: { canCheckIn: boolean; canFoodCheckIn: boolean; canRedeemShop?: boolean } =
+      { canCheckIn: current.canCheckIn, canFoodCheckIn: current.canFoodCheckIn };
+    const after: typeof before = { canCheckIn, canFoodCheckIn };
+    if (canRedeemShop !== undefined) {
+      before.canRedeemShop = current.canRedeemShop;
+      after.canRedeemShop = canRedeemShop;
+    }
     const changedFields = (Object.keys(after) as Array<keyof typeof after>)
       .filter((key) => before[key] !== after[key]);
     if (changedFields.length === 0) return { ok: true as const, changed: false };
@@ -247,6 +259,9 @@ export const setVolunteerEventAccess = mutation({
  * Volunteer scan and point-adjustment history, newest first. The most
  * selective filter picks the index; the rest are applied to that range.
  */
+/** Actions whose admin-entered reason is shown in the activity log. */
+const REASON_ACTIONS = new Set<string>(["admin_adjust", "badge_assigned", "badge_replaced"]);
+
 export const listVolunteerActionLogs = query({
   args: {
     ...sessionTokenArgs,
@@ -296,7 +311,7 @@ export const listVolunteerActionLogs = query({
         participant: { participantId: log.participantId, name: await names.participantName(log.participantId) },
         event: log.eventId ? { eventId: log.eventId, name: await names.eventName(log.eventId) } : null,
         pointsDelta: log.pointsDelta ?? null,
-        reason: log.action === "admin_adjust" ? (log.reason ?? null) : null,
+        reason: REASON_ACTIONS.has(log.action) ? (log.reason ?? null) : null,
         createdAt: log.createdAt,
       });
     }

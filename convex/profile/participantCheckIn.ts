@@ -1,6 +1,6 @@
 /**
- * Check-in completes when a volunteer scans the registration QR
- * (`checkInParticipant` sets `checkedInAt`). Badge replacement never clears it.
+ * Check-in completes when a volunteer assigns a badge (`checkInWithBadge` sets
+ * `checkedInAt`). Badge replacement never clears it.
  */
 export function isParticipantCheckedIn<T extends { checkedInAt?: number }>(
   participant: T,

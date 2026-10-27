@@ -4,8 +4,12 @@
  * [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md).
  *
  * `resolveQrForScan` is a **preview only**. It changes no participant, award,
- * or log rows. Check-in, food, and point-award mutations must re-run every
- * guard and eligibility check themselves; never trust a preview result.
+ * or log rows. Food, point-award, and shop mutations must re-run every guard
+ * and eligibility check themselves; never trust a preview result.
+ *
+ * These workflows run after check-in and accept only an assigned badge QR. A
+ * registration QR is rejected before and after check-in; door check-in has
+ * its own two-scan flow in `badgeCheckIn.ts`.
  *
  * Results after the throttle are returned, not thrown, because a throw rolls
  * back the rate-limit rows. Session failures (`NOT_AUTHENTICATED`,
@@ -15,8 +19,13 @@
 import { v } from "convex/values";
 import type { GenericId } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { formatApplicantFullName } from "../lib/applications";
 import type { MutationCtx } from "../lib/dataModel";
+import {
+  participantName,
+  resolveBadgeHolder,
+  type ParticipantDoc,
+  type PostCheckInFailure,
+} from "./participantQr";
 import { computeLedgerPoints, isParticipantEligible } from "./pointsLedger";
 import { requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
 import {
@@ -25,25 +34,24 @@ import {
   recordVolunteerScanFailure,
 } from "./volunteerScanRateLimit";
 
-const QR_TOKEN_PATTERN = /^[0-9a-f]{64}$/;
-const UNNAMED_PARTICIPANT = "Participant";
-
 type AdminDoc = Awaited<ReturnType<typeof requireVolunteerAccess>>;
-type ScanPurpose = "check_in" | "food_check_in" | "point_scan" | "shop";
+type ScanPurpose = "food_check_in" | "point_scan" | "shop";
 type MealScanArgs = { qrCodeToken: string; mealPeriodId?: GenericId<"mealPeriods"> };
 
-/** 256-bit lowercase hex, matching `createQrCodeToken`. Length is checked before the regex. */
-export function isWellFormedQrToken(token: string) {
-  return token.length === 64 && QR_TOKEN_PATTERN.test(token);
-}
-
-/** Participant for a QR token, or null. Malformed tokens are never looked up. */
-export async function findParticipantByQrToken(ctx: MutationCtx, qrCodeToken: string) {
-  if (!isWellFormedQrToken(qrCodeToken)) return null;
-  return ctx.db
-    .query("participants")
-    .withIndex("by_qr_token", (q) => q.eq("qrCodeToken", qrCodeToken))
-    .first();
+/**
+ * Participant behind an assigned badge, or the failure to return. Unknown,
+ * replaced, and retired codes count toward the failure limit.
+ */
+export async function badgeHolderForScan(
+  ctx: MutationCtx,
+  volunteerId: AdminDoc["_id"],
+  now: number,
+  raw: string,
+): Promise<{ participant: ParticipantDoc } | { failure: { status: PostCheckInFailure } }> {
+  const found = await resolveBadgeHolder(ctx, raw);
+  if ("participant" in found) return { participant: found.participant };
+  if (found.countsAsFailure) await recordVolunteerScanFailure(ctx, volunteerId, now);
+  return { failure: { status: found.failure } };
 }
 
 /**
@@ -97,11 +105,6 @@ async function assignedActiveEvent(
   return event?.active ? event : null;
 }
 
-async function participantName(ctx: MutationCtx, applicationId: GenericId<"applications">) {
-  const application = await ctx.db.get(applicationId);
-  return (application && formatApplicantFullName(application)) ?? UNNAMED_PARTICIPANT;
-}
-
 /**
  * Enabled meal schedules, including future windows so the scanner can follow
  * clock boundaries without depending on a database write or resetting an active
@@ -133,11 +136,9 @@ async function prepareMealScan(ctx: MutationCtx, volunteer: AdminDoc, args: Meal
   }
   // Old clients must select a meal too; there is no single-use eligibility fallback.
   if (!args.mealPeriodId) return { status: "meal_not_active" as const };
-  const participant = await findParticipantByQrToken(ctx, args.qrCodeToken);
-  if (!participant) {
-    await recordVolunteerScanFailure(ctx, volunteer._id, now);
-    return { status: "qr_not_found" as const };
-  }
+  const found = await badgeHolderForScan(ctx, volunteer._id, now, args.qrCodeToken);
+  if ("failure" in found) return { status: found.failure.status };
+  const { participant } = found;
   if (!await isParticipantEligible(ctx, participant)) return { status: "participant_ineligible" as const };
   const meal = await ctx.db.get(args.mealPeriodId);
   if (!meal?.active) return { status: "meal_not_active" as const };
@@ -158,7 +159,7 @@ async function previewMeal(ctx: MutationCtx, volunteer: AdminDoc, args: MealScan
     status: "ok" as const, purpose: "food_check_in" as const,
     meal: { mealPeriodId: meal._id, name: meal.name },
     participant: {
-      name: await participantName(ctx, participant.applicationId),
+      name: await participantName(ctx, participant),
       alreadyRedeemed: redemption !== null, redeemedAt: redemption?.redeemedAt ?? null,
       dietaryInfo: participant.foodRestriction ?? null,
     },
@@ -213,25 +214,21 @@ async function resolveQr(
   args: { qrCodeToken: string; purpose: Exclude<ScanPurpose, "food_check_in">; eventId?: GenericId<"events"> },
   now: number,
 ) {
-  const capabilities = volunteerCapabilities(volunteer);
   let event = null;
-  if (args.purpose === "check_in" && !capabilities.canCheckIn) return null;
-  if (args.purpose === "shop" && !capabilities.canRedeemShop) return null;
+  if (args.purpose === "shop" && !volunteerCapabilities(volunteer).canRedeemShop) return null;
   if (args.purpose === "point_scan") {
     event = await assignedActiveEvent(ctx, volunteer, args.eventId);
     if (!event) return null;
   }
 
-  const participant = await findParticipantByQrToken(ctx, args.qrCodeToken);
-  if (!participant) {
-    await recordVolunteerScanFailure(ctx, volunteer._id, now);
-    return { status: "qr_not_found" as const };
-  }
+  const found = await badgeHolderForScan(ctx, volunteer._id, now, args.qrCodeToken);
+  if ("failure" in found) return found.failure;
+  const { participant } = found;
   if (!await isParticipantEligible(ctx, participant)) {
     return { status: "participant_not_eligible" as const };
   }
 
-  const name = await participantName(ctx, participant.applicationId);
+  const name = await participantName(ctx, participant);
   if (event) {
     const eventId = event._id;
     const award = await ctx.db
@@ -248,43 +245,35 @@ async function resolveQr(
       alreadyAwarded: award !== null,
     };
   }
-  if (args.purpose === "shop") {
-    if (volunteer.participantId === participant._id) return { status: "self_purchase_denied" as const };
-    return {
-      status: "ok" as const,
-      purpose: "shop" as const,
-      participant: {
-        participantId: participant._id,
-        name,
-        points: participant.points ?? await computeLedgerPoints(ctx, participant._id),
-      },
-    };
-  }
+  if (volunteer.participantId === participant._id) return { status: "self_purchase_denied" as const };
   return {
     status: "ok" as const,
-    purpose: "check_in" as const,
+    purpose: "shop" as const,
     participant: {
+      participantId: participant._id,
       name,
-      checkedIn: participant.checkedInAt !== undefined,
-      checkedInAt: participant.checkedInAt ?? null,
+      points: participant.points ?? await computeLedgerPoints(ctx, participant._id),
     },
   };
 }
 
 /**
- * Previews a scanned QR code for one purpose. Mutation (not query) so every
- * attempt is counted. Statuses: `ok`, `qr_not_found` (missing and malformed
- * tokens look identical), `participant_not_eligible`, `not_authorized`
- * (missing capability or event access, or point scan without `eventId`),
+ * Previews a scanned badge QR for one purpose. Mutation (not query) so every
+ * attempt is counted. Statuses: `ok`; `qr_not_found` (missing and malformed
+ * values look identical); `registration_qr_replaced` and `badge_retired`
+ * (codes that no longer work); `participant_not_checked_in` and
+ * `badge_not_assigned` (a registration QR, before check-in or for a legacy
+ * check-in without a badge); `participant_not_eligible`; `not_authorized`
+ * (missing capability or event access, or point scan without `eventId`);
  * `self_purchase_denied` (shop scan of the volunteer's own participant
- * record), and `rate_limited`. A shop preview returns the participant id
+ * record); and `rate_limited`. A shop preview returns the participant id
  * and balance for the purchase screens.
  */
 export const resolveQrForScan = mutation({
   args: {
     ...sessionTokenArgs,
     qrCodeToken: v.string(),
-    purpose: v.union(v.literal("check_in"), v.literal("food_check_in"), v.literal("point_scan"), v.literal("shop")),
+    purpose: v.union(v.literal("food_check_in"), v.literal("point_scan"), v.literal("shop")),
     eventId: v.optional(v.id("events")),
     mealPeriodId: v.optional(v.id("mealPeriods")),
   },

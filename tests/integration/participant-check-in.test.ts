@@ -5,12 +5,12 @@ import { createConvexTest, type ConvexTestInstance } from "../helpers/convexTest
 import { seedApplicant, seedStaff } from "../helpers/reviewTestKit";
 import { insertStaffSession } from "../helpers/staffTestFixtures";
 
-/** The same mutation and args a volunteer's phone sends after scanning a registration QR. */
-const checkInParticipantRef = makeFunctionReference<
+/** The same mutation and args a volunteer's phone sends after scanning registration and badge QRs. */
+const checkInWithBadgeRef = makeFunctionReference<
   "mutation",
-  { sessionToken: string; qrCodeToken: string },
+  { sessionToken: string; registrationQrCodeToken: string; badgeQrCodeToken: string },
   { status: string; checkedInAt?: number }
->("admin/volunteerOperations:checkInParticipant");
+>("admin/badgeCheckIn:checkInWithBadge");
 
 async function seedAcceptedParticipant(t: ConvexTestInstance, email: string, qrCodeToken: string) {
   const applicant = await seedApplicant(t, { email, submitted: true });
@@ -61,6 +61,11 @@ async function seedVolunteerSession(
 
 const TOKEN_A = "a1".repeat(32);
 const TOKEN_B = "b2".repeat(32);
+const BADGE_A = "HACKUTA-BADGE-0001";
+
+function checkIn(sessionToken: string, registrationQrCodeToken: string, badgeQrCodeToken: string) {
+  return { sessionToken, registrationQrCodeToken, badgeQrCodeToken };
+}
 
 describe("participant dashboard after volunteer check-in", () => {
   it("returns the registration QR token before check-in", async () => {
@@ -80,7 +85,7 @@ describe("participant dashboard after volunteer check-in", () => {
     const asParticipant = await seedAcceptedParticipant(t, "scanned@example.com", TOKEN_A);
     const sessionToken = await seedVolunteerSession(t, "f".repeat(64), true);
 
-    const result = await t.mutation(checkInParticipantRef, { sessionToken, qrCodeToken: TOKEN_A });
+    const result = await t.mutation(checkInWithBadgeRef, checkIn(sessionToken, TOKEN_A, BADGE_A));
     expect(result.status).toBe("success");
 
     const dashboard = await asParticipant.query(getMyParticipantDashboardRef, {});
@@ -90,7 +95,7 @@ describe("participant dashboard after volunteer check-in", () => {
       checkedInAt: result.checkedInAt,
     });
     expect(dashboard?.participant && "qrCodeToken" in dashboard.participant).toBe(false);
-    expect(JSON.stringify(dashboard)).not.toContain(TOKEN_A);
+    expect(JSON.stringify(dashboard)).not.toMatch(new RegExp(`${TOKEN_A}|${BADGE_A}`));
   });
 
   it("stays checked in after a repeat scan", async () => {
@@ -98,9 +103,11 @@ describe("participant dashboard after volunteer check-in", () => {
     const asParticipant = await seedAcceptedParticipant(t, "repeat@example.com", TOKEN_A);
     const sessionToken = await seedVolunteerSession(t, "f".repeat(64), true);
 
-    const first = await t.mutation(checkInParticipantRef, { sessionToken, qrCodeToken: TOKEN_A });
-    const repeat = await t.mutation(checkInParticipantRef, { sessionToken, qrCodeToken: TOKEN_A });
-    expect(repeat).toEqual({ status: "already_checked_in", checkedInAt: first.checkedInAt });
+    const first = await t.mutation(checkInWithBadgeRef, checkIn(sessionToken, TOKEN_A, BADGE_A));
+    const repeat = await t.mutation(checkInWithBadgeRef, checkIn(sessionToken, TOKEN_A, BADGE_A));
+    expect(first.status).toBe("success");
+    expect(repeat.status).toBe("already_checked_in");
+    expect(repeat.checkedInAt ?? first.checkedInAt).toBe(first.checkedInAt);
 
     const dashboard = await asParticipant.query(getMyParticipantDashboardRef, {});
     expect(dashboard?.participant?.status).toBe("checked_in");
@@ -112,7 +119,7 @@ describe("participant dashboard after volunteer check-in", () => {
     const asParticipant = await seedAcceptedParticipant(t, "denied@example.com", TOKEN_A);
     const sessionToken = await seedVolunteerSession(t, "e".repeat(64), false);
 
-    const result = await t.mutation(checkInParticipantRef, { sessionToken, qrCodeToken: TOKEN_A });
+    const result = await t.mutation(checkInWithBadgeRef, checkIn(sessionToken, TOKEN_A, BADGE_A));
     expect(result.status).toBe("not_authorized");
 
     const dashboard = await asParticipant.query(getMyParticipantDashboardRef, {});
@@ -128,7 +135,7 @@ describe("participant dashboard after volunteer check-in", () => {
     const asWaiting = await seedAcceptedParticipant(t, "two@example.com", TOKEN_B);
     const sessionToken = await seedVolunteerSession(t, "f".repeat(64), true);
 
-    await t.mutation(checkInParticipantRef, { sessionToken, qrCodeToken: TOKEN_A });
+    await t.mutation(checkInWithBadgeRef, checkIn(sessionToken, TOKEN_A, BADGE_A));
 
     const scanned = await asScanned.query(getMyParticipantDashboardRef, {});
     expect(scanned?.participant?.status).toBe("checked_in");
