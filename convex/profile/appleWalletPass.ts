@@ -104,14 +104,27 @@ export function readAppleWalletCredentialsFromEnv(
 }
 
 function formatPassEventWindow(startsAt: number, endsAt: number): string {
-  const formatter = new Intl.DateTimeFormat("en-US", {
+  const partsFormatter = new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
     timeZone: "America/Chicago",
   });
-  const startLabel = formatter.format(new Date(startsAt));
-  const endLabel = formatter.format(new Date(endsAt));
+  const startParts = Object.fromEntries(
+    partsFormatter.formatToParts(new Date(startsAt)).map((p) => [p.type, p.value]),
+  );
+  const endParts = Object.fromEntries(
+    partsFormatter.formatToParts(new Date(endsAt)).map((p) => [p.type, p.value]),
+  );
+  if (
+    startParts.month === endParts.month &&
+    startParts.year === endParts.year &&
+    startParts.day !== endParts.day
+  ) {
+    return `${startParts.month} ${startParts.day}–${endParts.day}, ${startParts.year}`;
+  }
+  const startLabel = partsFormatter.format(new Date(startsAt));
+  const endLabel = partsFormatter.format(new Date(endsAt));
   return startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
 }
 
@@ -201,7 +214,7 @@ export function buildAppleWalletPassJson(
         {
           key: "badge_notice",
           label: "VALIDITY",
-          value: "Replaced by physical badge at check-in",
+          value: "Until badge pickup",
         },
       ],
       backFields: [
