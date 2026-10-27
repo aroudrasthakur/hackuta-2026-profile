@@ -71,8 +71,9 @@ test.describe("participant portal", () => {
 
     await completeCheckIn(page);
 
-    await expect(page.getByRole("heading", { name: "Checked in", exact: true })).toBeVisible();
-    await expect(page.getByRole("status").filter({ hasText: /\d{1,2}:\d{2} [AP]M · \d{2}\/\d{2}/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "You're Checked In!" })).toBeVisible();
+    await expect(page.getByText(/^Checked in \w{3}, \w{3} \d{1,2} · \d{1,2}:\d{2} [AP]M$/)).toBeVisible();
+    await expect(page.getByText("Keep your badge with you.")).toBeVisible();
     await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toHaveCount(0);
     await expect(page.locator(".participant-scan__frame")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toHaveCount(0);
@@ -104,7 +105,7 @@ test.describe("participant portal on mobile", () => {
     await expect(page.getByRole("heading", { name: "You're Checked In!" })).toBeVisible();
     await expect(page.getByText(/^Checked in \w{3}, \w{3} \d{1,2} · \d{1,2}:\d{2} [AP]M$/)).toBeVisible();
     await expect(page.getByText("Keep your badge with you.")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Checked in", exact: true })).toBeHidden();
+    await expect(page.getByRole("heading", { name: "Check-in QR" })).toHaveCount(0);
     await expect(page.locator(".participant-scan__frame")).toHaveCount(0);
   });
 });

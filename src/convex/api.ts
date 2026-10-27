@@ -117,6 +117,24 @@ export const getMyParticipantDashboardRef = makeFunctionReference<
   ParticipantDashboard | null
 >("profile/dashboard:getMyParticipantDashboard");
 
+export type LeaderboardEntry = {
+  rank: number;
+  name: string;
+  points: number;
+  isYou: boolean;
+};
+
+export type PointsLeaderboard = {
+  entries: LeaderboardEntry[];
+  you: { rank: number | null; points: number };
+};
+
+export const getMyPointsLeaderboardRef = makeFunctionReference<
+  "query",
+  Record<string, never>,
+  PointsLeaderboard | null
+>("profile/leaderboard:getMyPointsLeaderboard");
+
 export const getMySubmittedApplicationRef = makeFunctionReference<
   "query",
   Record<string, never>,

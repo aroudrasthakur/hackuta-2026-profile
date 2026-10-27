@@ -80,6 +80,7 @@ All register-owned blocks must remain identical to [`schema.reference.ts`](../sc
 | `checkedInAt` | `number` (optional) | General hackathon door check-in |
 | `foodCheckedInAt` | `number` (optional) | Food line check-in |
 | `points` | `number` (optional, then required) | Cached point balance; new accepts start at `0` |
+| `pointsReachedAt` | `number` (optional) | When the current total was reached; ranking metadata only, never returned to participants |
 | `createdAt` | `number` | Row creation time |
 | `updatedAt` | `number` | Last update time |
 

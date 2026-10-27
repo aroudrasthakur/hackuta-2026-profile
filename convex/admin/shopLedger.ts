@@ -17,7 +17,7 @@ import type { GenericId } from "convex/values";
 import type { DataModel, MutationCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
 import { assertPointBalance } from "../../shared/admin/volunteerRules";
-import { computeLedgerPoints } from "./pointsLedger";
+import { computeLedgerPoints, pointBalancePatch } from "./pointsLedger";
 import type { EffectivePrice } from "./shopPricing";
 
 type AdminId = GenericId<"admins">;
@@ -128,7 +128,7 @@ export async function recordPurchase(
     redemptionId,
     now: args.now,
   });
-  await ctx.db.patch(args.participant._id, { points: pointsAfter, updatedAt: args.now });
+  await ctx.db.patch(args.participant._id, pointBalancePatch(pointsBefore, pointsAfter, args.now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
     participantId: args.participant._id,
@@ -184,7 +184,7 @@ export async function recordRefund(
       now: args.now,
     });
   }
-  await ctx.db.patch(participant._id, { points: newPoints, updatedAt: args.now });
+  await ctx.db.patch(participant._id, pointBalancePatch(previousPoints, newPoints, args.now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
     participantId: participant._id,

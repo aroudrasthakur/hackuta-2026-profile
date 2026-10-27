@@ -8,6 +8,7 @@ Typed `makeFunctionReference` wrappers for Convex queries and mutations. Import 
 | getApplicantRoutingStateRef | applicant:getApplicantRoutingState |
 | getMyApplicantDashboardRef | applications:getMyApplicantDashboard (register app) |
 | getMyParticipantDashboardRef | profile/dashboard:getMyParticipantDashboard (this app) |
+| getMyPointsLeaderboardRef | profile/leaderboard:getMyPointsLeaderboard (this app) |
 | getMyApplicationDraftRef | applications:getMyApplicationDraft |
 | saveApplicationDraftRef | applications:saveApplicationDraft |
 | ensureApplicantApplicationRef | applicant:ensureApplicantApplication |

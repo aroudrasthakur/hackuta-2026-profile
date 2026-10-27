@@ -172,6 +172,11 @@ export default defineSchema({
     foodCheckedInAt: v.optional(v.number()),
     /** Cached balance; optional until backfill, then required in a later deploy. */
     points: v.optional(v.number()),
+    /**
+     * When the current `points` total was reached. Ranking metadata only; never
+     * returned on participant APIs. Unset while the balance is 0.
+     */
+    pointsReachedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -179,7 +184,8 @@ export default defineSchema({
     .index("by_auth_user", ["authUserId"])
     .index("by_qr_token", ["qrCodeToken"])
     .index("by_registration_qr_token", ["registrationQrCodeToken"])
-    .index("by_badge_qr_token", ["badgeQrCodeToken"]),
+    .index("by_badge_qr_token", ["badgeQrCodeToken"])
+    .index("by_points", ["points"]),
 
   /**
    * Badges an admin took out of service. Only a SHA-256 hash is stored, so a

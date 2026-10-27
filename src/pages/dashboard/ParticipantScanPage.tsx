@@ -1,7 +1,7 @@
 import QRCode from "react-qr-code";
 import { Link, useOutletContext } from "react-router-dom";
 import type { ParticipantDashboard } from "../../convex/api";
-import { formatCheckInLong, formatCheckInShort } from "./dashboardUtils";
+import { formatCheckInLong } from "./dashboardUtils";
 
 function BadgeIcon() {
   return (
@@ -14,18 +14,10 @@ function BadgeIcon() {
   );
 }
 
-/**
- * Checked-in state. Desktop shows the compact line; below the mobile breakpoint CSS swaps in
- * the animated card. Both read the same timestamp and never render a QR or token.
- */
+/** Checked-in state: animated confirmation card on every viewport; no QR or token. */
 function CheckedInConfirmation({ checkedInAt }: { checkedInAt: number }) {
   return (
     <div className="participant-checkin">
-      <div className="participant-checkin__compact" role="status">
-        <h1 className="participant-checkin__compact-title">Checked in</h1>
-        <p className="participant-checkin__compact-time">{formatCheckInShort(checkedInAt)}</p>
-      </div>
-
       <section className="participant-checkin__card" role="status" aria-labelledby="participant-checkin-card-title">
         <div className="participant-checkin__badge" aria-hidden="true">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
