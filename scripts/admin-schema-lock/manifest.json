@@ -40,5 +40,5 @@
   "convex/admin/volunteerProvisioning.ts": "800e4bd76aae7410e88144c31f80d1652e48a58c13e396b311e70b9ff55109ad",
   "convex/admin/volunteerScan.ts": "9894045e1591ae34604fa10a40611b7a430282729387e663aa4b7663e3cdb2c6",
   "convex/admin/volunteerScanRateLimit.ts": "40ce43d97c286feb87e169d0a4b6d134ed4b7866fba2ad6ea14d81dc9adb4f13",
-  "convex/admin/volunteers.ts": "8378c06482cb75d8111db22435187e758d5cab67c7e5ac7a613d707359ff5104"
+  "convex/admin/volunteers.ts": "2cd10ae84aa809276bc53de83e1293734661f2da0b2722322f44441cc8095114"
 }

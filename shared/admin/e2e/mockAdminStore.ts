@@ -583,6 +583,7 @@ function volunteerRow(volunteer: StaffRecord) {
     participant: volunteer.participantId ? { participantId: volunteer.participantId, name: linked?.name ?? null } : null,
     canCheckIn: volunteer.canCheckIn === true,
     canFoodCheckIn: volunteer.canFoodCheckIn === true,
+    canRedeemShop: volunteer.canRedeemShop === true,
     events: (eventAssignments.get(volunteer.adminId) ?? []).flatMap((eventId) => {
       const event = events.get(eventId);
       return event ? [{ eventId, name: event.name, active: event.active }] : [];
@@ -1316,8 +1317,12 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       const actor = requireAdmin(sessionToken);
       const volunteer = staffById.get(String(args.volunteerAdminId ?? ""));
       if (!volunteer || volunteer.role !== "volunteer") throw adminError("VOLUNTEER_NOT_FOUND");
-      const before = { canCheckIn: volunteer.canCheckIn === true, canFoodCheckIn: volunteer.canFoodCheckIn === true };
-      const after = { canCheckIn: args.canCheckIn === true, canFoodCheckIn: args.canFoodCheckIn === true };
+      const before: Record<string, boolean> = { canCheckIn: volunteer.canCheckIn === true, canFoodCheckIn: volunteer.canFoodCheckIn === true };
+      const after: Record<string, boolean> = { canCheckIn: args.canCheckIn === true, canFoodCheckIn: args.canFoodCheckIn === true };
+      if (typeof args.canRedeemShop === "boolean") {
+        before.canRedeemShop = volunteer.canRedeemShop === true;
+        after.canRedeemShop = args.canRedeemShop;
+      }
       const changedFields = (Object.keys(after) as Array<keyof typeof after>).filter((key) => before[key] !== after[key]);
       if (changedFields.length === 0) return { ok: true, changed: false };
       Object.assign(volunteer, after);
