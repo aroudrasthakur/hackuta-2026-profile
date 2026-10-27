@@ -13,6 +13,7 @@ npm run convex:push-dev
 | Module | Purpose |
 | --- | --- |
 | [`dashboard.ts`](dashboard.ts) | `getMyParticipantDashboard` — returns the signed-in user's application status, event timeline fields, and check-in QR token when a participant row exists |
+| [`leaderboard.ts`](leaderboard.ts) | `getMyPointsLeaderboard` — live top 10 by points (rank, name, points, `isYou` only) |
 | [`seedTestProfile.ts`](seedTestProfile.ts) | Dev-only internal seed for a signed-in accepted participant (`seedTestAcceptedParticipant`) |
 | [`seedTestVolunteer.ts`](seedTestVolunteer.ts) | Dev-only internal seed for an admin-app volunteer with scan access (`seedTestVolunteer`) |
 

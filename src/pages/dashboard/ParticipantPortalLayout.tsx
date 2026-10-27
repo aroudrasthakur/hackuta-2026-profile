@@ -5,6 +5,7 @@ import {
   NavProfileIcon,
   NavScanIcon,
   NavScheduleIcon,
+  NavTrophyIcon,
 } from "../../components/participant/ParticipantNavIcons";
 import { useParticipantDashboard } from "./useParticipantDashboard";
 import { ParticipantAvatar } from "../../components/participant/ParticipantAvatar";
@@ -15,6 +16,7 @@ const NAV: { to: string; end: boolean; label: string; shortLabel?: string; icon:
   { to: "/dashboard", end: true, label: "Home", icon: NavHomeIcon },
   { to: "/dashboard/scan", end: false, label: "Check-in", icon: NavScanIcon },
   { to: "/dashboard/schedule", end: false, label: "Schedule", icon: NavScheduleIcon },
+  { to: "/dashboard/leaderboard", end: false, label: "Leaderboard", shortLabel: "Board", icon: NavTrophyIcon },
   { to: "/dashboard/notifications", end: false, label: "Notifications", shortLabel: "Alerts", icon: NavBellIcon },
   { to: "/dashboard/profile", end: false, label: "Profile", icon: NavProfileIcon },
 ];

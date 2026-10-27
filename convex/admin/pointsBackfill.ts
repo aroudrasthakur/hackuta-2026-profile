@@ -38,9 +38,11 @@ export const backfillParticipantPoints = internalMutation({
         continue;
       }
       const points = await computeLedgerPoints(ctx, participant._id);
+      const now = Date.now();
       await ctx.db.patch(participant._id, {
         points,
-        updatedAt: Date.now(),
+        updatedAt: now,
+        ...(points > 0 ? { pointsReachedAt: participant.updatedAt ?? now } : {}),
       });
       patched += 1;
     }

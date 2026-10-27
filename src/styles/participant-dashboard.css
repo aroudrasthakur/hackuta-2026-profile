@@ -973,6 +973,237 @@
     line-height: 1.5;
   }
 
+  /* Leaderboard */
+  .participant-leaderboard {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    max-width: 44rem;
+  }
+
+  .participant-leaderboard__you {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    border-radius: 1rem;
+    border: 1px solid rgb(26 58 82 / 0.12);
+    background: #fff8ef;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 8px 24px rgb(16 47 70 / 0.06);
+  }
+
+  .participant-leaderboard__you-label {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-ocean);
+  }
+
+  .participant-leaderboard__you-copy {
+    margin: 0.2rem 0 0;
+    color: var(--color-night);
+  }
+
+  .participant-leaderboard__you-stats {
+    display: flex;
+    gap: 1.25rem;
+    margin: 0;
+  }
+
+  .participant-leaderboard__you-stats div {
+    min-width: 4.5rem;
+  }
+
+  .participant-leaderboard__you-stats dt {
+    font-size: 0.75rem;
+    color: var(--color-ocean);
+  }
+
+  .participant-leaderboard__you-stats dd {
+    margin: 0.1rem 0 0;
+    font-family: var(--font-display);
+    font-size: 1.65rem;
+    line-height: 1;
+    color: var(--color-night);
+  }
+
+  .participant-leaderboard__podium {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-areas: "second first third";
+    align-items: end;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .participant-leaderboard__podium-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 8.5rem;
+    border-radius: 1rem;
+    border: 1px solid rgb(26 58 82 / 0.1);
+    background: #fff8ef;
+    padding: 1rem 0.75rem 1.1rem;
+    text-align: center;
+    box-shadow: 0 10px 24px rgb(16 47 70 / 0.06);
+    transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+  }
+
+  .participant-leaderboard__podium-card--gold {
+    grid-area: first;
+    min-height: 10.25rem;
+    border-color: rgb(184 146 58 / 0.45);
+    background: linear-gradient(180deg, #f7edcc 0%, #fff8ef 70%);
+    color: #7a5c12;
+    box-shadow: 0 14px 28px rgb(122 92 18 / 0.12);
+  }
+
+  .participant-leaderboard__podium-card--silver {
+    grid-area: second;
+    border-color: rgb(140 161 170 / 0.45);
+    background: linear-gradient(180deg, #e7eef1 0%, #fff8ef 72%);
+    color: #3d5560;
+  }
+
+  .participant-leaderboard__podium-card--bronze {
+    grid-area: third;
+    border-color: rgb(176 141 106 / 0.45);
+    background: linear-gradient(180deg, #f0e0cc 0%, #fff8ef 72%);
+    color: #6d4c2f;
+  }
+
+  .participant-leaderboard__podium-card--you {
+    box-shadow: 0 0 0 2px rgb(48 88 115 / 0.35), 0 10px 24px rgb(16 47 70 / 0.08);
+  }
+
+  .participant-leaderboard__medal {
+    margin-bottom: 0.15rem;
+  }
+
+  .participant-leaderboard__podium-rank {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .participant-leaderboard__podium-name {
+    margin: 0;
+    font-weight: 700;
+    color: var(--color-night);
+    overflow-wrap: anywhere;
+  }
+
+  .participant-leaderboard__podium-points {
+    margin: 0.15rem 0 0;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    color: var(--color-night);
+  }
+
+  .participant-leaderboard__list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-radius: 1rem;
+    border: 1px solid rgb(26 58 82 / 0.1);
+    background: #fff8ef;
+    overflow: hidden;
+  }
+
+  .participant-leaderboard__row {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3.15rem;
+    padding: 0.7rem 1rem;
+    border-top: 1px solid rgb(26 58 82 / 0.08);
+    transition: background-color 160ms var(--ease-out);
+  }
+
+  .participant-leaderboard__row:first-child {
+    border-top: 0;
+  }
+
+  .participant-leaderboard__row:hover {
+    background: rgb(238 227 210 / 0.55);
+  }
+
+  .participant-leaderboard__row--you {
+    background: rgb(48 88 115 / 0.08);
+    font-weight: 600;
+  }
+
+  .participant-leaderboard__row-rank {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--color-ocean);
+  }
+
+  .participant-leaderboard__row-name {
+    overflow-wrap: anywhere;
+    color: var(--color-night);
+  }
+
+  .participant-leaderboard__row-points {
+    font-variant-numeric: tabular-nums;
+    color: var(--color-night);
+  }
+
+  .participant-leaderboard__empty {
+    margin: 0;
+    border-radius: 1rem;
+    border: 1px solid rgb(26 58 82 / 0.1);
+    background: #fff8ef;
+    padding: 1.25rem 1.35rem;
+    color: var(--color-ocean);
+  }
+
+  .participant-leaderboard__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .participant-leaderboard__pulse {
+    min-height: 4.5rem;
+    animation: leaderboard-pulse 1.2s ease-in-out infinite;
+  }
+
+  .participant-leaderboard__list .participant-leaderboard__pulse {
+    min-height: 3.15rem;
+    border-radius: 0;
+  }
+
+  @keyframes leaderboard-pulse {
+    0%,
+    100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .participant-leaderboard__podium-card,
+    .participant-leaderboard__row {
+      transition: none;
+    }
+
+    .participant-leaderboard__pulse {
+      animation: none;
+    }
+  }
+
   /* Profile */
   .participant-profile__hero {
     display: flex;
@@ -1439,6 +1670,21 @@
 
     .participant-dashboard__nav-label--short {
       display: inline;
+    }
+
+    .participant-leaderboard__podium {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "first first"
+        "second third";
+    }
+
+    .participant-leaderboard__podium-card--gold {
+      min-height: 8.75rem;
+    }
+
+    .participant-leaderboard__you-stats dd {
+      font-size: 1.4rem;
     }
 
     /* The mobile header carries no account block; name and email stay on the Profile tab. */

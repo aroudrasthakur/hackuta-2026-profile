@@ -26,6 +26,16 @@ export function NavScheduleIcon({ className }: IconProps) {
   );
 }
 
+export function NavTrophyIcon({ className }: IconProps) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 5h8v4.5a4 4 0 0 1-8 0V5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M8 6H5.5A2.5 2.5 0 0 0 8 9.5M16 6h2.5A2.5 2.5 0 0 1 16 9.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M12 13.5V17M9 19h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function NavBellIcon({ className }: IconProps) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">

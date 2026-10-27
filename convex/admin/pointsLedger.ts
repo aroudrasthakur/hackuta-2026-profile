@@ -144,10 +144,7 @@ export async function applyEventAward(
     awardedBy: args.actorAdminId,
     awardedAt: args.now,
   });
-  await ctx.db.patch(participant._id, {
-    points: newPoints,
-    updatedAt: args.now,
-  });
+  await ctx.db.patch(participant._id, pointBalancePatch(previousPoints, newPoints, args.now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
     participantId: participant._id,
@@ -205,10 +202,7 @@ export async function adjustPoints(
   const newPoints = assertPointBalance(previousPoints + delta);
   const now = Date.now();
 
-  await ctx.db.patch(args.participantId, {
-    points: newPoints,
-    updatedAt: now,
-  });
+  await ctx.db.patch(args.participantId, pointBalancePatch(previousPoints, newPoints, now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
     participantId: args.participantId,
@@ -254,4 +248,19 @@ export async function computeLedgerPoints(ctx: QueryCtx | MutationCtx, participa
     total += log.pointsDelta;
   }
   return assertPointBalance(total);
+}
+
+/**
+ * Patch for a cached balance write. Sets `pointsReachedAt` only when the total
+ * actually changes to a positive value; clears it at 0. Duplicate scans and
+ * no-op adjustments never call this with a new total.
+ */
+export function pointBalancePatch(previousPoints: number, newPoints: number, now: number) {
+  if (newPoints === previousPoints) {
+    return { points: newPoints, updatedAt: now };
+  }
+  if (newPoints > 0) {
+    return { points: newPoints, updatedAt: now, pointsReachedAt: now };
+  }
+  return { points: newPoints, updatedAt: now, pointsReachedAt: undefined };
 }

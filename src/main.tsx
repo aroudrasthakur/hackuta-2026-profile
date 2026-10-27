@@ -14,6 +14,7 @@ import ParticipantPortalLayout from "./pages/dashboard/ParticipantPortalLayout";
 import ParticipantHomePage from "./pages/dashboard/ParticipantHomePage";
 import ParticipantScanPage from "./pages/dashboard/ParticipantScanPage";
 import ParticipantSchedulePage from "./pages/dashboard/ParticipantSchedulePage";
+import ParticipantLeaderboardPage from "./pages/dashboard/ParticipantLeaderboardPage";
 import ParticipantNotificationsPage from "./pages/dashboard/ParticipantNotificationsPage";
 import ParticipantProfilePage from "./pages/dashboard/ParticipantProfilePage";
 import ParticipantApplicationPage from "./pages/dashboard/ParticipantApplicationPage";
@@ -32,6 +33,7 @@ const app = (
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/sign-in" element={<SignInPage />} />
+          <Route path="/leaderboard" element={<Navigate to="/dashboard/leaderboard" replace />} />
           <Route
             path="/dashboard"
             element={
@@ -43,6 +45,7 @@ const app = (
             <Route index element={<ParticipantHomePage />} />
             <Route path="scan" element={<ParticipantScanPage />} />
             <Route path="schedule" element={<ParticipantSchedulePage />} />
+            <Route path="leaderboard" element={<ParticipantLeaderboardPage />} />
             <Route path="notifications" element={<ParticipantNotificationsPage />} />
             <Route path="profile" element={<ParticipantProfilePage />} />
             <Route path="application" element={<ParticipantApplicationPage />} />
