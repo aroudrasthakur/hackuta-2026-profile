@@ -121,18 +121,11 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
 function RankList({ entries }: { entries: LeaderboardEntry[] }) {
   const rest = entries.filter((entry) => entry.rank >= 4);
   const firstRest = rest[0];
-  const lastRest = rest[rest.length - 1];
   const leaderPoints = entries[0]?.points ?? 0;
-  if (!firstRest || !lastRest) return null;
+  if (!firstRest) return null;
 
   return (
     <div className="participant-leaderboard__panel">
-      <div className="participant-leaderboard__panel-head">
-        <h2>The contenders</h2>
-        <p>
-          Ranks {roman(firstRest.rank)}–{roman(lastRest.rank)}
-        </p>
-      </div>
       <ol className="participant-leaderboard__list" start={firstRest.rank} aria-label="Ranks 4 through 10">
         {rest.map((entry) => (
           <li

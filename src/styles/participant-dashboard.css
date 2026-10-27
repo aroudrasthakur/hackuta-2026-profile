@@ -623,36 +623,21 @@
     color: rgb(26 58 82 / 0.78);
   }
 
-  /* Checked in — desktop shows the compact line; the card takes over below 900px. */
-  .participant-checkin {
-    display: contents;
+  .participant-scan--fullpage:has(.participant-checkin) {
+    justify-content: center;
   }
 
-  .participant-checkin__compact {
+  /* Checked in — same animated card on laptop and mobile. */
+  .participant-checkin {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    text-align: center;
-  }
-
-  .participant-checkin__compact-title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 2.5rem;
-    font-weight: 400;
-    line-height: 1.15;
-    color: var(--color-night);
-  }
-
-  .participant-checkin__compact-time {
-    margin: 0;
-    font-size: 1.125rem;
-    color: rgb(26 58 82 / 0.85);
+    width: 100%;
+    max-width: 28rem;
   }
 
   .participant-checkin__card {
-    display: none;
+    display: flex;
     box-sizing: border-box;
     width: 100%;
     flex-direction: column;
@@ -2006,10 +1991,6 @@
       padding: 1.75rem 1rem;
     }
 
-    .participant-scan--fullpage:has(.participant-checkin) {
-      justify-content: center;
-    }
-
     .participant-scan__title,
     .participant-checkin__title {
       font-size: 2rem;
@@ -2033,14 +2014,6 @@
 
     .participant-scan__hint {
       font-size: 0.875rem;
-    }
-
-    .participant-checkin__compact {
-      display: none;
-    }
-
-    .participant-checkin__card {
-      display: flex;
     }
 
     .participant-profile__hero {
