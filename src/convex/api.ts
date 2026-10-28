@@ -140,3 +140,28 @@ export const getMySubmittedApplicationRef = makeFunctionReference<
   Record<string, never>,
   SubmittedApplication | null
 >("profile/submission:getMySubmittedApplication");
+
+export type ParticipantNotificationType =
+  | "general"
+  | "event"
+  | "reminder"
+  | "flash_sale"
+  | "important";
+
+export type ParticipantNotificationItem = {
+  notificationId: string;
+  title: string;
+  message: string;
+  type: ParticipantNotificationType;
+  publishedAt: number;
+  expiresAt: number | null;
+  linkUrl: string | null;
+  linkLabel: string | null;
+};
+
+export const listPublishedNotificationsRef = makeFunctionReference<
+  "query",
+  { nowBucket?: number },
+  ParticipantNotificationItem[] | null
+>("admin/participantShop:listPublishedNotifications");
+
