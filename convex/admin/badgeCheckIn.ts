@@ -25,7 +25,7 @@ import {
   type ParticipantDoc,
 } from "./participantQr";
 import { isParticipantEligible } from "./pointsLedger";
-import { requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
+import { hasVolunteerCapability, requireVolunteerAccess, sessionTokenArgs } from "./staffAuth";
 import {
   isVolunteerScanThrottled,
   recordVolunteerScanAttempt,
@@ -48,7 +48,7 @@ async function beginCheckIn(ctx: MutationCtx, volunteer: AdminDoc) {
     return { result: { status: "rate_limited" as const } };
   }
   await recordVolunteerScanAttempt(ctx, volunteer._id, now);
-  if (!volunteerCapabilities(volunteer).canCheckIn) {
+  if (!hasVolunteerCapability(volunteer, "canCheckIn")) {
     await recordVolunteerScanFailure(ctx, volunteer._id, now);
     return { result: { status: "not_authorized" as const } };
   }

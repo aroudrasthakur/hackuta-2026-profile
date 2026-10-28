@@ -11,6 +11,8 @@ const openStatuses = new Set(["queued", "held", "sending"]);
 
 /** Cap sent rows returned to the admin UI (newest first). */
 const RECENTLY_SENT_QUERY_LIMIT = 20;
+export const RELEASE_BATCH_LIMIT = 50;
+export const SENDING_STALE_MS = 10 * 60 * 1000;
 
 export async function openDecisionEmailForApplication(
   ctx: QueryCtx | MutationCtx,
@@ -101,19 +103,34 @@ export const retryFailedDecisionEmails = mutation({
   args: sessionTokenArgs,
   handler: async (ctx, { sessionToken }) => {
     await requireAdminRole(ctx, sessionToken);
+    const now = Date.now();
     const failed = await ctx.db
       .query("decisionEmailQueue")
       .withIndex("by_status", (q) => q.eq("status", "failed"))
       .collect();
-    const now = Date.now();
-    for (const row of failed) {
+    const sending = await ctx.db
+      .query("decisionEmailQueue")
+      .withIndex("by_status", (q) => q.eq("status", "sending"))
+      .collect();
+    const staleSending = sending.filter((row) => now - row.updatedAt >= SENDING_STALE_MS);
+    const candidates = [...failed, ...staleSending];
+    let retried = 0;
+    for (const row of candidates) {
+      const siblingRows = await ctx.db
+        .query("decisionEmailQueue")
+        .withIndex("by_application", (q) => q.eq("applicationId", row.applicationId))
+        .collect();
+      if (siblingRows.some((s) => s._id !== row._id && (s.status === "queued" || s.status === "held"))) {
+        continue;
+      }
       await ctx.db.patch(row._id, {
         status: "queued",
         updatedAt: now,
         errorMessage: undefined,
       });
+      retried += 1;
     }
-    return { retried: failed.length };
+    return { retried };
   },
 });
 
@@ -125,26 +142,37 @@ export const claimDecisionEmails = internalMutation({
   },
   handler: async (ctx, { sessionToken, itemIds }) => {
     await requireAdminRole(ctx, sessionToken);
+    const now = Date.now();
     const sending = await ctx.db
       .query("decisionEmailQueue")
       .withIndex("by_status", (q) => q.eq("status", "sending"))
-      .take(1);
-    if (sending.length > 0) throw adminError("DECISION_EMAIL_SEND_IN_PROGRESS");
+      .collect();
+    for (const row of sending) {
+      if (now - row.updatedAt >= SENDING_STALE_MS) {
+        await ctx.db.patch(row._id, {
+          status: "failed",
+          updatedAt: now,
+          errorMessage: "The email release timed out before completion.",
+        });
+      } else {
+        throw adminError("DECISION_EMAIL_SEND_IN_PROGRESS");
+      }
+    }
 
-    const selected = itemIds
-      ? await Promise.all(itemIds.map((itemId) => ctx.db.get(itemId)))
+    const uniqueItemIds = itemIds ? Array.from(new Set(itemIds)) : undefined;
+    const selected = uniqueItemIds
+      ? await Promise.all(uniqueItemIds.map((itemId) => ctx.db.get(itemId)))
       : await ctx.db
           .query("decisionEmailQueue")
           .withIndex("by_status", (q) => q.eq("status", "queued"))
-          .collect();
+          .take(RELEASE_BATCH_LIMIT);
 
-    if (itemIds && selected.some((row) => !row || row.status !== "queued")) {
+    if (uniqueItemIds && selected.some((row) => !row || row.status !== "queued")) {
       throw adminError("DECISION_EMAIL_QUEUE_EMPTY");
     }
     const rows = selected.filter((row): row is NonNullable<typeof row> => row !== null && row.status === "queued");
     if (rows.length === 0) throw adminError("DECISION_EMAIL_QUEUE_EMPTY");
 
-    const now = Date.now();
     const hackathonName = await getHackathonName(ctx);
     const claimed = [];
     for (const row of rows) {

@@ -568,12 +568,17 @@ function requireSession(sessionToken: string) {
 
 function requireVolunteer(sessionToken: string) {
   const staff = requireSession(sessionToken);
-  if (staff.role !== "volunteer") throw adminError("VOLUNTEER_ONLY");
+  if (staff.role !== "volunteer" && staff.role !== "admin") throw adminError("VOLUNTEER_ONLY");
   return staff;
 }
 
-function assignedEvents(adminId: string) {
-  return (eventAssignments.get(adminId) ?? [])
+function assignedEvents(staff: StaffRecord) {
+  if (staff.role === "admin") {
+    return [...events.values()]
+      .filter((event) => event.active)
+      .sort((a, b) => a.startsAt - b.startsAt || a.name.localeCompare(b.name));
+  }
+  return (eventAssignments.get(staff.adminId) ?? [])
     .map((eventId) => events.get(eventId))
     .filter((event): event is EventRecord => event?.active === true);
 }
@@ -682,12 +687,14 @@ function mockBadgeConflict(raw: string): { badge: string } | { conflict: MockBad
 
 /** Same capability, assignment, badge, and eligibility order as the Convex scan functions. */
 function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: string) {
-  if (purpose === "food_check_in" && staff.canFoodCheckIn !== true) return { failure: "not_authorized" as const };
-  if (purpose === "shop" && staff.canRedeemShop !== true) return { failure: "not_authorized" as const };
+  const isAdmin = staff.role === "admin";
+  if (purpose === "food_check_in" && !isAdmin && staff.canFoodCheckIn !== true) return { failure: "not_authorized" as const };
+  if (purpose === "shop" && !isAdmin && staff.canRedeemShop !== true) return { failure: "not_authorized" as const };
   let event: EventRecord | undefined;
   if (purpose === "point_scan") {
     const eventId = String(args.eventId ?? "");
-    event = (eventAssignments.get(staff.adminId) ?? []).includes(eventId) ? events.get(eventId) : undefined;
+    const hasAccess = isAdmin || (eventAssignments.get(staff.adminId) ?? []).includes(eventId);
+    event = hasAccess ? events.get(eventId) : undefined;
     if (!event) return { failure: "event_denied" as const };
     if (!event.active) return { failure: "event_inactive" as const };
   }
@@ -700,7 +707,7 @@ function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: 
 
 /** Mirrors `badgeCheckIn.ts`: registration step, then badge step, then the atomic check-in. */
 function mockCheckIn(staff: StaffRecord, args: Record<string, unknown>, stage: "registration" | "badge" | "commit") {
-  if (staff.canCheckIn !== true) return { status: "not_authorized" };
+  if (staff.role !== "admin" && staff.canCheckIn !== true) return { status: "not_authorized" };
   const registrationRaw = String(args.registrationQrCodeToken ?? "");
   const badgeRaw = String(args.badgeQrCodeToken ?? "");
   const scanned = resolveMockScan(registrationRaw);
@@ -844,17 +851,16 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
   switch (path) {
     case "admin/volunteerScan:listActiveMealPeriods": {
       const staff = requireVolunteer(sessionToken);
-      return staff.canFoodCheckIn === true ? mockActiveMeals() : [];
+      return staff.role === "admin" || staff.canFoodCheckIn === true ? mockActiveMeals() : [];
     }
     case "admin/volunteerScan:listMyScanOptions": {
-      const admin = adminFromSessionToken(sessionToken);
-      if (!admin) throw adminError("NOT_AUTHENTICATED");
-      if (admin.role !== "volunteer") throw adminError("VOLUNTEER_ONLY");
+      const admin = requireVolunteer(sessionToken);
+      const isAdmin = admin.role === "admin";
       return {
-        canCheckIn: admin.canCheckIn === true,
-        canFoodCheckIn: admin.canFoodCheckIn === true,
-        canRedeemShop: admin.canRedeemShop === true,
-        events: assignedEvents(admin.adminId).map(({ eventId, name, pointsAwarded, startsAt, endsAt }) => ({ eventId, name, pointsAwarded, startsAt, endsAt })),
+        canCheckIn: isAdmin || admin.canCheckIn === true,
+        canFoodCheckIn: isAdmin || admin.canFoodCheckIn === true,
+        canRedeemShop: isAdmin || admin.canRedeemShop === true,
+        events: assignedEvents(admin).map(({ eventId, name, pointsAwarded, startsAt, endsAt }) => ({ eventId, name, pointsAwarded, startsAt, endsAt })),
       };
     }
     case "admin/auth:getCurrentStaff": {
@@ -1587,7 +1593,7 @@ function requireShopItem(itemId: unknown) {
 
 function requireShopVolunteer(sessionToken: string) {
   const staff = requireVolunteer(sessionToken);
-  if (staff.canRedeemShop !== true) throw adminError("CAPABILITY_DENIED");
+  if (staff.role !== "admin" && staff.canRedeemShop !== true) throw adminError("CAPABILITY_DENIED");
   return staff;
 }
 

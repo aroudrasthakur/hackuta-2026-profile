@@ -115,7 +115,7 @@ export function newVolunteerFields() {
   };
 }
 
-/** Active volunteer session. Reviewers and admins are rejected. */
+/** Active volunteer or administrator session. Reviewers are rejected. */
 export async function requireVolunteerAccess(
   ctx: QueryCtx | MutationCtx,
   sessionToken: string,
@@ -124,28 +124,41 @@ export async function requireVolunteerAccess(
   if (!admin) {
     throw adminError("NOT_AUTHENTICATED");
   }
-  if (admin.role !== "volunteer") {
+  if (admin.role !== "volunteer" && admin.role !== "admin") {
     throw adminError("VOLUNTEER_ONLY");
   }
   return admin;
 }
 
-/** Volunteer session plus an explicit capability grant. */
+/** Administrators bypass volunteer capability flags; volunteers need an explicit `true`. */
+export function hasVolunteerCapability(
+  admin: {
+    role?: string;
+    canCheckIn?: boolean;
+    canFoodCheckIn?: boolean;
+    canRedeemShop?: boolean;
+  },
+  capability: VolunteerCapability,
+) {
+  return admin.role === "admin" || volunteerCapabilities(admin)[capability];
+}
+
+/** Volunteer session plus an explicit capability grant, or an administrator session. */
 export async function requireVolunteerCapability(
   ctx: QueryCtx | MutationCtx,
   sessionToken: string,
   capability: VolunteerCapability,
 ) {
   const admin = await requireVolunteerAccess(ctx, sessionToken);
-  if (!volunteerCapabilities(admin)[capability]) {
+  if (!hasVolunteerCapability(admin, capability)) {
     throw adminError("CAPABILITY_DENIED");
   }
   return admin;
 }
 
 /**
- * Checks the volunteer's **current** assignment and an active event immediately
- * before a point-scan (or similar) operation.
+ * Checks the volunteer's **current** assignment (bypassed for administrators)
+ * and an active event immediately before a point-scan (or similar) operation.
  *
  * Invariant: deleting `volunteerEventAccess` takes effect on the next request;
  * there is no session cache of assignments. Schedule fields on `events` are not
@@ -157,14 +170,16 @@ export async function requireVolunteerEventAccess(
   eventId: GenericId<"events">,
 ) {
   const volunteer = await requireVolunteerAccess(ctx, sessionToken);
-  const assignment = await ctx.db
-    .query("volunteerEventAccess")
-    .withIndex("by_volunteer_event", (q) =>
-      q.eq("volunteerAdminId", volunteer._id).eq("eventId", eventId),
-    )
-    .unique();
-  if (!assignment) {
-    throw adminError("EVENT_ACCESS_DENIED");
+  if (volunteer.role !== "admin") {
+    const assignment = await ctx.db
+      .query("volunteerEventAccess")
+      .withIndex("by_volunteer_event", (q) =>
+        q.eq("volunteerAdminId", volunteer._id).eq("eventId", eventId),
+      )
+      .unique();
+    if (!assignment) {
+      throw adminError("EVENT_ACCESS_DENIED");
+    }
   }
   const event = await ctx.db.get(eventId);
   if (!event) {

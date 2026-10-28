@@ -27,7 +27,7 @@ import {
   type PostCheckInFailure,
 } from "./participantQr";
 import { computeLedgerPoints, isParticipantEligible } from "./pointsLedger";
-import { requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
+import { hasVolunteerCapability, requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
 import {
   isVolunteerScanThrottled,
   recordVolunteerScanAttempt,
@@ -56,37 +56,57 @@ export async function badgeHolderForScan(
 
 /**
  * Lists the caller's own scan permissions and assigned switched-on events with
- * their schedule (reference only). No participant data.
+ * their schedule (reference only). Administrators automatically receive all
+ * capabilities and all switched-on events. No participant data.
  */
 export const listMyScanOptions = query({
   args: sessionTokenArgs,
   handler: async (ctx, { sessionToken }) => {
     const volunteer = await requireVolunteerAccess(ctx, sessionToken);
-    const assignments = await ctx.db
-      .query("volunteerEventAccess")
-      .withIndex("by_volunteer", (q) => q.eq("volunteerAdminId", volunteer._id))
-      .collect();
     const events = [];
-    for (const assignment of assignments) {
-      const event = await ctx.db.get(assignment.eventId);
-      if (!event?.active) continue;
-      events.push({
-        eventId: event._id,
-        name: event.name,
-        pointsAwarded: event.pointsAwarded,
-        startsAt: event.startsAt,
-        endsAt: event.endsAt,
-      });
+    if (volunteer.role === "admin") {
+      const activeEvents = await ctx.db
+        .query("events")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect();
+      for (const event of activeEvents) {
+        events.push({
+          eventId: event._id,
+          name: event.name,
+          pointsAwarded: event.pointsAwarded,
+          startsAt: event.startsAt,
+          endsAt: event.endsAt,
+        });
+      }
+    } else {
+      const assignments = await ctx.db
+        .query("volunteerEventAccess")
+        .withIndex("by_volunteer", (q) => q.eq("volunteerAdminId", volunteer._id))
+        .collect();
+      for (const assignment of assignments) {
+        const event = await ctx.db.get(assignment.eventId);
+        if (!event?.active) continue;
+        events.push({
+          eventId: event._id,
+          name: event.name,
+          pointsAwarded: event.pointsAwarded,
+          startsAt: event.startsAt,
+          endsAt: event.endsAt,
+        });
+      }
     }
     events.sort((a, b) => a.startsAt - b.startsAt || a.name.localeCompare(b.name));
-    return { ...volunteerCapabilities(volunteer), events };
+    const capabilities = volunteer.role === "admin"
+      ? { canCheckIn: true, canFoodCheckIn: true, canRedeemShop: true }
+      : volunteerCapabilities(volunteer);
+    return { ...capabilities, events };
   },
 });
 
 /**
  * Event for a point-scan preview, or null. Missing, unassigned, and switched-off
  * events look the same so volunteers learn nothing about events outside their
- * assignments. Schedule times are not checked.
+ * assignments. Administrators may scan any active event. Schedule times are not checked.
  */
 async function assignedActiveEvent(
   ctx: MutationCtx,
@@ -94,13 +114,15 @@ async function assignedActiveEvent(
   eventId: GenericId<"events"> | undefined,
 ) {
   if (!eventId) return null;
-  const assignment = await ctx.db
-    .query("volunteerEventAccess")
-    .withIndex("by_volunteer_event", (q) =>
-      q.eq("volunteerAdminId", volunteer._id).eq("eventId", eventId),
-    )
-    .unique();
-  if (!assignment) return null;
+  if (volunteer.role !== "admin") {
+    const assignment = await ctx.db
+      .query("volunteerEventAccess")
+      .withIndex("by_volunteer_event", (q) =>
+        q.eq("volunteerAdminId", volunteer._id).eq("eventId", eventId),
+      )
+      .unique();
+    if (!assignment) return null;
+  }
   const event = await ctx.db.get(eventId);
   return event?.active ? event : null;
 }
@@ -115,7 +137,7 @@ export const listActiveMealPeriods = query({
   args: sessionTokenArgs,
   handler: async (ctx, { sessionToken }) => {
     const volunteer = await requireVolunteerAccess(ctx, sessionToken);
-    if (!volunteerCapabilities(volunteer).canFoodCheckIn) return [];
+    if (!hasVolunteerCapability(volunteer, "canFoodCheckIn")) return [];
     const meals = await ctx.db.query("mealPeriods")
       .withIndex("by_active_startsAt", (q) => q.eq("active", true)).collect();
     return meals.map((meal) => ({
@@ -130,7 +152,7 @@ async function prepareMealScan(ctx: MutationCtx, volunteer: AdminDoc, args: Meal
   const now = Date.now();
   if (await isVolunteerScanThrottled(ctx, volunteer._id, now)) return { status: "rate_limited" as const };
   await recordVolunteerScanAttempt(ctx, volunteer._id, now);
-  if (!volunteerCapabilities(volunteer).canFoodCheckIn) {
+  if (!hasVolunteerCapability(volunteer, "canFoodCheckIn")) {
     await recordVolunteerScanFailure(ctx, volunteer._id, now);
     return { status: "not_authorized" as const };
   }
@@ -215,7 +237,7 @@ async function resolveQr(
   now: number,
 ) {
   let event = null;
-  if (args.purpose === "shop" && !volunteerCapabilities(volunteer).canRedeemShop) return null;
+  if (args.purpose === "shop" && !hasVolunteerCapability(volunteer, "canRedeemShop")) return null;
   if (args.purpose === "point_scan") {
     event = await assignedActiveEvent(ctx, volunteer, args.eventId);
     if (!event) return null;

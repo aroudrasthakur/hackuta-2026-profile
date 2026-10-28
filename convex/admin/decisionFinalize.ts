@@ -11,7 +11,7 @@ type ApplicationReviewDoc = DocumentByName<DataModel, "applicationReviews">;
 type AdminDoc = DocumentByName<DataModel, "admins">;
 export type ReviewDecision = "accepted" | "rejected" | "waitlisted";
 
-const OPEN_QUEUE_STATUSES = new Set(["queued", "held", "sending"]);
+const OPEN_QUEUE_STATUSES = new Set(["queued", "held", "sending", "failed"]);
 
 function applicantEmail(application: ApplicationDoc) {
   const email = application.email?.trim();
@@ -67,7 +67,7 @@ export async function enqueueApplicationDecision(
   }
 
   const existing = open[0];
-  if (existing && existing.decision === args.decision) {
+  if (existing && existing.decision === args.decision && existing.status !== "failed") {
     return { queued: true as const, duplicate: true as const };
   }
 
@@ -81,7 +81,7 @@ export async function enqueueApplicationDecision(
   };
 
   if (existing) {
-    await ctx.db.patch(existing._id, snapshot);
+    await ctx.db.patch(existing._id, { ...snapshot, errorMessage: undefined });
   } else {
     await ctx.db.insert("decisionEmailQueue", {
       ...snapshot,

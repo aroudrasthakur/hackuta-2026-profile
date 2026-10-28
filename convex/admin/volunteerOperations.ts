@@ -69,13 +69,13 @@ export const awardEventPoints = mutation({
     const scan = await beginScan(ctx, volunteer);
     if (!scan) return RATE_LIMITED;
 
-    const assignment = await ctx.db
+    const hasAccess = volunteer.role === "admin" || (await ctx.db
       .query("volunteerEventAccess")
       .withIndex("by_volunteer_event", (q) =>
         q.eq("volunteerAdminId", volunteer._id).eq("eventId", eventId),
       )
-      .unique();
-    const event = assignment ? await ctx.db.get(eventId) : null;
+      .unique()) !== null;
+    const event = hasAccess ? await ctx.db.get(eventId) : null;
     if (!event) return deny(ctx, scan, "event_denied");
     if (!event.active) return deny(ctx, scan, "event_inactive");
 
