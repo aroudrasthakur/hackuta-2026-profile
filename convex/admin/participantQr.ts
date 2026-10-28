@@ -13,8 +13,9 @@
  */
 import type { DocumentByName } from "convex/server";
 import type { GenericId } from "convex/values";
-import type { DataModel, MutationCtx } from "../lib/dataModel";
+import type { DataModel, MutationCtx, QueryCtx } from "../lib/dataModel";
 import { formatApplicantFullName } from "../lib/applications";
+import { normalizeEmail } from "../lib/normalizeEmail";
 import { sha256Hex } from "../lib/sha256Hex";
 import { normalizeBadgeQr, normalizeRegistrationQr, scanLookupCandidates } from "../../shared/admin/qrValues";
 
@@ -39,6 +40,31 @@ export function hashBadgeToken(value: string) {
 export async function participantName(ctx: MutationCtx, participant: Pick<ParticipantDoc, "applicationId">) {
   const application = await ctx.db.get(participant.applicationId);
   return (application && formatApplicantFullName(application)) ?? "Participant";
+}
+
+type StaffIdentity = {
+  email: string;
+  participantId?: GenericId<"participants">;
+};
+
+/**
+ * True when the scanned participant is the staff member's own record, either by
+ * a promotion link or by matching registration email. Blocks self-award, self
+ * purchase, and self check-in for volunteers and administrators.
+ */
+export async function isOwnParticipant(
+  ctx: QueryCtx | MutationCtx,
+  staff: StaffIdentity,
+  participant: Pick<ParticipantDoc, "_id" | "applicationId">,
+) {
+  if (staff.participantId === participant._id) {
+    return true;
+  }
+  const application = await ctx.db.get(participant.applicationId);
+  if (!application?.email) {
+    return false;
+  }
+  return normalizeEmail(application.email) === normalizeEmail(staff.email);
 }
 
 /** Classifies one scanned value. Malformed input is `not_found` and is never looked up. */

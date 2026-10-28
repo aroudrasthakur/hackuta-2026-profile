@@ -86,7 +86,7 @@ Door check-in takes two scans and one confirmation. The registration QR (from th
 
 Each call runs `requireVolunteerAccess` (throws), the throttle (`rate_limited`), one attempt row, then `canCheckIn` (`not_authorized`). Every check is repeated by `checkInWithBadge`; the previews are never proof of anything.
 
-- Registration results: `qr_not_found` (unknown, malformed, or a retired badge), `registration_qr_used` (this registration already received a badge), `already_checked_in` (a badge was scanned, or a legacy check-in), `participant_not_eligible`.
+- Registration results: `qr_not_found` (unknown, malformed, or a retired badge), `registration_qr_used` (this registration already received a badge), `already_checked_in` (a badge was scanned, or a legacy check-in), `participant_not_eligible`, `self_scan_denied` (the volunteer or administrator is scanning their own registration, including an unlinked staff account whose email matches the application).
 - Badge results: `badge_invalid`, `badge_is_registration` (any participant's registration token, current or replaced), `badge_in_use`, `badge_retired`.
 - Retrying a confirmation that already succeeded with the same badge returns `already_checked_in` and writes nothing. A failed check writes nothing to the participant, so a rejected badge never leaves a partial check-in.
 - Two desks assigning one badge at once: Convex serializes the transactions and the second sees the first holder (`badge_in_use`).
@@ -132,7 +132,7 @@ These mutations do the real work. Each one re-checks everything itself and share
 - Points always come from the stored event. There is no points argument.
 - Both resolve the participant by badge only, with the same results as preview step 5.
 - Repeat scans change nothing and return `already_redeemed` (with the original `redeemedAt` and meal) or `already_awarded`.
-- Other results: `qr_not_found`, `registration_qr_replaced`, `badge_retired`, `badge_not_assigned`, `not_authorized` (missing capability), `event_denied` (unassigned or missing event), `event_inactive`, `participant_not_checked_in`, `participant_not_eligible`, `rate_limited`.
+- Other results: `qr_not_found`, `registration_qr_replaced`, `badge_retired`, `badge_not_assigned`, `not_authorized` (missing capability), `event_denied` (unassigned or missing event), `event_inactive`, `participant_not_checked_in`, `participant_not_eligible`, `self_scan_denied` (own badge, including an unlinked staff email match), `rate_limited`.
 - One award per participant and event comes from the `by_participant_event` lookup inside the mutation's transaction. If two scans race, Convex retries one of them, and the retry sees the first award. The index alone does not enforce uniqueness.
 - Logs never contain QR tokens, session tokens, or dietary data.
 
@@ -176,7 +176,15 @@ Selling needs `canRedeemShop === true` for volunteers (administrators bypass tha
 - `purchaseShopItem` needs the scanned badge again, so a participant id alone cannot be charged. Registration QRs are rejected as in preview step 5.
 - The server works out the price. If it differs from `expectedUnitPointsCost`, the result is `price_changed` and nothing is written.
 - Quantity is 1 to 10 per purchase.
-- A volunteer cannot sell to their own participant record (`self_purchase_denied`).
+- A volunteer cannot sell to their own participant record (`self_purchase_denied`). The match is the promotion `participantId` **or** a normalized email match with the linked application, so an unlinked volunteer created with `createVolunteer` cannot buy for themselves either. Administrators are blocked the same way.
+
+### Self-scan rule
+
+`isOwnParticipant` in [participantQr.ts](participantQr.ts) is the shared check. Door check-in and event point awards return `self_scan_denied` and count a failure. Shop returns `self_purchase_denied`. Meal redemption does **not** use this check: a volunteer may collect food for themselves once per meal.
+
+### Shop customer lookup by id
+
+`getShopCustomer` and `previewShopPurchase` are queries keyed by `participantId`. They require shop capability but have no badge scan and no throttle. A shop volunteer who has seen an id can keep reading that participant's name and balance. Spending still requires the badge QR in `purchaseShopItem`. Closing this would need a session-scoped scan token.
 - The same `idempotencyKey` returns the first receipt (`duplicate`) and charges nothing.
 - A success writes the balance, stock, a `shopRedemptions` row, a `purchase` inventory row, and a `shop_purchase` log in one transaction.
 - Purchases share the scan rate limits.

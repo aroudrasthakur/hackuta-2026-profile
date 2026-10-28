@@ -48,7 +48,7 @@ test.describe("participant notifications page", () => {
     });
 
     await expect(page.getByRole("heading", { name: "Midnight Merch Flash Sale" })).toBeVisible();
-    await expect(list.locator(".participant-notifications__badge")).toHaveText(["Flash Sale"]);
+    await expect(list.locator(".participant-notifications__badge")).toHaveText(["Flash sale"]);
 
     // Simulate empty state when no notifications are active
     await page.evaluate(() => {

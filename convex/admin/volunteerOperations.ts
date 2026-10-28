@@ -15,6 +15,7 @@
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import type { MutationCtx } from "../lib/dataModel";
+import { isOwnParticipant } from "./participantQr";
 import { applyEventAward, isParticipantEligible } from "./pointsLedger";
 import { requireVolunteerAccess, sessionTokenArgs } from "./staffAuth";
 import { badgeHolderForScan, redeemMealForVolunteer } from "./volunteerScan";
@@ -82,6 +83,9 @@ export const awardEventPoints = mutation({
     const found = await badgeHolderForScan(ctx, volunteer._id, scan.now, qrCodeToken);
     if ("failure" in found) return found.failure;
     const { participant } = found;
+    if (await isOwnParticipant(ctx, volunteer, participant)) {
+      return deny(ctx, scan, "self_scan_denied");
+    }
     if (!await isParticipantEligible(ctx, participant)) {
       return { status: "participant_not_eligible" as const };
     }

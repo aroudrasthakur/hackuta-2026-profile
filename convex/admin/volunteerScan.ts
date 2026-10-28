@@ -21,6 +21,7 @@ import type { GenericId } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import type { MutationCtx } from "../lib/dataModel";
 import {
+  isOwnParticipant,
   participantName,
   resolveBadgeHolder,
   type ParticipantDoc,
@@ -250,6 +251,10 @@ async function resolveQr(
     return { status: "participant_not_eligible" as const };
   }
 
+  if (await isOwnParticipant(ctx, volunteer, participant)) {
+    return { status: event ? "self_scan_denied" as const : "self_purchase_denied" as const };
+  }
+
   const name = await participantName(ctx, participant);
   if (event) {
     const eventId = event._id;
@@ -267,7 +272,6 @@ async function resolveQr(
       alreadyAwarded: award !== null,
     };
   }
-  if (volunteer.participantId === participant._id) return { status: "self_purchase_denied" as const };
   return {
     status: "ok" as const,
     purpose: "shop" as const,
@@ -288,7 +292,9 @@ async function resolveQr(
  * check-in without a badge); `participant_not_eligible`; `not_authorized`
  * (missing capability or event access, or point scan without `eventId`);
  * `self_purchase_denied` (shop scan of the volunteer's own participant
- * record); and `rate_limited`. A shop preview returns the participant id
+ * record, including an unlinked account with the same email);
+ * `self_scan_denied` (point scan of the volunteer's own badge); and
+ * `rate_limited`. A shop preview returns the participant id
  * and balance for the purchase screens.
  */
 export const resolveQrForScan = mutation({
@@ -309,7 +315,12 @@ export const resolveQrForScan = mutation({
     await recordVolunteerScanAttempt(ctx, volunteer._id, now);
 
     const result = await resolveQr(ctx, volunteer, { ...args, purpose: args.purpose }, now);
-    if (result) return result;
+    if (result) {
+      if (result.status === "self_scan_denied") {
+        await recordVolunteerScanFailure(ctx, volunteer._id, now);
+      }
+      return result;
+    }
     await recordVolunteerScanFailure(ctx, volunteer._id, now);
     return { status: "not_authorized" as const };
   },

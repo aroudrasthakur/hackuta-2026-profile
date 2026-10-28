@@ -69,7 +69,7 @@ export default function ParticipantApplicationPage() {
         description="Review the answers you sent with your HackUTA application."
         actions={
           <Link to="/dashboard" className="participant-application__back">
-            ← Back
+            ← Back to home
           </Link>
         }
       />

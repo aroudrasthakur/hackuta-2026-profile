@@ -19,6 +19,7 @@ import { normalizeBadgeQr } from "../../shared/admin/qrValues";
 import {
   assignBadge,
   checkBadgeAvailable,
+  isOwnParticipant,
   participantName,
   resolveScannedQr,
   type BadgeConflict,
@@ -77,6 +78,10 @@ async function registrationHolder(ctx: MutationCtx, scan: Scan, raw: string) {
   }
   if (!await isParticipantEligible(ctx, participant)) {
     return { result: { status: "participant_not_eligible" as const } };
+  }
+  if (await isOwnParticipant(ctx, scan.volunteer, participant)) {
+    await countFailure(ctx, scan);
+    return { result: { status: "self_scan_denied" as const } };
   }
   if (scanned.kind === "badge" || participant.checkedInAt !== undefined) {
     return {

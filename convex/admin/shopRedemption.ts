@@ -21,6 +21,7 @@ import {
   stockStatus,
 } from "../../shared/admin/shopRules";
 import { nameLookups } from "./adminQueryHelpers";
+import { isOwnParticipant } from "./participantQr";
 import { computeLedgerPoints, isParticipantEligible } from "./pointsLedger";
 import { participantBalance, purchaseReceipt, recordPurchase } from "./shopLedger";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
@@ -113,7 +114,7 @@ export const previewShopPurchase = query({
     if (!participant || !await isParticipantEligible(ctx, participant)) {
       return { status: "participant_not_eligible" as const };
     }
-    if (volunteer.participantId === participantId) return { status: "self_purchase_denied" as const };
+    if (await isOwnParticipant(ctx, volunteer, participant)) return { status: "self_purchase_denied" as const };
     const item = await ctx.db.get(itemId);
     if (item?.status !== "active") return { status: "item_unavailable" as const };
     if (!isValidPurchaseQuantity(quantity)) return { status: "invalid_quantity" as const, maxQuantity: SHOP_MAX_QUANTITY };
@@ -183,7 +184,7 @@ export const purchaseShopItem = mutation({
     }
 
     if (!await isParticipantEligible(ctx, participant)) return { status: "participant_not_eligible" as const };
-    if (volunteer.participantId === participant._id) return { status: "self_purchase_denied" as const };
+    if (await isOwnParticipant(ctx, volunteer, participant)) return { status: "self_purchase_denied" as const };
     const item = await ctx.db.get(itemId);
     if (item?.status !== "active") return { status: "item_unavailable" as const };
     if (!isValidPurchaseQuantity(quantity)) return { status: "invalid_quantity" as const, maxQuantity: SHOP_MAX_QUANTITY };

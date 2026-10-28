@@ -52,7 +52,7 @@ describe("ParticipantNotificationsPage & helpers", () => {
     expect(isInternalNotificationLink("/dashboard/schedule")).toBe(true);
     expect(isInternalNotificationLink("//evil.example")).toBe(false);
     expect(isInternalNotificationLink("https://hackuta.org")).toBe(false);
-    expect(NOTIFICATION_TYPE_LABELS.flash_sale).toBe("Flash Sale");
+    expect(NOTIFICATION_TYPE_LABELS.flash_sale).toBe("Flash sale");
     expect(formatNotificationTimestamp(Date.UTC(2026, 9, 20, 17, 0, 0))).toContain("2026");
   });
 
@@ -108,7 +108,7 @@ describe("ParticipantNotificationsPage & helpers", () => {
     const badges = Array.from(
       container.querySelectorAll(".participant-notifications__badge"),
     ).map((node) => node.textContent);
-    expect(badges).toEqual(["Flash Sale", "Important"]);
+    expect(badges).toEqual(["Flash sale", "Important"]);
 
     const internalLink = container.querySelector('a[href="/dashboard"]');
     expect(internalLink?.textContent).toBe("Open Dashboard");
