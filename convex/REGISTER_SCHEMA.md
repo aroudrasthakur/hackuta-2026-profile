@@ -63,7 +63,8 @@ File: [`convex/schema.ts`](schema.ts)
 | `shopRedemptions` | Admin | **Yes** — completed purchases with the price charged and any refund |
 | `shopInventoryAdjustments` | Admin | **Yes** — audit row for every stock change |
 | `shopFlashSales`, `shopFlashSaleItems` | Admin | **Yes** — timed promotions and their item prices |
-| `participantAnnouncements` | Admin | **Yes** — participant portal announcements (flash sales) |
+| `participantAnnouncements` | Admin | **Yes** — legacy participant portal announcements (migrated to `participantNotifications`) |
+| `participantNotifications` | Admin | **Yes** — generalized participant notifications (drafts, scheduled, published, cancelled) |
 
 All register-owned blocks must remain identical to [`schema.reference.ts`](../scripts/register-schema-lock/schema.reference.ts) aside from `applicationReviews` and admin-owned tables listed above.
 

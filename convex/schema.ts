@@ -8,6 +8,8 @@ import {
 } from "./applicationFields";
 import {
   applicationReviewLogAction,
+  participantNotificationStatus,
+  participantNotificationType,
   staffRole,
   shopInventoryAdjustmentKind,
   shopItemStatus,
@@ -306,6 +308,7 @@ export default defineSchema({
     targetParticipantId: v.optional(v.id("participants")),
     targetShopItemId: v.optional(v.id("shopItems")),
     targetFlashSaleId: v.optional(v.id("shopFlashSales")),
+    targetNotificationId: v.optional(v.id("participantNotifications")),
     details: v.optional(v.string()),
     createdAt: v.number(),
   })
@@ -437,6 +440,7 @@ export default defineSchema({
     cancelledBy: v.optional(v.id("admins")),
     cancelledAt: v.optional(v.number()),
     announcementId: v.optional(v.id("participantAnnouncements")),
+    notificationId: v.optional(v.id("participantNotifications")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -467,4 +471,35 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_publishedAt", ["publishedAt"]),
+
+  /** Generalized participant notifications with drafts, scheduling, and published history. */
+  participantNotifications: defineTable({
+    title: v.string(),
+    message: v.string(),
+    type: participantNotificationType,
+    status: participantNotificationStatus,
+    scheduledAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    cancelledAt: v.optional(v.number()),
+    cancelledBy: v.optional(v.id("admins")),
+    scheduleVersion: v.optional(v.number()),
+    scheduledJobId: v.optional(v.id("_scheduled_functions")),
+    linkUrl: v.optional(v.string()),
+    linkLabel: v.optional(v.string()),
+    relatedEventId: v.optional(v.id("events")),
+    relatedFlashSaleId: v.optional(v.id("shopFlashSales")),
+    legacyAnnouncementId: v.optional(v.id("participantAnnouncements")),
+    createdBy: v.id("admins"),
+    updatedBy: v.optional(v.id("admins")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status_updatedAt", ["status", "updatedAt"])
+    .index("by_status_scheduledAt", ["status", "scheduledAt"])
+    .index("by_status_publishedAt", ["status", "publishedAt"])
+    .index("by_type_updatedAt", ["type", "updatedAt"])
+    .index("by_updatedAt", ["updatedAt"])
+    .index("by_flash_sale", ["relatedFlashSaleId"])
+    .index("by_legacy_announcement", ["legacyAnnouncementId"]),
 });

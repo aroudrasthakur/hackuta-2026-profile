@@ -237,10 +237,31 @@ type ShopAdjustmentRecord = {
   createdAt: number;
 };
 
+type MockNotificationRecord = {
+  notificationId: string;
+  title: string;
+  message: string;
+  type: "general" | "event" | "reminder" | "flash_sale" | "important";
+  status: "draft" | "scheduled" | "published" | "cancelled";
+  scheduledAt: number | null;
+  publishedAt: number | null;
+  expiresAt: number | null;
+  cancelledAt: number | null;
+  linkUrl: string | null;
+  linkLabel: string | null;
+  relatedEventId: string | null;
+  relatedFlashSaleId: string | null;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
 const shopItems = new Map<string, ShopItemRecord>();
 const shopSales: ShopSaleRecord[] = [];
 const shopRedemptions: ShopRedemptionRecord[] = [];
 const shopAdjustments: ShopAdjustmentRecord[] = [];
+const mockNotifications: MockNotificationRecord[] = [];
 let nextShopId = 1;
 /** When set, the next purchase is saved but its response is lost, like a dropped connection. */
 let dropNextPurchaseResponse = false;
@@ -1442,6 +1463,7 @@ function seedShop(now: number) {
   shopSales.length = 0;
   shopRedemptions.length = 0;
   shopAdjustments.length = 0;
+  mockNotifications.length = 0;
   nextShopId = 1;
   dropNextPurchaseResponse = false;
   const seed = (itemId: string, fields: Omit<ShopItemRecord, "itemId" | "createdAt" | "updatedAt">, age: number) => {
@@ -1465,6 +1487,65 @@ function seedShop(now: number) {
     items: [{ itemId: E2E_SHOP.tee, salePointsCost: 300 }],
     createdAt: now - 700_000,
   });
+  mockNotifications.push(
+    {
+      notificationId: "e2e-notif-lunch",
+      title: "Lunch is Ready",
+      message: "Head to the main atrium with your badge for lunch check-in.",
+      type: "general",
+      status: "published",
+      scheduledAt: null,
+      publishedAt: now - 1_200_000,
+      expiresAt: null,
+      cancelledAt: null,
+      linkUrl: "/dashboard/schedule",
+      linkLabel: "View schedule",
+      relatedEventId: null,
+      relatedFlashSaleId: null,
+      createdBy: "e2e-admin-admin",
+      updatedBy: "e2e-admin-admin",
+      createdAt: now - 1_200_000,
+      updatedAt: now - 1_200_000,
+    },
+    {
+      notificationId: "e2e-notif-workshop",
+      title: "AI Workshop",
+      message: "Bring your laptop to Room 204 for the hands-on AI session.",
+      type: "event",
+      status: "scheduled",
+      scheduledAt: now + 3_600_000,
+      publishedAt: null,
+      expiresAt: null,
+      cancelledAt: null,
+      linkUrl: "/dashboard/schedule",
+      linkLabel: "Workshop details",
+      relatedEventId: null,
+      relatedFlashSaleId: null,
+      createdBy: "e2e-admin-admin",
+      updatedBy: "e2e-admin-admin",
+      createdAt: now - 900_000,
+      updatedAt: now - 900_000,
+    },
+    {
+      notificationId: "e2e-notif-sale",
+      title: "Midnight tee sale",
+      message: "T-shirts are 300 points for one hour.",
+      type: "flash_sale",
+      status: "published",
+      scheduledAt: null,
+      publishedAt: now - 600_000,
+      expiresAt: now + 3_600_000,
+      cancelledAt: null,
+      linkUrl: "/dashboard",
+      linkLabel: "Open dashboard",
+      relatedEventId: null,
+      relatedFlashSaleId: E2E_SHOP.sale,
+      createdBy: "e2e-admin-admin",
+      updatedBy: "e2e-admin-admin",
+      createdAt: now - 700_000,
+      updatedAt: now - 600_000,
+    },
+  );
 }
 
 function saleStatus(sale: ShopSaleRecord, now: number) {
@@ -1560,6 +1641,34 @@ function validateSale(args: Record<string, unknown>, now: number, ignoreId?: str
   return { title, message: String(args.message ?? "").trim(), startsAt, endsAt, items: items.map(({ itemId, salePointsCost }) => ({ itemId, salePointsCost })) };
 }
 
+function formatMockNotification(row: MockNotificationRecord, now: number) {
+  return {
+    notificationId: row.notificationId,
+    title: row.title,
+    message: row.message,
+    type: row.type,
+    status: row.status,
+    scheduledAt: row.scheduledAt,
+    publishedAt: row.publishedAt,
+    expiresAt: row.expiresAt,
+    cancelledAt: row.cancelledAt,
+    expired: row.status === "published" && row.expiresAt !== null && row.expiresAt <= now,
+    linkUrl: row.linkUrl,
+    linkLabel: row.linkLabel,
+    relatedEvent: row.relatedEventId ? { eventId: row.relatedEventId, name: "Event" } : null,
+    relatedFlashSale: row.relatedFlashSaleId
+      ? {
+          flashSaleId: row.relatedFlashSaleId,
+          title: shopSales.find((s) => s.flashSaleId === row.relatedFlashSaleId)?.title ?? "Flash sale",
+        }
+      : null,
+    createdBy: { adminId: row.createdBy, name: staffName(row.createdBy) },
+    updatedBy: { adminId: row.updatedBy, name: staffName(row.updatedBy) },
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 const NOT_SHOP = Symbol("not shop");
 
 function runShopQuery(path: string, args: Record<string, unknown>, sessionToken: string) {
@@ -1647,6 +1756,23 @@ function runShopQuery(path: string, args: Record<string, unknown>, sessionToken:
         pointsAfter: participant.points - totalPointsCost, hasEnoughPoints: participant.points >= totalPointsCost, hasEnoughStock: item.stockQuantity >= quantity,
       };
     }
+    case "admin/notifications:listNotificationsAdmin": {
+      requireAdmin(sessionToken);
+      const term = String(args.search ?? "").trim().toLowerCase();
+      const status = typeof args.status === "string" ? args.status : undefined;
+      const type = typeof args.type === "string" ? args.type : undefined;
+      const rows = [...mockNotifications]
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .filter((row) => (!status || row.status === status) && (!type || row.type === type))
+        .filter((row) => !term || row.title.toLowerCase().includes(term) || row.message.toLowerCase().includes(term))
+        .map((row) => formatMockNotification(row, now));
+      return paginate(rows, args);
+    }
+    case "admin/notifications:getNotificationAdmin": {
+      requireAdmin(sessionToken);
+      const row = mockNotifications.find((candidate) => candidate.notificationId === args.notificationId);
+      return row ? formatMockNotification(row, now) : null;
+    }
     default:
       return NOT_SHOP;
   }
@@ -1730,29 +1856,147 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       return { ok: true, changed: true };
     }
     case "admin/shopFlashSales:createFlashSale": {
-      requireAdmin(sessionToken);
+      const admin = requireAdmin(sessionToken);
       const input = validateSale(args, now);
       const flashSaleId = shopId("sale");
       shopSales.push({ flashSaleId, ...input, cancelledAt: null, createdAt: now });
+      const immediate = input.startsAt <= now;
+      mockNotifications.push({
+        notificationId: shopId("notif"),
+        title: input.title,
+        message: input.message || "Limited-time shop discount is live.",
+        type: "flash_sale",
+        status: immediate ? "published" : "scheduled",
+        scheduledAt: immediate ? null : input.startsAt,
+        publishedAt: immediate ? now : null,
+        expiresAt: input.endsAt,
+        cancelledAt: null,
+        linkUrl: "/dashboard",
+        linkLabel: "Open dashboard",
+        relatedEventId: null,
+        relatedFlashSaleId: flashSaleId,
+        createdBy: admin.adminId,
+        updatedBy: admin.adminId,
+        createdAt: now,
+        updatedAt: now,
+      });
       bump();
       return { flashSaleId };
     }
     case "admin/shopFlashSales:updateFlashSale": {
-      requireAdmin(sessionToken);
+      const admin = requireAdmin(sessionToken);
       const sale = shopSales.find((candidate) => candidate.flashSaleId === args.flashSaleId);
       if (!sale) throw adminError("FLASH_SALE_NOT_FOUND");
       if (saleStatus(sale, now) !== "scheduled") throw adminError("FLASH_SALE_NOT_EDITABLE");
-      Object.assign(sale, validateSale(args, now, sale.flashSaleId));
+      const next = validateSale(args, now, sale.flashSaleId);
+      Object.assign(sale, next);
+      const linked = mockNotifications.find((row) => row.relatedFlashSaleId === sale.flashSaleId);
+      if (linked) {
+        const immediate = next.startsAt <= now;
+        Object.assign(linked, {
+          title: next.title,
+          message: next.message || "Limited-time shop discount is live.",
+          status: immediate ? "published" : "scheduled",
+          scheduledAt: immediate ? null : next.startsAt,
+          publishedAt: immediate ? now : null,
+          expiresAt: next.endsAt,
+          updatedBy: admin.adminId,
+          updatedAt: now,
+        });
+      }
       bump();
       return { ok: true };
     }
     case "admin/shopFlashSales:cancelFlashSale": {
-      requireAdmin(sessionToken);
+      const admin = requireAdmin(sessionToken);
       const sale = shopSales.find((candidate) => candidate.flashSaleId === args.flashSaleId);
       if (!sale) throw adminError("FLASH_SALE_NOT_FOUND");
       const status = saleStatus(sale, now);
       if (status === "ended" || status === "cancelled") throw adminError("FLASH_SALE_NOT_EDITABLE");
       sale.cancelledAt = now;
+      const linked = mockNotifications.find((row) => row.relatedFlashSaleId === sale.flashSaleId);
+      if (linked) {
+        Object.assign(linked, { status: "cancelled", cancelledAt: now, updatedBy: admin.adminId, updatedAt: now });
+      }
+      bump();
+      return { ok: true };
+    }
+    case "admin/notifications:saveNotificationDraft":
+    case "admin/notifications:publishNotificationNow":
+    case "admin/notifications:scheduleNotification":
+    case "admin/notifications:updateNotification": {
+      const admin = requireAdmin(sessionToken);
+      const title = String(args.title ?? "").trim();
+      const message = String(args.message ?? "").trim();
+      const type = String(args.type ?? "general") as MockNotificationRecord["type"];
+      if (!title || !message) throw adminError("INVALID_NOTIFICATION");
+      const linkUrl = typeof args.linkUrl === "string" && args.linkUrl.trim() ? args.linkUrl.trim() : null;
+      const linkLabel = typeof args.linkLabel === "string" && args.linkLabel.trim() ? args.linkLabel.trim() : null;
+      const expiresAt = typeof args.expiresAt === "number" ? args.expiresAt : null;
+      const existing = args.notificationId
+        ? mockNotifications.find((candidate) => candidate.notificationId === args.notificationId)
+        : undefined;
+      if (args.notificationId && !existing) throw adminError("NOTIFICATION_NOT_FOUND");
+      if (existing && (existing.status === "published" || existing.status === "cancelled")) {
+        throw adminError("NOTIFICATION_NOT_EDITABLE");
+      }
+      const isPublish = path.endsWith(":publishNotificationNow");
+      const isSchedule = path.endsWith(":scheduleNotification") || (path.endsWith(":updateNotification") && (existing?.status === "scheduled" || typeof args.scheduledAt === "number"));
+      const scheduledAt = isSchedule ? Number(args.scheduledAt ?? existing?.scheduledAt) : null;
+      if (isSchedule && (!scheduledAt || !Number.isSafeInteger(scheduledAt) || scheduledAt <= now)) {
+        throw adminError("INVALID_NOTIFICATION_SCHEDULE");
+      }
+      const nextStatus: MockNotificationRecord["status"] = isPublish ? "published" : isSchedule ? "scheduled" : "draft";
+      if (existing) {
+        Object.assign(existing, {
+          title,
+          message,
+          type,
+          status: nextStatus,
+          scheduledAt: isSchedule ? scheduledAt : null,
+          publishedAt: isPublish ? now : null,
+          expiresAt,
+          linkUrl,
+          linkLabel,
+          updatedBy: admin.adminId,
+          updatedAt: now,
+        });
+        bump();
+        return path.endsWith(":updateNotification")
+          ? { ok: true, status: nextStatus }
+          : { notificationId: existing.notificationId, ...(isPublish ? { publishedAt: now } : isSchedule ? { scheduledAt } : {}) };
+      }
+      const notificationId = shopId("notif");
+      mockNotifications.push({
+        notificationId,
+        title,
+        message,
+        type,
+        status: nextStatus,
+        scheduledAt: isSchedule ? scheduledAt : null,
+        publishedAt: isPublish ? now : null,
+        expiresAt,
+        cancelledAt: null,
+        linkUrl,
+        linkLabel,
+        relatedEventId: typeof args.relatedEventId === "string" ? args.relatedEventId : null,
+        relatedFlashSaleId: null,
+        createdBy: admin.adminId,
+        updatedBy: admin.adminId,
+        createdAt: now,
+        updatedAt: now,
+      });
+      bump();
+      return { notificationId, ...(isPublish ? { publishedAt: now } : isSchedule ? { scheduledAt } : {}) };
+    }
+    case "admin/notifications:cancelNotification": {
+      const admin = requireAdmin(sessionToken);
+      const existing = mockNotifications.find((candidate) => candidate.notificationId === args.notificationId);
+      if (!existing) throw adminError("NOTIFICATION_NOT_FOUND");
+      if (existing.status === "published" || existing.status === "cancelled") {
+        throw adminError("NOTIFICATION_NOT_EDITABLE");
+      }
+      Object.assign(existing, { status: "cancelled", cancelledAt: now, updatedBy: admin.adminId, updatedAt: now });
       bump();
       return { ok: true };
     }

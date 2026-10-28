@@ -77,6 +77,14 @@ export const ADMIN_ERROR_MESSAGES = {
   BADGE_RETIRED: "That badge was taken out of service and can't be used again. Use a different badge.",
   BADGE_ASSIGNMENT_CHANGED: "This participant's badge changed while you were editing. Review the latest details and try again.",
   INVALID_BADGE_REASON: "Enter a reason for the badge change (up to 200 characters).",
+  INVALID_NOTIFICATION:
+    "Check the notification title, message, type, and optional link, then try again.",
+  INVALID_NOTIFICATION_SCHEDULE:
+    "Choose a future scheduled date and time, and make sure any expiration time is after publication.",
+  NOTIFICATION_NOT_FOUND: "We couldn't find that notification.",
+  NOTIFICATION_NOT_EDITABLE:
+    "Published or cancelled notifications can't be modified. Send a new notification instead.",
+  INVALID_NOTIFICATION_FILTER: "Shorten the search to 100 characters or fewer and try again.",
 } as const;
 
 export type AdminErrorCode = keyof typeof ADMIN_ERROR_MESSAGES;

@@ -65,6 +65,14 @@ const CHANGED_FIELD_NAMES = new Set([
   "title",
   "message",
   "items",
+  "type",
+  "scheduledAt",
+  "publishedAt",
+  "expiresAt",
+  "linkUrl",
+  "linkLabel",
+  "relatedEventId",
+  "relatedFlashSaleId",
 ]);
 
 /** Convex ids are short and alphanumeric. Longer strings would fit a QR token. */
