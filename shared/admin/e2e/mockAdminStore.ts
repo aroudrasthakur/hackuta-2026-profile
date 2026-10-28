@@ -188,10 +188,7 @@ type ShopItemRecord = {
   name: string;
   description: string;
   pointsCost: number;
-  stockQuantity: number;
-  lowStockThreshold: number | null;
   status: "active" | "inactive" | "archived";
-  featured: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -222,19 +219,7 @@ type ShopRedemptionRecord = {
   redeemedAt: number;
   flashSaleId: string | null;
   idempotencyKey: string;
-  refund: { refundedBy: string; refundedAt: number; reason: string; restocked: boolean; pointsRestored: number } | null;
-};
-
-type ShopAdjustmentRecord = {
-  adjustmentId: string;
-  itemId: string;
-  kind: "initial" | "manual" | "restock" | "purchase" | "refund_restock";
-  previousQuantity: number;
-  newQuantity: number;
-  delta: number;
-  reason: string | null;
-  actorAdminId: string;
-  createdAt: number;
+  refund: { refundedBy: string; refundedAt: number; reason: string; pointsRestored: number } | null;
 };
 
 type MockNotificationRecord = {
@@ -260,7 +245,6 @@ type MockNotificationRecord = {
 const shopItems = new Map<string, ShopItemRecord>();
 const shopSales: ShopSaleRecord[] = [];
 const shopRedemptions: ShopRedemptionRecord[] = [];
-const shopAdjustments: ShopAdjustmentRecord[] = [];
 const mockNotifications: MockNotificationRecord[] = [];
 let nextShopId = 1;
 /** When set, the next purchase is saved but its response is lost, like a dropped connection. */
@@ -1495,21 +1479,17 @@ function seedShop(now: number) {
   shopItems.clear();
   shopSales.length = 0;
   shopRedemptions.length = 0;
-  shopAdjustments.length = 0;
   mockNotifications.length = 0;
   nextShopId = 1;
   dropNextPurchaseResponse = false;
   const seed = (itemId: string, fields: Omit<ShopItemRecord, "itemId" | "createdAt" | "updatedAt">, age: number) => {
     shopItems.set(itemId, { itemId, ...fields, createdAt: now - age, updatedAt: now - age });
-    if (fields.stockQuantity > 0) {
-      shopAdjustments.push({ adjustmentId: shopId("adj"), itemId, kind: "initial", previousQuantity: 0, newQuantity: fields.stockQuantity, delta: fields.stockQuantity, reason: null, actorAdminId: "e2e-admin-admin", createdAt: now - age });
-    }
   };
-  seed(E2E_SHOP.tee, { name: "HackUTA 2026 T-shirt", description: "Soft cotton tee with the voyage ship.", pointsCost: 400, stockQuantity: 12, lowStockThreshold: null, status: "active", featured: true }, 5_000);
-  seed(E2E_SHOP.stickers, { name: "Sticker pack", description: "Six die-cut stickers.", pointsCost: 50, stockQuantity: 3, lowStockThreshold: null, status: "active", featured: false }, 4_000);
-  seed(E2E_SHOP.bottle, { name: "Insulated bottle", description: "20 oz steel bottle.", pointsCost: 600, stockQuantity: 0, lowStockThreshold: null, status: "active", featured: false }, 3_000);
-  seed(E2E_SHOP.keyboard, { name: "Mechanical keyboard", description: "Compact 65% board.", pointsCost: 2500, stockQuantity: 2, lowStockThreshold: 1, status: "active", featured: false }, 2_000);
-  seed(E2E_SHOP.mug, { name: "Amphora mug", description: "Black-figure mug.", pointsCost: 350, stockQuantity: 8, lowStockThreshold: null, status: "inactive", featured: false }, 1_000);
+  seed(E2E_SHOP.tee, { name: "HackUTA 2026 T-shirt", description: "Soft cotton tee with the voyage ship.", pointsCost: 400, status: "active" }, 5_000);
+  seed(E2E_SHOP.stickers, { name: "Sticker pack", description: "Six die-cut stickers.", pointsCost: 50, status: "active" }, 4_000);
+  seed(E2E_SHOP.bottle, { name: "Insulated bottle", description: "20 oz steel bottle.", pointsCost: 600, status: "active" }, 3_000);
+  seed(E2E_SHOP.keyboard, { name: "Mechanical keyboard", description: "Compact 65% board.", pointsCost: 2500, status: "active" }, 2_000);
+  seed(E2E_SHOP.mug, { name: "Amphora mug", description: "Black-figure mug.", pointsCost: 350, status: "inactive" }, 1_000);
   shopSales.push({
     flashSaleId: E2E_SHOP.sale,
     title: "Midnight tee sale",
@@ -1597,12 +1577,6 @@ function shopPrice(item: ShopItemRecord, now: number) {
   return { unitPointsCost: item.pointsCost, basePointsCost: item.pointsCost, flashSaleId: null, saleEndsAt: null };
 }
 
-function shopStockStatus(item: ShopItemRecord) {
-  if (item.stockQuantity <= 0) return "out" as const;
-  if (item.stockQuantity <= (item.lowStockThreshold ?? 5)) return "low" as const;
-  return "in_stock" as const;
-}
-
 function nextShopPriceChange(now: number) {
   let next: number | null = null;
   for (const sale of shopSales) {
@@ -1628,14 +1602,6 @@ function shopReason(reason: unknown) {
   const trimmed = String(reason ?? "").trim();
   if (!trimmed || trimmed.length > 200) throw adminError("INVALID_SHOP_REASON");
   return trimmed;
-}
-
-function changeStock(item: ShopItemRecord, delta: number, kind: ShopAdjustmentRecord["kind"], actorAdminId: string, reason: string | null, now: number) {
-  const next = item.stockQuantity + delta;
-  if (!Number.isSafeInteger(delta) || delta === 0 || next < 0) throw adminError("INVALID_STOCK_ADJUSTMENT");
-  shopAdjustments.push({ adjustmentId: shopId("adj"), itemId: item.itemId, kind, previousQuantity: item.stockQuantity, newQuantity: next, delta, reason, actorAdminId, createdAt: now });
-  item.stockQuantity = next;
-  item.updatedAt = now;
 }
 
 function participantById(participantId: unknown) {
@@ -1714,19 +1680,10 @@ function runShopQuery(path: string, args: Record<string, unknown>, sessionToken:
         return {
           itemId: item.itemId, name: item.name, description: item.description,
           pointsCost: item.pointsCost, effectivePointsCost: price.unitPointsCost, flashSaleId: price.flashSaleId, saleEndsAt: price.saleEndsAt,
-          stockQuantity: item.stockQuantity, stockStatus: shopStockStatus(item), lowStockThreshold: item.lowStockThreshold,
-          status: item.status, featured: item.featured, createdAt: item.createdAt, updatedAt: item.updatedAt,
+          status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt,
         };
       });
       return { items, nextPriceChangeAt: nextShopPriceChange(now) };
-    }
-    case "admin/shopAdmin:listInventoryAdjustments": {
-      requireAdmin(sessionToken);
-      return paginate([...shopAdjustments].reverse().map((row) => ({
-        adjustmentId: row.adjustmentId, itemId: row.itemId, itemName: shopItems.get(row.itemId)?.name ?? "Unknown item", kind: row.kind,
-        previousQuantity: row.previousQuantity, newQuantity: row.newQuantity, delta: row.delta, reason: row.reason, redemptionId: null,
-        admin: { adminId: row.actorAdminId, name: staffName(row.actorAdminId) }, createdAt: row.createdAt,
-      })), args);
     }
     case "admin/shopAdmin:listShopRedemptions": {
       requireAdmin(sessionToken);
@@ -1765,8 +1722,7 @@ function runShopQuery(path: string, args: Record<string, unknown>, sessionToken:
       requireShopVolunteer(sessionToken);
       const items = [...shopItems.values()].filter((item) => item.status === "active").map((item) => ({
         itemId: item.itemId, name: item.name, description: item.description, imageUrl: null, ...shopPrice(item, now),
-        stockQuantity: item.stockQuantity, stockStatus: shopStockStatus(item), featured: item.featured,
-      })).sort((a, b) => Number(b.featured) - Number(a.featured) || a.name.localeCompare(b.name));
+      })).sort((a, b) => a.name.localeCompare(b.name));
       return { items, maxQuantity: SHOP_MAX_QUANTITY, nextPriceChangeAt: nextShopPriceChange(now) };
     }
     case "admin/shopRedemption:getShopCustomer": {
@@ -1785,8 +1741,8 @@ function runShopQuery(path: string, args: Record<string, unknown>, sessionToken:
       const price = shopPrice(item, now);
       const totalPointsCost = price.unitPointsCost * quantity;
       return {
-        status: "ok", ...price, quantity, totalPointsCost, stockQuantity: item.stockQuantity, points: participant.points,
-        pointsAfter: participant.points - totalPointsCost, hasEnoughPoints: participant.points >= totalPointsCost, hasEnoughStock: item.stockQuantity >= quantity,
+        status: "ok", ...price, quantity, totalPointsCost, points: participant.points,
+        pointsAfter: participant.points - totalPointsCost, hasEnoughPoints: participant.points >= totalPointsCost,
       };
     }
     case "admin/notifications:listNotificationsAdmin": {
@@ -1819,18 +1775,15 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       return "https://e2e-upload.invalid/upload";
     }
     case "admin/shopAdmin:createShopItem": {
-      const admin = requireAdmin(sessionToken);
+      requireAdmin(sessionToken);
       const name = String(args.name ?? "").trim();
       const pointsCost = Number(args.pointsCost);
-      const stockQuantity = Number(args.stockQuantity);
-      if (!name || !Number.isSafeInteger(pointsCost) || pointsCost <= 0 || !Number.isSafeInteger(stockQuantity) || stockQuantity < 0) throw adminError("INVALID_SHOP_ITEM");
+      if (!name || !Number.isSafeInteger(pointsCost) || pointsCost <= 0) throw adminError("INVALID_SHOP_ITEM");
       const item: ShopItemRecord = {
-        itemId: shopId("item"), name, description: String(args.description ?? "").trim(), pointsCost, stockQuantity: 0,
-        lowStockThreshold: typeof args.lowStockThreshold === "number" ? args.lowStockThreshold : null,
-        status: args.active === false ? "inactive" : "active", featured: args.featured === true, createdAt: now, updatedAt: now,
+        itemId: shopId("item"), name, description: String(args.description ?? "").trim(), pointsCost,
+        status: args.active === false ? "inactive" : "active", createdAt: now, updatedAt: now,
       };
       shopItems.set(item.itemId, item);
-      if (stockQuantity > 0) changeStock(item, stockQuantity, "initial", admin.adminId, null, now);
       bump();
       return { itemId: item.itemId };
     }
@@ -1841,8 +1794,8 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       const pointsCost = Number(args.pointsCost);
       if (!name || !Number.isSafeInteger(pointsCost) || pointsCost <= 0) throw adminError("INVALID_SHOP_ITEM");
       Object.assign(item, {
-        name, description: String(args.description ?? "").trim(), pointsCost, featured: args.featured === true,
-        lowStockThreshold: typeof args.lowStockThreshold === "number" ? args.lowStockThreshold : null, updatedAt: now,
+        name, description: String(args.description ?? "").trim(), pointsCost,
+        updatedAt: now,
       });
       bump();
       return { ok: true, changed: true };
@@ -1853,18 +1806,6 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       bump();
       return { ok: true, changed: true };
     }
-    case "admin/shopAdmin:adjustShopStock": {
-      const admin = requireAdmin(sessionToken);
-      const item = requireShopItem(args.itemId);
-      const hasDelta = typeof args.delta === "number";
-      if (hasDelta === (typeof args.newQuantity === "number")) throw adminError("INVALID_STOCK_ADJUSTMENT");
-      const delta = hasDelta ? Number(args.delta) : Number(args.newQuantity) - item.stockQuantity;
-      if (args.kind === "restock" && delta <= 0) throw adminError("INVALID_STOCK_ADJUSTMENT");
-      const previousQuantity = item.stockQuantity;
-      changeStock(item, delta, args.kind === "restock" ? "restock" : "manual", admin.adminId, shopReason(args.reason), now);
-      bump();
-      return { ok: true, previousQuantity, newQuantity: item.stockQuantity };
-    }
     case "admin/shopAdmin:refundShopRedemption": {
       const admin = requireAdmin(sessionToken);
       const row = shopRedemptions.find((candidate) => candidate.redemptionId === args.redemptionId);
@@ -1873,12 +1814,9 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       const reason = shopReason(args.reason);
       const participant = participantsByToken.get(row.participantToken);
       if (participant) participant.points += row.totalPointsSpent;
-      const item = shopItems.get(row.itemId);
-      const restocked = args.restock === true && item !== undefined;
-      if (item && restocked) changeStock(item, row.quantity, "refund_restock", admin.adminId, reason, now);
-      row.refund = { refundedBy: admin.adminId, refundedAt: now, reason, restocked, pointsRestored: row.totalPointsSpent };
+      row.refund = { refundedBy: admin.adminId, refundedAt: now, reason, pointsRestored: row.totalPointsSpent };
       bump();
-      return { ok: true, pointsRestored: row.totalPointsSpent, restocked };
+      return { ok: true, pointsRestored: row.totalPointsSpent };
     }
     case "admin/shopAdmin:setVolunteerShopAccess": {
       requireAdmin(sessionToken);
@@ -2055,7 +1993,6 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       if (price.unitPointsCost !== args.expectedUnitPointsCost) {
         return { status: "price_changed", unitPointsCost: price.unitPointsCost, totalPointsCost: price.unitPointsCost * quantity };
       }
-      if (item.stockQuantity < quantity) return { status: "insufficient_stock", stockQuantity: item.stockQuantity };
       const totalPointsCost = price.unitPointsCost * quantity;
       if (participant.points < totalPointsCost) return { status: "insufficient_points", points: participant.points, totalPointsCost };
       const row: ShopRedemptionRecord = {
@@ -2065,7 +2002,6 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
         redeemedAt: now, flashSaleId: price.flashSaleId, idempotencyKey: key, refund: null,
       };
       participant.points -= totalPointsCost;
-      changeStock(item, -quantity, "purchase", volunteer.adminId, null, now);
       shopRedemptions.push(row);
       bump();
       if (dropNextPurchaseResponse) {

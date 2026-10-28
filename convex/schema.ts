@@ -11,7 +11,6 @@ import {
   participantNotificationStatus,
   participantNotificationType,
   staffRole,
-  shopInventoryAdjustmentKind,
   shopItemStatus,
   staffConfigLogAction,
   volunteerActionLogAction,
@@ -362,24 +361,19 @@ export default defineSchema({
     .index("by_application", ["applicationId"]),
 
   /**
-   * Event shop catalog. `stockQuantity` is the one authoritative count; every
-   * change also writes a `shopInventoryAdjustments` row. Items are archived,
-   * never deleted, so purchase history always resolves.
+   * Event shop catalog. Items are archived, never deleted, so purchase history
+   * always resolves. Inventory is not tracked.
    */
   shopItems: defineTable({
     name: v.string(),
     description: v.string(),
     imageStorageId: v.optional(v.id("_storage")),
     pointsCost: v.number(),
-    stockQuantity: v.number(),
     status: shopItemStatus,
-    featured: v.boolean(),
-    lowStockThreshold: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_status", ["status"])
-    .index("by_status_featured", ["status", "featured"]),
+    .index("by_status", ["status"]),
 
   /**
    * One completed volunteer sale. Prices and the item name are copied at sale
@@ -404,7 +398,7 @@ export default defineSchema({
       refundedBy: v.id("admins"),
       refundedAt: v.number(),
       reason: v.string(),
-      restocked: v.boolean(),
+      restocked: v.optional(v.boolean()),
       pointsRestored: v.number(),
     })),
   })
@@ -413,21 +407,6 @@ export default defineSchema({
     .index("by_item_redeemedAt", ["itemId", "redeemedAt"])
     .index("by_volunteer_redeemedAt", ["redeemedBy", "redeemedAt"])
     .index("by_redeemedAt", ["redeemedAt"]),
-
-  /** Append-only audit of every `shopItems.stockQuantity` change. */
-  shopInventoryAdjustments: defineTable({
-    itemId: v.id("shopItems"),
-    actorAdminId: v.id("admins"),
-    kind: shopInventoryAdjustmentKind,
-    previousQuantity: v.number(),
-    newQuantity: v.number(),
-    delta: v.number(),
-    reason: v.optional(v.string()),
-    redemptionId: v.optional(v.id("shopRedemptions")),
-    createdAt: v.number(),
-  })
-    .index("by_item_createdAt", ["itemId", "createdAt"])
-    .index("by_createdAt", ["createdAt"]),
 
   /**
    * Timed promotion. Scheduled, live, and ended are derived from the window,

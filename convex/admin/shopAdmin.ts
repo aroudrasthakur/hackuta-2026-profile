@@ -1,10 +1,9 @@
 /**
- * Administrator-only shop management: items, images, stock, purchase history,
+ * Administrator-only shop management: items, images, purchase history,
  * refunds, and which volunteers may sell. Every export calls
  * `requireAdminRole` first. Flash sales live in `shopFlashSales.ts`.
  *
- * Stock only changes through `applyStockChange`, so every change has an
- * audit row. Items are archived, never deleted.
+ * Items are archived, never deleted.
  */
 import { paginationOptsValidator, type DocumentByName } from "convex/server";
 import { v, type GenericId } from "convex/values";
@@ -12,17 +11,15 @@ import { mutation, query } from "../_generated/server";
 import type { DataModel, MutationCtx, QueryCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
 import {
-  assertStockQuantity,
   normalizeShopItemInput,
   normalizeShopReason,
   SHOP_IMAGE_MAX_BYTES,
   SHOP_IMAGE_TYPES,
-  stockStatus,
 } from "../../shared/admin/shopRules";
 import { buildStaffConfigDetails } from "../../shared/admin/volunteerRules";
 import { nameLookups } from "./adminQueryHelpers";
 import { shopItemStatus } from "./fields";
-import { applyStockChange, recordRefund } from "./shopLedger";
+import { recordRefund } from "./shopLedger";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
 import { requireAdminRole, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
 
@@ -37,8 +34,6 @@ const itemFieldArgs = {
   name: v.string(),
   description: v.string(),
   pointsCost: v.number(),
-  featured: v.boolean(),
-  lowStockThreshold: v.optional(v.union(v.number(), v.null())),
   imageStorageId: v.optional(v.union(v.id("_storage"), v.null())),
 };
 
@@ -74,11 +69,7 @@ export async function shopItemAdminView(ctx: QueryCtx | MutationCtx, item: ShopI
     effectivePointsCost: price.unitPointsCost,
     flashSaleId: price.flashSaleId,
     saleEndsAt: price.saleEndsAt,
-    stockQuantity: item.stockQuantity,
-    stockStatus: stockStatus(item.stockQuantity, item.lowStockThreshold),
-    lowStockThreshold: item.lowStockThreshold ?? null,
     status: item.status,
-    featured: item.featured,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -93,18 +84,16 @@ export const generateShopImageUploadUrl = mutation({
   },
 });
 
-/** New item with an `initial` stock audit row. Items start active unless `active` is false. */
+/** New item. Items start active unless `active` is false. */
 export const createShopItem = mutation({
   args: {
     ...sessionTokenArgs,
     ...itemFieldArgs,
-    stockQuantity: v.number(),
     active: v.optional(v.boolean()),
   },
-  handler: async (ctx, { sessionToken, stockQuantity, active, imageStorageId, featured, ...fields }) => {
+  handler: async (ctx, { sessionToken, active, imageStorageId, ...fields }) => {
     const actor = await requireAdminRole(ctx, sessionToken);
     const input = normalizeShopItemInput(fields);
-    const initialStock = assertStockQuantity(stockQuantity);
     if (imageStorageId) await assertShopImage(ctx, imageStorageId);
     const now = Date.now();
 
@@ -112,23 +101,11 @@ export const createShopItem = mutation({
       name: input.name,
       description: input.description,
       pointsCost: input.pointsCost,
-      stockQuantity: 0,
       status: active === false ? "inactive" : "active",
-      featured,
-      ...(input.lowStockThreshold !== undefined ? { lowStockThreshold: input.lowStockThreshold } : {}),
       ...(imageStorageId ? { imageStorageId } : {}),
       createdAt: now,
       updatedAt: now,
     });
-    if (initialStock > 0) {
-      await applyStockChange(ctx, {
-        item: (await ctx.db.get(itemId))!,
-        delta: initialStock,
-        kind: "initial",
-        actorAdminId: actor._id,
-        now,
-      });
-    }
     await ctx.db.insert("staffConfigLogs", {
       actorAdminId: actor._id, action: "shop_item_created", targetShopItemId: itemId, createdAt: now,
     });
@@ -137,13 +114,12 @@ export const createShopItem = mutation({
 });
 
 /**
- * Edits item details and price. Stock is not set here; use `adjustShopStock`.
- * `imageStorageId: null` removes the image; a replaced image is deleted.
- * Past redemptions keep their own prices.
+ * Edits item details and price. `imageStorageId: null` removes the image;
+ * a replaced image is deleted. Past redemptions keep their own prices.
  */
 export const updateShopItem = mutation({
   args: { ...sessionTokenArgs, itemId: v.id("shopItems"), ...itemFieldArgs },
-  handler: async (ctx, { sessionToken, itemId, imageStorageId, featured, ...fields }) => {
+  handler: async (ctx, { sessionToken, itemId, imageStorageId, ...fields }) => {
     const actor = await requireAdminRole(ctx, sessionToken);
     const item = await requireItem(ctx, itemId);
     const input = normalizeShopItemInput(fields);
@@ -153,8 +129,6 @@ export const updateShopItem = mutation({
       name: input.name,
       description: input.description,
       pointsCost: input.pointsCost,
-      featured,
-      lowStockThreshold: input.lowStockThreshold,
       imageStorageId: imageStorageId === undefined ? item.imageStorageId : imageStorageId ?? undefined,
     };
     const changedFields = (Object.keys(next) as Array<keyof typeof next>)
@@ -192,35 +166,8 @@ export const setShopItemStatus = mutation({
 });
 
 /**
- * Manual stock change with a required reason. Pass exactly one of `delta`
- * (signed) or `newQuantity` (absolute). A restock must add stock. Stock never
- * goes below 0.
- */
-export const adjustShopStock = mutation({
-  args: {
-    ...sessionTokenArgs,
-    itemId: v.id("shopItems"),
-    kind: v.union(v.literal("manual"), v.literal("restock")),
-    delta: v.optional(v.number()),
-    newQuantity: v.optional(v.number()),
-    reason: v.string(),
-  },
-  handler: async (ctx, { sessionToken, itemId, kind, delta, newQuantity, reason }) => {
-    const actor = await requireAdminRole(ctx, sessionToken);
-    const item = await requireItem(ctx, itemId);
-    if ((delta === undefined) === (newQuantity === undefined)) throw adminError("INVALID_STOCK_ADJUSTMENT");
-    const change = delta ?? newQuantity! - item.stockQuantity;
-    if (kind === "restock" && change <= 0) throw adminError("INVALID_STOCK_ADJUSTMENT");
-    const result = await applyStockChange(ctx, {
-      item, delta: change, kind, actorAdminId: actor._id, reason: normalizeShopReason(reason), now: Date.now(),
-    });
-    return { ok: true as const, ...result };
-  },
-});
-
-/**
- * Every item for the management table, newest first, with live price and
- * stock. `nowBucket` only changes the cache key so clients can re-run the
+ * Every item for the management table, newest first, with live price.
+ * `nowBucket` only changes the cache key so clients can re-run the
  * query as sales start and end; the server clock decides prices.
  */
 export const listShopItemsAdmin = query({
@@ -243,39 +190,6 @@ export const listShopItemsAdmin = query({
       items.push(await shopItemAdminView(ctx, item, now));
     }
     return { items, nextPriceChangeAt: await nextPriceChangeAt(ctx, rows.map((row) => row._id), now) };
-  },
-});
-
-/** Stock audit, newest first, for one item or the whole shop. */
-export const listInventoryAdjustments = query({
-  args: { ...sessionTokenArgs, paginationOpts: paginationOptsValidator, itemId: v.optional(v.id("shopItems")) },
-  handler: async (ctx, { sessionToken, paginationOpts, itemId }) => {
-    await requireAdminRole(ctx, sessionToken);
-    const table = ctx.db.query("shopInventoryAdjustments");
-    const result = await (itemId
-      ? table.withIndex("by_item_createdAt", (q) => q.eq("itemId", itemId))
-      : table.withIndex("by_createdAt")
-    ).order("desc").paginate(paginationOpts);
-    const names = nameLookups(ctx);
-    const itemNames = new Map<string, string>();
-    const page = [];
-    for (const row of result.page) {
-      if (!itemNames.has(row.itemId)) itemNames.set(row.itemId, (await ctx.db.get(row.itemId))?.name ?? "Unknown item");
-      page.push({
-        adjustmentId: row._id,
-        itemId: row.itemId,
-        itemName: itemNames.get(row.itemId)!,
-        kind: row.kind,
-        previousQuantity: row.previousQuantity,
-        newQuantity: row.newQuantity,
-        delta: row.delta,
-        reason: row.reason ?? null,
-        redemptionId: row.redemptionId ?? null,
-        admin: { adminId: row.actorAdminId, name: await names.staffName(row.actorAdminId) },
-        createdAt: row.createdAt,
-      });
-    }
-    return { ...result, page };
   },
 });
 
@@ -342,7 +256,6 @@ export const listShopRedemptions = query({
           ? {
             refundedAt: row.refund.refundedAt,
             reason: row.refund.reason,
-            restocked: row.refund.restocked,
             pointsRestored: row.refund.pointsRestored,
             refundedBy: { adminId: row.refund.refundedBy, name: await names.staffName(row.refund.refundedBy) },
           }
@@ -353,15 +266,15 @@ export const listShopRedemptions = query({
   },
 });
 
-/** Refunds one purchase with a required reason. Points come back in full; stock only when `restock`. */
+/** Refunds one purchase with a required reason. Points come back in full. */
 export const refundShopRedemption = mutation({
-  args: { ...sessionTokenArgs, redemptionId: v.id("shopRedemptions"), reason: v.string(), restock: v.boolean() },
-  handler: async (ctx, { sessionToken, redemptionId, reason, restock }) => {
+  args: { ...sessionTokenArgs, redemptionId: v.id("shopRedemptions"), reason: v.string() },
+  handler: async (ctx, { sessionToken, redemptionId, reason }) => {
     const actor = await requireAdminRole(ctx, sessionToken);
     const redemption = await ctx.db.get(redemptionId);
     if (!redemption) throw adminError("REDEMPTION_NOT_FOUND");
     const result = await recordRefund(ctx, {
-      actorAdminId: actor._id, redemption, reason: normalizeShopReason(reason), restock, now: Date.now(),
+      actorAdminId: actor._id, redemption, reason: normalizeShopReason(reason), now: Date.now(),
     });
     return { ok: true as const, ...result };
   },

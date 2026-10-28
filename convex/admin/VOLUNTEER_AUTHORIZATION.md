@@ -58,7 +58,7 @@ If you add a new public mutation that imports `pointsLedger`, add a row to the e
 | `volunteerProvisioning.ts`, `adminQueryHelpers.ts` | — | **Helpers only** (callers must guard first) |
 | `volunteerScan.ts` | `listMyScanOptions`, `resolveQrForScan`, `listActiveMealPeriods`, `resolveQrForMeal`, `redeemMeal` | `requireVolunteerAccess`, then per-purpose capability / assignment checks |
 | `meals.ts` | all exports (schedules, availability, counts, and history) | `requireAdminRole` |
-| `shopAdmin.ts`, `shopFlashSales.ts` | all exports (items, stock, history, refunds, shop access, flash sales) | `requireAdminRole` |
+| `shopAdmin.ts`, `shopFlashSales.ts` | all exports (items, history, refunds, shop access, flash sales) | `requireAdminRole` |
 | `notifications.ts` | all public exports (`saveNotificationDraft`, `publishNotificationNow`, `scheduleNotification`, `updateNotification`, `cancelNotification`, `listNotificationsAdmin`, `getNotificationAdmin`) | `requireAdminRole` (`publishScheduledNotification` is an `internalMutation`) |
 | `shopRedemption.ts` | `listShopCatalogForVolunteer`, `getShopCustomer`, `previewShopPurchase`, `purchaseShopItem` | `requireVolunteerCapability(..., "canRedeemShop")` |
 | `participantShop.ts` | `listShop`, `getMyShopHistory`, `listPublishedNotifications` | Signed-in applicant (`getAuthUser`); own data only |
@@ -185,7 +185,7 @@ Selling needs `canRedeemShop === true` for volunteers (administrators bypass tha
 
 `getShopCustomer` and `previewShopPurchase` are queries keyed by `participantId`. They require shop capability but have no badge scan and no throttle. A shop volunteer who has seen an id can keep reading that participant's name and balance. Spending still requires the badge QR in `purchaseShopItem`. Closing this would need a session-scoped scan token.
 - The same `idempotencyKey` returns the first receipt (`duplicate`) and charges nothing.
-- A success writes the balance, stock, a `shopRedemptions` row, a `purchase` inventory row, and a `shop_purchase` log in one transaction.
+- A success writes the balance, a `shopRedemptions` row, and a `shop_purchase` log in one transaction.
 - Purchases share the scan rate limits.
 
 ### Rate limits

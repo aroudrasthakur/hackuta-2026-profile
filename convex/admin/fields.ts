@@ -94,11 +94,3 @@ export const shopItemStatus = v.union(
   v.literal("archived"),
 );
 
-/** Why `shopItems.stockQuantity` changed, on `shopInventoryAdjustments.kind`. */
-export const shopInventoryAdjustmentKind = v.union(
-  v.literal("initial"),
-  v.literal("manual"),
-  v.literal("restock"),
-  v.literal("purchase"),
-  v.literal("refund_restock"),
-);

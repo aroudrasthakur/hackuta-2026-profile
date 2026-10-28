@@ -58,10 +58,9 @@ export const ADMIN_ERROR_MESSAGES = {
   INVALID_LOG_FILTER: "Check the date range and try again.",
   INVALID_ADJUSTMENT_REASON: "Enter a reason for this point change (up to 200 characters).",
   INVALID_PARTICIPANT_FILTER: "Shorten the search to 100 characters or fewer and try again.",
-  INVALID_SHOP_ITEM: "Check the item name, description, price, and stock, then try again.",
+  INVALID_SHOP_ITEM: "Check the item name, description, and price, then try again.",
   INVALID_SHOP_IMAGE: "Upload a PNG, JPEG, WebP, or GIF image of 2 MB or less.",
   SHOP_ITEM_NOT_FOUND: "We couldn't find that shop item.",
-  INVALID_STOCK_ADJUSTMENT: "Enter a stock change that keeps the quantity at zero or more.",
   INVALID_SHOP_REASON: "Enter a reason (up to 200 characters).",
   INVALID_FLASH_SALE:
     "Check the sale title, times, and items. Each sale price must be lower than the item's price.",
