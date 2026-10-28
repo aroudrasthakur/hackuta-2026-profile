@@ -2,14 +2,15 @@ import { NavLink, Outlet } from "react-router-dom";
 import {
   NavBellIcon,
   NavHomeIcon,
-  NavProfileIcon,
   NavScanIcon,
   NavScheduleIcon,
+  NavSignOutIcon,
   NavTrophyIcon,
 } from "../../components/participant/ParticipantNavIcons";
 import { useParticipantDashboard } from "./useParticipantDashboard";
 import { ParticipantAvatar } from "../../components/participant/ParticipantAvatar";
 import { ParticipantBrand } from "../../components/participant/ParticipantBrand";
+import { useSignOut } from "../../hooks/useSignOut";
 
 /** `shortLabel` replaces `label` below the mobile breakpoint (CSS swaps the two spans). */
 const NAV: { to: string; end: boolean; label: string; shortLabel?: string; icon: typeof NavHomeIcon }[] = [
@@ -18,11 +19,11 @@ const NAV: { to: string; end: boolean; label: string; shortLabel?: string; icon:
   { to: "/dashboard/schedule", end: false, label: "Schedule", icon: NavScheduleIcon },
   { to: "/dashboard/leaderboard", end: false, label: "Leaderboard", shortLabel: "Board", icon: NavTrophyIcon },
   { to: "/dashboard/notifications", end: false, label: "Notifications", shortLabel: "Alerts", icon: NavBellIcon },
-  { to: "/dashboard/profile", end: false, label: "Profile", icon: NavProfileIcon },
 ];
 
 export default function ParticipantPortalLayout() {
   const { loading, data } = useParticipantDashboard();
+  const signOut = useSignOut();
 
   if (loading) {
     return (
@@ -69,13 +70,26 @@ export default function ParticipantPortalLayout() {
           ))}
         </nav>
         <div className="participant-dashboard__account">
-          <ParticipantAvatar displayName={data.profile.displayName} size="sidebar" />
+          <ParticipantAvatar displayName={data.profile.displayName} />
           <div className="participant-dashboard__account-text">
-            <p className="participant-dashboard__account-name">{data.profile.displayName}</p>
+            <p className="participant-dashboard__account-name" title={data.profile.displayName}>
+              {data.profile.displayName}
+            </p>
             {data.profile.email ? (
-              <p className="participant-dashboard__account-email">{data.profile.email}</p>
+              <p className="participant-dashboard__account-email" title={data.profile.email}>
+                {data.profile.email}
+              </p>
             ) : null}
           </div>
+          <button
+            type="button"
+            className="participant-dashboard__sign-out"
+            aria-label="Sign out"
+            title="Sign out"
+            onClick={() => void signOut()}
+          >
+            <NavSignOutIcon />
+          </button>
         </div>
       </aside>
 

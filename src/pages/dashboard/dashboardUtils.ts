@@ -1,14 +1,5 @@
 export { profileInitials } from "../../lib/participantDisplay";
 
-export function formatCardDate(timestamp: number | null) {
-  if (timestamp === null) return { month: "TBA", day: "—" };
-  const date = new Date(timestamp);
-  return {
-    month: date.toLocaleString("en-US", { month: "short", timeZone: "America/Chicago" }),
-    day: date.toLocaleString("en-US", { day: "2-digit", timeZone: "America/Chicago" }),
-  };
-}
-
 /** ICU may join the time and AM/PM with a narrow no-break space; keep a plain space for display and tests. */
 function formatCheckInClock(date: Date, timeZone?: string) {
   return date

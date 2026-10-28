@@ -8,9 +8,9 @@ import {
 import type { ParticipantDashboard } from "../../convex/api";
 import { ImportantLinksGrid } from "../../components/participant/ImportantLinksGrid";
 import { REGISTER_URL } from "../../constants/site";
-import { buildHackathonTimeline } from "../../../shared/hackathon/timeline";
-import { resolveHackathonTimelineSource } from "../../../shared/hackathon/schedule";
-import { formatCardDate, statusBannerCopy, statusLabel } from "./dashboardUtils";
+import { formatNotificationTimestamp } from "../../constants/participantNotifications";
+import { statusBannerCopy, statusLabel } from "./dashboardUtils";
+import { useParticipantNotifications } from "./useParticipantNotifications";
 
 const HOME_TABS = [
   { to: "/dashboard", end: true, label: "Home", icon: NavHomeIcon },
@@ -21,8 +21,8 @@ const HOME_TABS = [
 export default function ParticipantHomePage() {
   const data = useOutletContext<ParticipantDashboard>();
   const status = statusLabel(data.reviewStatus);
-  const timeline = buildHackathonTimeline(resolveHackathonTimelineSource(data.hackathon));
-  const importantDates = timeline.slice(0, 3);
+  const { loading: notificationsLoading, notifications } = useParticipantNotifications();
+  const latestNotification = notifications[0] ?? null;
   const submitted = data.application?.submitted ?? false;
 
   return (
@@ -100,31 +100,6 @@ export default function ParticipantHomePage() {
           </div>
         ) : null}
 
-        <div className="participant-schedule__panel" aria-labelledby="important-dates-heading">
-          <div className="participant-schedule__day-head">
-            <h2 id="important-dates-heading">Important dates</h2>
-            <Link to="/dashboard/schedule" className="participant-home__head-link">
-              Full schedule
-            </Link>
-          </div>
-          <ol className="participant-schedule__timeline">
-            {importantDates.map((event) => {
-              const parts = formatCardDate(event.timestamp);
-              const when = `${parts.month} ${parts.day}`;
-              return (
-                <li key={event.id} className="participant-schedule__slot">
-                  {event.timestamp !== null ? (
-                    <time dateTime={new Date(event.timestamp).toISOString()}>{when}</time>
-                  ) : (
-                    <span>{when}</span>
-                  )}
-                  <span>{event.label}</span>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-
         <div className="participant-schedule__panel" aria-labelledby="notifications-heading">
           <div className="participant-schedule__day-head">
             <h2 id="notifications-heading">Notifications</h2>
@@ -132,12 +107,33 @@ export default function ParticipantHomePage() {
               See all
             </Link>
           </div>
-          <ul className="participant-profile__rows">
+          <ul className="participant-profile__rows" aria-label="Latest notification">
             <li className="participant-profile-row participant-profile-row--flush">
-              <div className="participant-profile-row__body">
-                <p className="participant-profile-row__title">Decisions are out</p>
-                <p className="participant-profile-row__meta">View your status to see your decision.</p>
-              </div>
+              {notificationsLoading ? (
+                <p className="participant-profile-row__meta" role="status">
+                  Loading notifications…
+                </p>
+              ) : latestNotification ? (
+                <Link to="/dashboard/notifications" className="participant-profile-row__link">
+                  <div className="participant-profile-row__body">
+                    <p className="participant-profile-row__title">{latestNotification.title}</p>
+                    <p className="participant-profile-row__meta">{latestNotification.message}</p>
+                    <p className="participant-profile-row__meta">
+                      <time dateTime={new Date(latestNotification.publishedAt).toISOString()}>
+                        {formatNotificationTimestamp(latestNotification.publishedAt)}
+                      </time>
+                    </p>
+                  </div>
+                  <span className="participant-profile-row__chevron" aria-hidden="true">
+                    ›
+                  </span>
+                </Link>
+              ) : (
+                <div className="participant-profile-row__body">
+                  <p className="participant-profile-row__title">No notifications yet</p>
+                  <p className="participant-profile-row__meta">Updates from the HackUTA team will show up here.</p>
+                </div>
+              )}
             </li>
           </ul>
         </div>

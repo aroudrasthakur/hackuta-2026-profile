@@ -23,11 +23,11 @@ function linkIcon(id: string) {
           <path d="m4 8 8 5 8-5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
         </svg>
       );
-    case "hacker-pack":
+    case "devpost":
       return (
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M6 4h12v16H6V4Z" stroke="currentColor" strokeWidth="1.75" />
-          <path d="M9 8h6M9 12h6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+          <path d="M7 3h10l5 9-5 9H7l-5-9 5-9Z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+          <path d="M9.5 8h2.2a4 4 0 0 1 0 8H9.5V8Z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
         </svg>
       );
     case "discord":
@@ -61,15 +61,23 @@ export function ImportantLinksGrid({ variant = "dark" }: { variant?: "dark" | "p
     <ul className={`participant-link-grid${variant === "portal" ? " participant-link-grid--portal" : ""}`}>
       {PARTICIPANT_IMPORTANT_LINKS.map((link) => (
         <li key={link.id}>
-          <a
-            className="participant-link-card"
-            href={link.href}
-            {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-          >
-            <span className="participant-link-card__icon">{linkIcon(link.id)}</span>
-            {link.external ? <ExternalArrowIcon /> : null}
-            <span className="participant-link-card__label">{link.label}</span>
-          </a>
+          {link.href ? (
+            <a
+              className="participant-link-card"
+              href={link.href}
+              {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            >
+              <span className="participant-link-card__icon">{linkIcon(link.id)}</span>
+              {link.external ? <ExternalArrowIcon /> : null}
+              <span className="participant-link-card__label">{link.label}</span>
+            </a>
+          ) : (
+            <div className="participant-link-card participant-link-card--soon" aria-disabled="true">
+              <span className="participant-link-card__icon">{linkIcon(link.id)}</span>
+              <span className="participant-link-card__soon">Coming soon</span>
+              <span className="participant-link-card__label">{link.label}</span>
+            </div>
+          )}
         </li>
       ))}
     </ul>

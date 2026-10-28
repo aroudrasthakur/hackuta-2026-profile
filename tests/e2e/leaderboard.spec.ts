@@ -20,7 +20,6 @@ test.describe("participant leaderboard", () => {
       "/dashboard/schedule",
       "/dashboard/leaderboard",
       "/dashboard/notifications",
-      "/dashboard/profile",
     ]);
 
     await page.getByRole("link", { name: /Leaderboard/ }).click();

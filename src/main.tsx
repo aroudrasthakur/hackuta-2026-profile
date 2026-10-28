@@ -16,7 +16,6 @@ import ParticipantScanPage from "./pages/dashboard/ParticipantScanPage";
 import ParticipantSchedulePage from "./pages/dashboard/ParticipantSchedulePage";
 import ParticipantLeaderboardPage from "./pages/dashboard/ParticipantLeaderboardPage";
 import ParticipantNotificationsPage from "./pages/dashboard/ParticipantNotificationsPage";
-import ParticipantProfilePage from "./pages/dashboard/ParticipantProfilePage";
 import ParticipantApplicationPage from "./pages/dashboard/ParticipantApplicationPage";
 import SignInPage from "./pages/SignIn/SignInPage";
 import "./styles/index.css";
@@ -47,7 +46,6 @@ const app = (
             <Route path="schedule" element={<ParticipantSchedulePage />} />
             <Route path="leaderboard" element={<ParticipantLeaderboardPage />} />
             <Route path="notifications" element={<ParticipantNotificationsPage />} />
-            <Route path="profile" element={<ParticipantProfilePage />} />
             <Route path="application" element={<ParticipantApplicationPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

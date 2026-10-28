@@ -1,6 +1,4 @@
-import { useNavigate } from "react-router-dom";
-import { useMockAuth } from "../hooks/useMockAuth";
-import { useSessionAuth } from "../hooks/useSessionAuth";
+import { useSignOut } from "../hooks/useSignOut";
 import { OdysseyButton } from "./OdysseyButton";
 
 type SignOutButtonProps = {
@@ -12,19 +10,7 @@ export function SignOutButton({
   className = "flex justify-center",
   buttonClassName,
 }: SignOutButtonProps) {
-  const navigate = useNavigate();
-  const { signOut } = useSessionAuth();
-  const mockAuth = useMockAuth();
-
-  const handleSignOut = async () => {
-    if (mockAuth.enabled) {
-      mockAuth.signOut();
-      navigate("/sign-in", { replace: true });
-      return;
-    }
-    await signOut();
-    navigate("/sign-in", { replace: true });
-  };
+  const handleSignOut = useSignOut();
 
   return (
     <div className={className}>

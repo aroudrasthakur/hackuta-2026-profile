@@ -37,10 +37,24 @@
   }
 
   /* Sidebar brand: full logo on desktop; the mobile header swaps in the mark only. */
+  /* Logo centers on the nav icon column and the wordmark starts where the nav labels do. */
   .participant-brand {
     display: inline-flex;
-    padding: 0 0.5rem;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.575rem;
     border-radius: 0.75rem;
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .participant-brand__wordmark {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    line-height: 1.75rem;
+    letter-spacing: 0.02em;
+    color: var(--color-ink);
   }
 
   .participant-brand:focus-visible {
@@ -66,8 +80,8 @@
     align-items: center;
     gap: 0.65rem;
     border-radius: 0.75rem;
-    padding: 0.6rem 0.75rem;
-    font-size: 0.95rem;
+    padding: 0.65rem 0.75rem;
+    font-size: 1.075rem;
     color: rgb(26 58 82 / 0.72);
     text-decoration: none;
   }
@@ -98,7 +112,7 @@
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    padding: 0.65rem 0.5rem;
+    padding: 0.75rem 0.25rem 0.25rem;
     border-top: 1px solid rgb(26 58 82 / 0.1);
   }
 
@@ -120,23 +134,52 @@
     font-size: 0.72rem;
   }
 
-  .participant-avatar--profile {
-    width: 4.5rem;
-    height: 4.5rem;
-    font-size: 1.35rem;
+  .participant-dashboard__account-text {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .participant-dashboard__account-name,
+  .participant-dashboard__account-email {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .participant-dashboard__account-name {
-    margin: 0;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 1rem;
+    line-height: 1.3;
   }
 
   .participant-dashboard__account-email {
-    margin: 0;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
+    line-height: 1.3;
     color: var(--color-mist);
-    word-break: break-word;
+  }
+
+  .participant-dashboard__sign-out {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 0;
+    border-radius: 0.6rem;
+    background: transparent;
+    color: rgb(26 58 82 / 0.72);
+    cursor: pointer;
+  }
+
+  .participant-dashboard__sign-out:hover {
+    color: var(--color-ink);
+    background: rgb(255 255 255 / 0.55);
+  }
+
+  .participant-dashboard__sign-out:focus-visible {
+    outline: 2px solid var(--color-ocean);
+    outline-offset: 2px;
   }
 
   .participant-dashboard__main {
@@ -466,6 +509,29 @@
   .participant-link-card__label {
     font-size: 0.95rem;
     font-weight: 600;
+  }
+
+  .participant-link-card--soon {
+    cursor: default;
+    opacity: 0.7;
+  }
+
+  .participant-link-card--soon:hover {
+    border-color: rgb(255 255 255 / 0.08);
+    background: rgb(255 255 255 / 0.05);
+  }
+
+  .participant-link-card__soon {
+    position: absolute;
+    top: 0.9rem;
+    right: 0.9rem;
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: color-mix(in srgb, currentColor 14%, transparent);
   }
 
   .participant-dashboard__panel-title,
@@ -1802,7 +1868,12 @@
     color: var(--color-night);
   }
 
-  .participant-link-grid--portal .participant-link-card:hover {
+  .participant-link-grid--portal .participant-link-card--soon:hover {
+    border-color: color-mix(in srgb, var(--color-ink) 30%, transparent);
+    background: var(--color-light);
+  }
+
+  .participant-link-grid--portal .participant-link-card:not(.participant-link-card--soon):hover {
     border-color: var(--color-ink);
     background: color-mix(in srgb, var(--color-sand) 35%, var(--color-light));
   }
@@ -1815,10 +1886,6 @@
     color: color-mix(in srgb, var(--color-ink) 45%, transparent);
   }
 
-  .participant-profile__tablist {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .participant-profile__tab-icon-wrap {
     padding: 0;
   }
@@ -1826,36 +1893,6 @@
   .participant-profile__tab-icon {
     width: 1.125rem;
     height: 1.125rem;
-  }
-
-  .participant-profile__identity-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.35rem;
-    text-align: center;
-  }
-
-  .participant-profile__name {
-    margin: 0.25rem 0 0;
-    font-family: var(--font-display);
-    font-size: clamp(1.25rem, 2.3vw, 1.8125rem);
-    font-weight: 400;
-    letter-spacing: 0.03em;
-    line-height: 1.2;
-    color: var(--color-night);
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
-
-  .participant-profile__email {
-    margin: 0;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--color-ocean);
-    max-width: 100%;
-    overflow-wrap: anywhere;
   }
 
   .participant-profile__rows {
@@ -1880,10 +1917,6 @@
 
   .participant-profile-row--flush {
     padding-top: 0.25rem;
-  }
-
-  .participant-profile__account-panel {
-    padding-block: clamp(0.875rem, 2vh, 1.25rem);
   }
 
   .participant-profile-row__link {
@@ -1920,42 +1953,6 @@
   .participant-profile-row__chevron {
     color: var(--color-mist);
     font-size: 1.25rem;
-  }
-
-  .participant-profile-row__sign-out {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .participant-toggle {
-    width: 2.75rem;
-    height: 1.5rem;
-    border-radius: 999px;
-    border: 1.5px solid color-mix(in srgb, var(--color-ink) 34%, transparent);
-    background: color-mix(in srgb, var(--color-ink) 18%, transparent);
-    position: relative;
-    flex-shrink: 0;
-    cursor: pointer;
-  }
-
-  .participant-toggle--on {
-    border-color: var(--color-ink);
-    background: var(--color-ink);
-  }
-
-  .participant-toggle__thumb {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 1.1rem;
-    height: 1.1rem;
-    border-radius: 999px;
-    background: #fff;
-    transition: transform 0.15s ease;
-  }
-
-  .participant-toggle--on .participant-toggle__thumb {
-    transform: translateX(1.2rem);
   }
 
   /* Application submission */
@@ -2156,6 +2153,7 @@
 
     /* Mobile header: static mark over a tab row (icon above uppercase label, underline when active). */
     .participant-dashboard__sidebar {
+      position: relative;
       height: auto;
       overflow: visible;
       gap: 0.75rem;
@@ -2169,7 +2167,8 @@
       padding: 0 0.5rem;
     }
 
-    .participant-brand__logo {
+    .participant-brand__logo,
+    .participant-brand__wordmark {
       display: none;
     }
 
@@ -2228,8 +2227,18 @@
       font-size: 1.4rem;
     }
 
-    /* The mobile header carries no account block; name and email stay on the Profile tab. */
+    /* The mobile header keeps only the sign-out button, pinned beside the mark. */
     .participant-dashboard__account {
+      position: absolute;
+      top: 0.875rem;
+      right: 0.75rem;
+      margin: 0;
+      padding: 0;
+      border-top: 0;
+    }
+
+    .participant-dashboard__account > .participant-avatar,
+    .participant-dashboard__account-text {
       display: none;
     }
 

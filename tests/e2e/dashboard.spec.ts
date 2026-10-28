@@ -93,12 +93,25 @@ test.describe("participant portal", () => {
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toHaveCount(0);
   });
 
-  test("hides the replay-acceptance row on Profile after check-in", async ({ page }) => {
+  test("shows only the latest notification and the Devpost placeholder on Home", async ({ page }) => {
     await signInToDashboard(page);
-    await page.getByRole("link", { name: "Profile", exact: true }).click();
-    await expect(page.getByText("Replay acceptance")).toBeVisible();
-    await completeCheckIn(page);
-    await expect(page.getByText("Replay acceptance")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Important dates" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Profile", exact: true })).toHaveCount(0);
+    const latest = page.getByRole("list", { name: "Latest notification" });
+    await expect(latest.getByText("Check-in QR code")).toBeVisible();
+    await expect(latest.getByText("Schedule updates")).toHaveCount(0);
+    await expect(page.getByText("Devpost")).toBeVisible();
+    await expect(page.getByText("Coming soon")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Instagram/ })).toHaveAttribute(
+      "href",
+      "https://www.instagram.com/hack.uta/",
+    );
+  });
+
+  test("signs out from the sidebar account block", async ({ page }) => {
+    await signInToDashboard(page);
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/sign-in$/);
   });
 });
 
