@@ -17,7 +17,7 @@ import { mutation } from "../_generated/server";
 import type { MutationCtx } from "../lib/dataModel";
 import { isOwnParticipant } from "./participantQr";
 import { applyEventAward, isParticipantEligible } from "./pointsLedger";
-import { requireVolunteerAccess, sessionTokenArgs } from "./staffAuth";
+import { requireVolunteerAccess, sessionTokenArgs, volunteerHasAllEventAccess } from "./staffAuth";
 import { badgeHolderForScan, redeemMealForVolunteer } from "./volunteerScan";
 import {
   isVolunteerScanThrottled,
@@ -70,7 +70,7 @@ export const awardEventPoints = mutation({
     const scan = await beginScan(ctx, volunteer);
     if (!scan) return RATE_LIMITED;
 
-    const hasAccess = volunteer.role === "admin" || (await ctx.db
+    const hasAccess = volunteerHasAllEventAccess(volunteer) || (await ctx.db
       .query("volunteerEventAccess")
       .withIndex("by_volunteer_event", (q) =>
         q.eq("volunteerAdminId", volunteer._id).eq("eventId", eventId),

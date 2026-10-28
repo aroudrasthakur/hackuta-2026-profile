@@ -70,7 +70,7 @@ export async function seedAdminAccount(
   t: ConvexTestInstance,
   fields: {
     email: string;
-    role: "reviewer" | "admin";
+    role: "admin" | "volunteer";
     active: boolean;
     password?: string;
     name?: string;
@@ -148,10 +148,10 @@ export async function insertStaffSession(
   return { sessionId, sessionToken };
 }
 
-/** Reviewer or admin with a valid session and one submitted application + review row. */
+/** Admin with a valid session and one submitted application + review row. */
 export async function createStaffAuthorizationFixture(
   t: ConvexTestInstance,
-  role: "reviewer" | "admin" = "reviewer",
+  role: "admin" = "admin",
 ) {
   const adminId = await t.run((ctx) =>
     ctx.db.insert("admins", {

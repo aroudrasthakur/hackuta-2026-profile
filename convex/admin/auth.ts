@@ -176,10 +176,9 @@ export const createAndProvisionAdmin = mutation({
     ...sessionTokenArgs,
     email: v.string(),
     name: v.string(),
-    role: v.union(v.literal("reviewer"), v.literal("admin")),
     password: v.string(),
   },
-  handler: async (ctx, { sessionToken, email, name, role, password }) => {
+  handler: async (ctx, { sessionToken, email, name, password }) => {
     await requireAdminRole(ctx, sessionToken);
 
     const normalizedEmail = normalizeEmail(email);
@@ -198,7 +197,7 @@ export const createAndProvisionAdmin = mutation({
       throw adminError("STAFF_ACCOUNT_EXISTS");
     }
 
-    const profile = { name, role, active: true, updatedAt: now };
+    const profile = { name, role: "admin" as const, active: true, updatedAt: now };
     const adminId =
       existingAdmin?._id ??
       (await ctx.db.insert("admins", {

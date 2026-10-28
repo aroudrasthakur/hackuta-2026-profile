@@ -49,7 +49,7 @@ File: [`convex/schema.ts`](schema.ts)
 | `emailDeliveries` | Register | **No** |
 | `emailDeliveryRecordingFailures` | Register | **No** |
 | `admins` | Admin | **Yes** — does not exist in register repo |
-| `applicationReviewLogs` | Admin | **Yes** — append-only reviewer/admin activity history |
+| `applicationReviewLogs` | Admin | **Yes** — append-only organizer activity history |
 | `participants` | Admin | **Yes** — one row per accepted application (check-in identity; see [participants columns](#participants-columns)) |
 | `adminAuthAccounts` | Admin | **Yes** — organizer password hashes (separate from applicant auth) |
 | `adminSessions` | Admin | **Yes** — organizer session token hashes |
@@ -90,12 +90,13 @@ All register-owned blocks must remain identical to [`schema.reference.ts`](../sc
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `role` | `"reviewer" \| "admin" \| "volunteer"` | Existing staff rows stay valid |
+| `role` | `"admin" \| "volunteer"` | Existing staff rows stay valid |
 | `participantId` | `Id<"participants">` (optional) | Set when a participant is promoted to volunteer |
 | `canCheckIn` | `boolean` (optional) | Missing means denied; must be `true` to scan door check-in |
 | `canFoodCheckIn` | `boolean` (optional) | Missing means denied; must be `true` to scan food |
+| `canScanAllEvents` | `boolean` (optional) | Missing means denied; must be `true` to award every current and future event |
 
-Event-specific point permissions live in `volunteerEventAccess`, not on `admins`.
+Event-specific point permissions live in `volunteerEventAccess`, unless `canScanAllEvents` is `true`.
 
 ---
 

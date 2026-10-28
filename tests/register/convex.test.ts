@@ -402,7 +402,7 @@ describe("convex registrations", () => {
       const adminId = await ctx.db.insert("admins", {
         email: "reviewer@hackuta.org",
         name: "Reviewer",
-        role: "reviewer",
+        role: "admin",
         active: true,
         createdAt: 1,
         updatedAt: 1,

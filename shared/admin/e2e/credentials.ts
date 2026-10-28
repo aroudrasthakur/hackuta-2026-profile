@@ -1,11 +1,4 @@
 /** Fixed organizer accounts for VITE_E2E_MOCK browser tests only — not real deployments. */
-export const E2E_REVIEWER = {
-  email: "reviewer@e2e.hackuta.test",
-  password: "E2eReviewer1!",
-  name: "E2E Reviewer",
-  role: "reviewer" as const,
-};
-
 export const E2E_ADMIN = {
   email: "admin@e2e.hackuta.test",
   password: "E2eAdmin1!",

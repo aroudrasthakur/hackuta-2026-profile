@@ -1,8 +1,8 @@
 /**
  * Administrator-only participant roster, point corrections, adjustment history,
  * and participant-to-volunteer promotion. Every export calls
- * `requireAdminRole` first; reviewers get `ADMIN_ONLY`, volunteers
- * `NOT_AUTHORIZED`. See [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md).
+ * `requireAdminRole` first; volunteers get `NOT_AUTHORIZED`.
+ * See [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md).
  *
  * Accounting invariant: `participants.points` = sum of `participantEventAwards`
  * + sum of `admin_adjust`, `shop_purchase`, and `shop_refund` deltas. Manual corrections only append an

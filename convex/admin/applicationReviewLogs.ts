@@ -4,7 +4,7 @@ import { mutation, query } from "../_generated/server";
 import { adminError } from "../../shared/admin/errors";
 import { applicationFormWasSubmitted } from "../lib/applications";
 import { enqueueApplicationDecision } from "./decisionFinalize";
-import { requireAdminRole, requireReviewerAccess, sessionTokenArgs } from "./staffAuth";
+import { requireAdminRole, sessionTokenArgs } from "./staffAuth";
 import {
   applicationReviewLogActivityAction,
   applicationReviewLogDecisionAction,
@@ -24,7 +24,7 @@ export const logApplicationReviewAction = mutation({
   },
   returns: v.union(v.id("applicationReviewLogs"), v.null()),
   handler: async (ctx, { sessionToken, applicationId, action }) => {
-    const admin = await requireReviewerAccess(ctx, sessionToken);
+    const admin = await requireAdminRole(ctx, sessionToken);
     const application = await ctx.db.get(applicationId);
     if (
       !application ||
@@ -81,7 +81,7 @@ export const setApplicationDecision = mutation({
     duplicate: v.boolean(),
   }),
   handler: async (ctx, { sessionToken, applicationId, decision }) => {
-    const admin = await requireReviewerAccess(ctx, sessionToken);
+    const admin = await requireAdminRole(ctx, sessionToken);
     const application = await ctx.db.get(applicationId);
     if (!application) throw adminError("APPLICATION_NOT_FOUND");
     if (!applicationFormWasSubmitted(application)) throw adminError("APPLICATION_NOT_SUBMITTED");
