@@ -1,16 +1,15 @@
 /**
- * Shop stock and points writes — **internal helpers only** (not Convex entry points).
+ * Shop points writes — **internal helpers only** (not Convex entry points).
  *
  * These functions trust their caller for authorization, like `pointsLedger.ts`.
  * Public mutations must call `requireAdminRole` or
  * `requireVolunteerCapability(..., "canRedeemShop")` first.
  *
- * Every stock change patches `shopItems.stockQuantity` and inserts a
- * `shopInventoryAdjustments` row; every points change patches
- * `participants.points` and inserts a `volunteerActionLogs` row. All writes
- * run in the caller's transaction, so a purchase or refund lands whole or not
- * at all. Concurrent purchases conflict on the item and participant rows, and
- * Convex retries the loser, which then sees the new stock and balance.
+ * Every points change patches `participants.points` and inserts a
+ * `volunteerActionLogs` row. All writes run in the caller's transaction, so a
+ * purchase or refund lands whole or not at all. Concurrent purchases conflict
+ * on the participant row, and Convex retries the loser, which then sees the
+ * new balance.
  */
 import type { DocumentByName } from "convex/server";
 import type { GenericId } from "convex/values";
@@ -24,47 +23,10 @@ type AdminId = GenericId<"admins">;
 type ShopItemDoc = DocumentByName<DataModel, "shopItems">;
 type ParticipantDoc = DocumentByName<DataModel, "participants">;
 type RedemptionDoc = DocumentByName<DataModel, "shopRedemptions">;
-type AdjustmentKind = DocumentByName<DataModel, "shopInventoryAdjustments">["kind"];
 
 /** Cached balance, falling back to the ledger before backfill (never to zero). */
 export async function participantBalance(ctx: MutationCtx, participant: ParticipantDoc) {
   return assertPointBalance(participant.points ?? await computeLedgerPoints(ctx, participant._id));
-}
-
-/**
- * Applies a signed stock change and writes its audit row. Throws
- * `INVALID_STOCK_ADJUSTMENT` for a zero change or one that would go below 0.
- */
-export async function applyStockChange(
-  ctx: MutationCtx,
-  args: {
-    item: ShopItemDoc;
-    delta: number;
-    kind: AdjustmentKind;
-    actorAdminId: AdminId;
-    reason?: string;
-    redemptionId?: GenericId<"shopRedemptions">;
-    now: number;
-  },
-) {
-  const previousQuantity = args.item.stockQuantity;
-  const newQuantity = previousQuantity + args.delta;
-  if (!Number.isSafeInteger(args.delta) || args.delta === 0 || !Number.isSafeInteger(newQuantity) || newQuantity < 0) {
-    throw adminError("INVALID_STOCK_ADJUSTMENT");
-  }
-  await ctx.db.patch(args.item._id, { stockQuantity: newQuantity, updatedAt: args.now });
-  await ctx.db.insert("shopInventoryAdjustments", {
-    itemId: args.item._id,
-    actorAdminId: args.actorAdminId,
-    kind: args.kind,
-    previousQuantity,
-    newQuantity,
-    delta: args.delta,
-    ...(args.reason !== undefined ? { reason: args.reason } : {}),
-    ...(args.redemptionId ? { redemptionId: args.redemptionId } : {}),
-    createdAt: args.now,
-  });
-  return { previousQuantity, newQuantity };
 }
 
 /** Receipt shape returned to the volunteer for new and repeated purchases. */
@@ -85,9 +47,9 @@ export function purchaseReceipt(redemption: RedemptionDoc) {
 }
 
 /**
- * Writes a checked purchase: points, stock, redemption, inventory audit, and
- * ledger row. The caller has already confirmed stock and balance; the
- * balance and stock helpers still refuse to go negative.
+ * Writes a checked purchase: points, redemption, and ledger row. The caller
+ * has already confirmed the balance; the balance helper still refuses to go
+ * negative.
  */
 export async function recordPurchase(
   ctx: MutationCtx,
@@ -120,14 +82,6 @@ export async function recordPurchase(
     ...(args.price.flashSaleId ? { flashSaleId: args.price.flashSaleId } : {}),
     idempotencyKey: args.idempotencyKey,
   });
-  await applyStockChange(ctx, {
-    item: args.item,
-    delta: -args.quantity,
-    kind: "purchase",
-    actorAdminId: args.actorAdminId,
-    redemptionId,
-    now: args.now,
-  });
   await ctx.db.patch(args.participant._id, pointBalancePatch(pointsBefore, pointsAfter, args.now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
@@ -144,9 +98,8 @@ export async function recordPurchase(
 }
 
 /**
- * Refunds a purchase once: restores exactly `totalPointsSpent`, optionally
- * restocks `quantity`, and marks the redemption. Throws
- * `REDEMPTION_ALREADY_REFUNDED` on a second refund.
+ * Refunds a purchase once: restores exactly `totalPointsSpent` and marks the
+ * redemption. Throws `REDEMPTION_ALREADY_REFUNDED` on a second refund.
  */
 export async function recordRefund(
   ctx: MutationCtx,
@@ -154,7 +107,6 @@ export async function recordRefund(
     actorAdminId: AdminId;
     redemption: RedemptionDoc;
     reason: string;
-    restock: boolean;
     now: number;
   },
 ) {
@@ -169,21 +121,6 @@ export async function recordRefund(
   const previousPoints = await participantBalance(ctx, participant);
   const newPoints = assertPointBalance(previousPoints + redemption.totalPointsSpent);
 
-  if (args.restock) {
-    const item = await ctx.db.get(redemption.itemId);
-    if (!item) {
-      throw adminError("SHOP_ITEM_NOT_FOUND");
-    }
-    await applyStockChange(ctx, {
-      item,
-      delta: redemption.quantity,
-      kind: "refund_restock",
-      actorAdminId: args.actorAdminId,
-      reason: args.reason,
-      redemptionId: redemption._id,
-      now: args.now,
-    });
-  }
   await ctx.db.patch(participant._id, pointBalancePatch(previousPoints, newPoints, args.now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
@@ -201,9 +138,8 @@ export async function recordRefund(
       refundedBy: args.actorAdminId,
       refundedAt: args.now,
       reason: args.reason,
-      restocked: args.restock,
       pointsRestored: redemption.totalPointsSpent,
     },
   });
-  return { previousPoints, newPoints, pointsRestored: redemption.totalPointsSpent, restocked: args.restock };
+  return { previousPoints, newPoints, pointsRestored: redemption.totalPointsSpent };
 }

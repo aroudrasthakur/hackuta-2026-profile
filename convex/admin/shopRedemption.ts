@@ -18,7 +18,6 @@ import {
   isValidIdempotencyKey,
   isValidPurchaseQuantity,
   SHOP_MAX_QUANTITY,
-  stockStatus,
 } from "../../shared/admin/shopRules";
 import { nameLookups } from "./adminQueryHelpers";
 import { isOwnParticipant } from "./participantQr";
@@ -55,16 +54,12 @@ async function catalogItem(ctx: QueryCtx, item: ShopItemDoc, now: number) {
     basePointsCost: price.basePointsCost,
     flashSaleId: price.flashSaleId,
     saleEndsAt: price.saleEndsAt,
-    stockQuantity: item.stockQuantity,
-    stockStatus: stockStatus(item.stockQuantity, item.lowStockThreshold),
-    featured: item.featured,
   };
 }
 
 /**
- * Active items with live stock and the price charged right now, featured
- * first. `nowBucket` only changes the cache key so the list re-runs as sales
- * start and end.
+ * Active items with the price charged right now, by name. `nowBucket`
+ * only changes the cache key so the list re-runs as sales start and end.
  */
 export const listShopCatalogForVolunteer = query({
   args: { ...sessionTokenArgs, nowBucket: v.optional(v.number()) },
@@ -76,7 +71,7 @@ export const listShopCatalogForVolunteer = query({
       .take(MAX_CATALOG_ITEMS);
     const items = [];
     for (const item of rows) items.push(await catalogItem(ctx, item, now));
-    items.sort((a, b) => Number(b.featured) - Number(a.featured) || a.name.localeCompare(b.name));
+    items.sort((a, b) => a.name.localeCompare(b.name));
     return { items, maxQuantity: SHOP_MAX_QUANTITY, nextPriceChangeAt: await nextPriceChangeAt(ctx, rows.map((row) => row._id), now) };
   },
 });
@@ -130,11 +125,9 @@ export const previewShopPurchase = query({
       saleEndsAt: price.saleEndsAt,
       quantity,
       totalPointsCost,
-      stockQuantity: item.stockQuantity,
       points,
       pointsAfter: points - totalPointsCost,
       hasEnoughPoints: points >= totalPointsCost,
-      hasEnoughStock: item.stockQuantity >= quantity,
     };
   },
 });
@@ -142,7 +135,7 @@ export const previewShopPurchase = query({
 /**
  * Completes a physical purchase. Statuses: `success` and `duplicate` (both
  * with a receipt), `price_changed` (with the new price; nothing written),
- * `insufficient_points`, `insufficient_stock`, `item_unavailable`,
+ * `insufficient_points`, `item_unavailable`,
  * `invalid_quantity`, `invalid_request` (bad or reused key),
  * `participant_not_eligible`, `self_purchase_denied`, the badge statuses
  * from `resolveQrForScan` (`qr_not_found`, `registration_qr_replaced`,
@@ -192,9 +185,6 @@ export const purchaseShopItem = mutation({
     const price = await effectivePrice(ctx, item, now);
     if (price.unitPointsCost !== expectedUnitPointsCost) {
       return { status: "price_changed" as const, unitPointsCost: price.unitPointsCost, totalPointsCost: price.unitPointsCost * quantity };
-    }
-    if (item.stockQuantity < quantity) {
-      return { status: "insufficient_stock" as const, stockQuantity: item.stockQuantity };
     }
     const points = await participantBalance(ctx, participant);
     const totalPointsCost = price.unitPointsCost * quantity;

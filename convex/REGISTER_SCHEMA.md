@@ -59,9 +59,8 @@ File: [`convex/schema.ts`](schema.ts)
 | `participantEventAwards` | Admin | **Yes** — authoritative per-participant per-event award |
 | `volunteerActionLogs` | Admin | **Yes** — scan and admin point-adjustment audit (no QR or dietary data) |
 | `staffConfigLogs` | Admin | **Yes** — volunteer/event/access configuration audit |
-| `shopItems` | Admin | **Yes** — shop catalog and the one authoritative stock count |
+| `shopItems` | Admin | **Yes** — shop catalog (name, description, price, status; no inventory) |
 | `shopRedemptions` | Admin | **Yes** — completed purchases with the price charged and any refund |
-| `shopInventoryAdjustments` | Admin | **Yes** — audit row for every stock change |
 | `shopFlashSales`, `shopFlashSaleItems` | Admin | **Yes** — timed promotions and their item prices |
 | `participantNotifications` | Admin | **Yes** — participant portal notifications, including flash-sale alerts (drafts, scheduled, published, cancelled) |
 

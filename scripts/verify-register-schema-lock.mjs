@@ -27,7 +27,6 @@ const ADMIN_EDITABLE_TABLES = [
   "decisionEmailQueue",
   "shopItems",
   "shopRedemptions",
-  "shopInventoryAdjustments",
   "shopFlashSales",
   "shopFlashSaleItems",
   "participantNotifications",

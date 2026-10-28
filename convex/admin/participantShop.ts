@@ -13,7 +13,6 @@ import { v, type GenericId } from "convex/values";
 import { query } from "../_generated/server";
 import { getAuthUser } from "../lib/applications";
 import type { QueryCtx } from "../lib/dataModel";
-import { stockStatus } from "../../shared/admin/shopRules";
 import { flashSaleStatus } from "./shopFlashSales";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
 
@@ -55,12 +54,9 @@ export const listShop = query({
         basePointsCost: price.basePointsCost,
         onSale: price.flashSaleId !== null,
         saleEndsAt: price.saleEndsAt,
-        stockQuantity: item.stockQuantity,
-        stockStatus: stockStatus(item.stockQuantity, item.lowStockThreshold),
-        featured: item.featured,
       });
     }
-    items.sort((a, b) => Number(b.featured) - Number(a.featured) || a.name.localeCompare(b.name));
+    items.sort((a, b) => a.name.localeCompare(b.name));
 
     const activeSales = [];
     for (const saleId of liveSaleIds) {

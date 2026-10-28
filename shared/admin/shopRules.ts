@@ -2,8 +2,6 @@ import { adminError } from "./errors";
 
 /** Most units of one item a volunteer can sell in a single purchase. */
 export const SHOP_MAX_QUANTITY = 10;
-/** Stock at or below this shows as low when an item sets no threshold. */
-export const DEFAULT_LOW_STOCK_THRESHOLD = 5;
 export const SHOP_NAME_MAX_LENGTH = 80;
 export const SHOP_DESCRIPTION_MAX_LENGTH = 500;
 export const SHOP_REASON_MAX_LENGTH = 200;
@@ -15,13 +13,10 @@ export const SHOP_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{16,100}$/;
 
-export type StockStatus = "in_stock" | "low" | "out";
-
 export type ShopItemInput = {
   name: string;
   description: string;
   pointsCost: number;
-  lowStockThreshold?: number | null;
 };
 
 export type FlashSaleInput = {
@@ -47,14 +42,6 @@ export function assertPointsCost(points: number): number {
   return points;
 }
 
-/** Stored stock: whole number, zero or greater. */
-export function assertStockQuantity(quantity: number): number {
-  if (!Number.isSafeInteger(quantity) || quantity < 0) {
-    throw adminError("INVALID_SHOP_ITEM");
-  }
-  return quantity;
-}
-
 /** Units in one purchase: 1 to `SHOP_MAX_QUANTITY`. */
 export function isValidPurchaseQuantity(quantity: number) {
   return Number.isSafeInteger(quantity) && quantity >= 1 && quantity <= SHOP_MAX_QUANTITY;
@@ -72,28 +59,16 @@ export function normalizeShopItemInput(input: ShopItemInput) {
   if (name === null || description === null) {
     throw adminError("INVALID_SHOP_ITEM");
   }
-  const pointsCost = assertPointsCost(input.pointsCost);
-  let lowStockThreshold: number | undefined;
-  if (input.lowStockThreshold != null) {
-    lowStockThreshold = assertStockQuantity(input.lowStockThreshold);
-  }
-  return { name, description, pointsCost, lowStockThreshold };
+  return { name, description, pointsCost: assertPointsCost(input.pointsCost) };
 }
 
-/** Trims a required audit reason for stock changes and refunds. */
+/** Trims a required audit reason for refunds. */
 export function normalizeShopReason(reason: string): string {
   const trimmed = trimmedText(reason, SHOP_REASON_MAX_LENGTH, false);
   if (trimmed === null) {
     throw adminError("INVALID_SHOP_REASON");
   }
   return trimmed;
-}
-
-/** Out at zero, low at or below the threshold, otherwise in stock. */
-export function stockStatus(quantity: number, lowStockThreshold?: number): StockStatus {
-  if (quantity <= 0) return "out";
-  if (quantity <= (lowStockThreshold ?? DEFAULT_LOW_STOCK_THRESHOLD)) return "low";
-  return "in_stock";
 }
 
 /** Checks sale text, window, and item list. Prices against base cost are checked by the caller. */
