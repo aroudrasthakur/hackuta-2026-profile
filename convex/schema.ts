@@ -439,7 +439,6 @@ export default defineSchema({
     createdBy: v.id("admins"),
     cancelledBy: v.optional(v.id("admins")),
     cancelledAt: v.optional(v.number()),
-    announcementId: v.optional(v.id("participantAnnouncements")),
     notificationId: v.optional(v.id("participantNotifications")),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -458,21 +457,11 @@ export default defineSchema({
     .index("by_item_startsAt", ["itemId", "startsAt"])
     .index("by_sale", ["flashSaleId"]),
 
-  /** Participant portal announcements (flash sales today). Withdrawn rows stay for audit. */
-  participantAnnouncements: defineTable({
-    kind: v.union(v.literal("flash_sale"), v.literal("general")),
-    title: v.string(),
-    body: v.string(),
-    flashSaleId: v.optional(v.id("shopFlashSales")),
-    publishedAt: v.number(),
-    expiresAt: v.optional(v.number()),
-    withdrawnAt: v.optional(v.number()),
-    createdBy: v.id("admins"),
-    createdAt: v.number(),
-  })
-    .index("by_publishedAt", ["publishedAt"]),
-
-  /** Generalized participant notifications with drafts, scheduling, and published history. */
+  /**
+   * Participant portal notifications with drafts, scheduling, and published
+   * history. Flash sales own one `flash_sale` row each via `relatedFlashSaleId`;
+   * cancelled rows stay for audit.
+   */
   participantNotifications: defineTable({
     title: v.string(),
     message: v.string(),
@@ -489,7 +478,6 @@ export default defineSchema({
     linkLabel: v.optional(v.string()),
     relatedEventId: v.optional(v.id("events")),
     relatedFlashSaleId: v.optional(v.id("shopFlashSales")),
-    legacyAnnouncementId: v.optional(v.id("participantAnnouncements")),
     createdBy: v.id("admins"),
     updatedBy: v.optional(v.id("admins")),
     createdAt: v.number(),
@@ -500,6 +488,5 @@ export default defineSchema({
     .index("by_status_publishedAt", ["status", "publishedAt"])
     .index("by_type_updatedAt", ["type", "updatedAt"])
     .index("by_updatedAt", ["updatedAt"])
-    .index("by_flash_sale", ["relatedFlashSaleId"])
-    .index("by_legacy_announcement", ["legacyAnnouncementId"]),
+    .index("by_flash_sale", ["relatedFlashSaleId"]),
 });

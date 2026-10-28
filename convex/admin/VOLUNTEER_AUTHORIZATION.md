@@ -60,9 +60,9 @@ If you add a new public mutation that imports `pointsLedger`, add a row to the e
 | `volunteerScan.ts` | `listMyScanOptions`, `resolveQrForScan`, `listActiveMealPeriods`, `resolveQrForMeal`, `redeemMeal` | `requireVolunteerAccess`, then per-purpose capability / assignment checks |
 | `meals.ts` | all exports (schedules, availability, counts, and history) | `requireAdminRole` |
 | `shopAdmin.ts`, `shopFlashSales.ts` | all exports (items, stock, history, refunds, shop access, flash sales) | `requireAdminRole` |
-| `notifications.ts` | all public exports (`saveNotificationDraft`, `publishNotificationNow`, `scheduleNotification`, `updateNotification`, `cancelNotification`, `listNotificationsAdmin`, `getNotificationAdmin`) | `requireAdminRole` (`publishScheduledNotification`, `migrateAnnouncementsToNotifications` are `internalMutation`) |
+| `notifications.ts` | all public exports (`saveNotificationDraft`, `publishNotificationNow`, `scheduleNotification`, `updateNotification`, `cancelNotification`, `listNotificationsAdmin`, `getNotificationAdmin`) | `requireAdminRole` (`publishScheduledNotification` is an `internalMutation`) |
 | `shopRedemption.ts` | `listShopCatalogForVolunteer`, `getShopCustomer`, `previewShopPurchase`, `purchaseShopItem` | `requireVolunteerCapability(..., "canRedeemShop")` |
-| `participantShop.ts` | `listShop`, `getMyShopHistory`, `listMyAnnouncements`, `listPublishedNotifications` | Signed-in applicant (`getAuthUser`); own data only |
+| `participantShop.ts` | `listShop`, `getMyShopHistory`, `listPublishedNotifications` | Signed-in applicant (`getAuthUser`); own data only |
 | `shopLedger.ts`, `shopPricing.ts` | — | **Helpers only** (callers must guard first) |
 | `badgeCheckIn.ts` | `resolveRegistrationForCheckIn`, `resolveBadgeForCheckIn`, `checkInWithBadge` | `requireVolunteerAccess`, then `canCheckIn` |
 | `badgeAdmin.ts` | `assignParticipantBadge` | `requireAdminRole` (volunteers get `NOT_AUTHORIZED`) |

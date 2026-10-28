@@ -1,8 +1,8 @@
 /**
  * Administrator-only participant notifications management: drafts, immediate
  * publishing, scheduled delivery via Convex scheduled functions, cancellation,
- * and legacy flash-sale announcement migration. Every public export calls
- * `requireAdminRole` first.
+ * and the flash-sale notifications owned by `shopFlashSales.ts`. Every public
+ * export calls `requireAdminRole` first.
  */
 import { makeFunctionReference, paginationOptsValidator, type DocumentByName } from "convex/server";
 import { v, type GenericId } from "convex/values";
@@ -168,7 +168,6 @@ export async function upsertFlashSaleNotification(
     actorAdminId: AdminId;
     flashSaleId: GenericId<"shopFlashSales">;
     existingNotificationId?: NotificationId | undefined;
-    legacyAnnouncementId?: GenericId<"participantAnnouncements"> | undefined;
     title: string;
     message: string;
     startsAt: number;
@@ -210,7 +209,6 @@ export async function upsertFlashSaleNotification(
       linkUrl: existing.linkUrl ?? "/dashboard",
       linkLabel: existing.linkLabel ?? "Open dashboard",
       relatedFlashSaleId: params.flashSaleId,
-      ...(params.legacyAnnouncementId ? { legacyAnnouncementId: params.legacyAnnouncementId } : {}),
       updatedBy: params.actorAdminId,
       updatedAt: params.now,
     });
@@ -228,7 +226,6 @@ export async function upsertFlashSaleNotification(
     linkUrl: "/dashboard",
     linkLabel: "Open dashboard",
     relatedFlashSaleId: params.flashSaleId,
-    ...(params.legacyAnnouncementId ? { legacyAnnouncementId: params.legacyAnnouncementId } : {}),
     createdBy: params.actorAdminId,
     updatedBy: params.actorAdminId,
     createdAt: params.now,
@@ -597,85 +594,6 @@ export const publishScheduledNotification = internalMutation({
       now,
     );
     return { published: true };
-  },
-});
-
-/**
- * One-time / idempotent migration from legacy `participantAnnouncements` rows
- * into `participantNotifications`. Preserves existing flash-sale links and
- * schedules future announcements.
- */
-export const migrateAnnouncementsToNotifications = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
-    let migrated = 0;
-    let skipped = 0;
-
-    for await (const legacy of ctx.db.query("participantAnnouncements")) {
-      const byLegacy = await ctx.db
-        .query("participantNotifications")
-        .withIndex("by_legacy_announcement", (q) => q.eq("legacyAnnouncementId", legacy._id))
-        .first();
-      const bySale = legacy.flashSaleId
-        ? await ctx.db
-            .query("participantNotifications")
-            .withIndex("by_flash_sale", (q) => q.eq("relatedFlashSaleId", legacy.flashSaleId))
-            .first()
-        : null;
-
-      if (byLegacy || bySale) {
-        skipped += 1;
-        continue;
-      }
-
-      const isCancelled = legacy.withdrawnAt !== undefined;
-      const isScheduled = !isCancelled && legacy.publishedAt > now;
-      const status = isCancelled ? "cancelled" : isScheduled ? "scheduled" : "published";
-
-      const notificationId = await ctx.db.insert("participantNotifications", {
-        title: legacy.title,
-        message: legacy.body.trim() || "Limited-time shop discount is live.",
-        type: legacy.kind === "flash_sale" ? "flash_sale" : "general",
-        status,
-        ...(isScheduled ? { scheduledAt: legacy.publishedAt } : {}),
-        ...(!isCancelled && !isScheduled ? { publishedAt: legacy.publishedAt } : {}),
-        ...(legacy.expiresAt !== undefined ? { expiresAt: legacy.expiresAt } : {}),
-        ...(legacy.withdrawnAt !== undefined
-          ? { cancelledAt: legacy.withdrawnAt, cancelledBy: legacy.createdBy }
-          : {}),
-        scheduleVersion: 1,
-        ...(legacy.kind === "flash_sale"
-          ? { linkUrl: "/dashboard", linkLabel: "Open dashboard" }
-          : {}),
-        ...(legacy.flashSaleId ? { relatedFlashSaleId: legacy.flashSaleId } : {}),
-        legacyAnnouncementId: legacy._id,
-        createdBy: legacy.createdBy,
-        updatedBy: legacy.createdBy,
-        createdAt: legacy.createdAt,
-        updatedAt: legacy.withdrawnAt ?? legacy.createdAt,
-      });
-
-      if (isScheduled) {
-        const scheduledJobId = await ctx.scheduler.runAt(
-          legacy.publishedAt,
-          publishScheduledNotificationRef,
-          { notificationId, scheduleVersion: 1 },
-        );
-        await ctx.db.patch(notificationId, { scheduledJobId });
-      }
-
-      if (legacy.flashSaleId) {
-        const sale = await ctx.db.get(legacy.flashSaleId);
-        if (sale && !sale.notificationId) {
-          await ctx.db.patch(legacy.flashSaleId, { notificationId });
-        }
-      }
-
-      migrated += 1;
-    }
-
-    return { ok: true as const, migrated, skipped };
   },
 });
 

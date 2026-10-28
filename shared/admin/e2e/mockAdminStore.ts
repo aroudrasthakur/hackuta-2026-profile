@@ -1322,6 +1322,28 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       bump();
       return { ok: true, adminId, email };
     }
+    case "admin/volunteers:createVolunteer": {
+      requireAdmin(sessionToken);
+      const name = String(args.name ?? "").trim();
+      if (!name) throw adminError("INVALID_STAFF_NAME");
+      const email = String(args.email ?? "").trim().toLowerCase();
+      if (staffByEmail.has(email)) throw adminError("STAFF_ACCOUNT_EXISTS");
+      const adminId = `e2e-volunteer-${staffById.size}`;
+      const volunteer: StaffRecord = {
+        adminId,
+        email,
+        name,
+        role: "volunteer",
+        active: true,
+        canCheckIn: false,
+        canFoodCheckIn: false,
+        canRedeemShop: false,
+      };
+      staffById.set(adminId, volunteer);
+      staffByEmail.set(email, volunteer);
+      bump();
+      return { ok: true, adminId, email };
+    }
     case "admin/volunteers:revokeVolunteer":
     case "admin/volunteers:restoreVolunteer": {
       requireAdmin(sessionToken);

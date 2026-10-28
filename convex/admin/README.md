@@ -30,10 +30,10 @@ Organizer-only queries, mutations, and internal actions. **Admin-owned** — saf
 | [volunteerScan.ts](volunteerScan.ts) | Volunteer scan options, meal availability, QR previews, and atomic per-meal redemption |
 | [volunteerScanRateLimit.ts](volunteerScanRateLimit.ts) | Per-volunteer QR lookup throttling in `rateLimits`, plus internal cleanup |
 | [shopAdmin.ts](shopAdmin.ts) | Admin-only shop items, images, stock adjustments, purchase history, refunds, and volunteer shop access |
-| [shopFlashSales.ts](shopFlashSales.ts) | Admin-only flash sales and their participant announcements |
+| [shopFlashSales.ts](shopFlashSales.ts) | Admin-only flash sales and their participant notifications |
 | [shopRedemption.ts](shopRedemption.ts) | Volunteer shop catalog, purchase preview, and the purchase mutation (`canRedeemShop`) |
 | [shopLedger.ts](shopLedger.ts), [shopPricing.ts](shopPricing.ts) | Internal stock, points, refund, and pricing helpers (not auth boundaries) |
-| [participantShop.ts](participantShop.ts) | Participant shop, own purchase history, and announcements for the profile portal |
+| [participantShop.ts](participantShop.ts) | Participant shop, own purchase history, and published notifications for the profile portal |
 
 ## Meal management
 
@@ -106,7 +106,7 @@ Volunteers use this same staff login and cookie transport. Applicant Convex Auth
 
 Every export in `volunteers.ts` calls `requireAdminRole` first. Reviewers get `ADMIN_ONLY` and volunteers get `NOT_AUTHORIZED`, so a volunteer cannot change their own capabilities or events, create or restore accounts, reset passwords, or read either audit log.
 
-- `createVolunteer` makes a standalone volunteer (not a participant). The role is always `volunteer`, the account is active, and `canCheckIn` / `canFoodCheckIn` are optional booleans (omitted or anything but an explicit `true` is denied, so new volunteers normally start with no access). The email is normalized like staff sign-in, and any existing staff row with that email (any role, active or not) is rejected. The password is validated and hashed with the shared staff credential helper.
+- `createVolunteer` makes a standalone volunteer (not a participant). Admins can call it from the Volunteers page. The role is always `volunteer`, the account is active, and `canCheckIn` / `canFoodCheckIn` are optional booleans (omitted or anything but an explicit `true` is denied, so new volunteers normally start with no access). The email is normalized like staff sign-in, and any existing staff row with that email (any role, active or not) is rejected. The password is validated and hashed with the shared staff credential helper.
 - `promoteParticipantToVolunteer` (in `participantsAdmin.ts`, built on `volunteerProvisioning.ts`) creates a **separate** staff account linked through `admins.participantId`. The participant must still be accepted. The email and name default to the registration values and can be overridden. It rejects a second link for the same participant and any email already used by staff, and never converts an admin or reviewer. The participant row (points, QR token), application, `users`, and `authAccounts` are not modified. It is audited as `volunteer_promoted` (with `targetParticipantId`); standalone creation is `volunteer_created`.
 - `listVolunteers` is paginated over `admins.by_role` and returns name, email, active status, linked participant, capabilities, assigned events, and created/updated times. No credentials, sessions, QR tokens, or points.
 - `getVolunteer` returns one volunteer in the same shape, or `null` when the id is missing or not a volunteer.

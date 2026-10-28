@@ -30,7 +30,6 @@ const ADMIN_EDITABLE_TABLES = [
   "shopInventoryAdjustments",
   "shopFlashSales",
   "shopFlashSaleItems",
-  "participantAnnouncements",
   "participantNotifications",
 ];
 const REFERENCE_EDITABLE_TABLES = ["applicationReviews"];

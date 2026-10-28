@@ -3,8 +3,9 @@
  *
  * A sale is scheduled, live, or ended by its window; only cancellation is
  * stored. Prices are worked out in `shopPricing.ts`, so normal prices return
- * on their own when a sale ends. Each sale publishes one participant
- * announcement at its start time; cancelling withdraws it.
+ * on their own when a sale ends. Each sale owns one `flash_sale` row in
+ * `participantNotifications` that publishes at its start time and expires at
+ * its end; cancelling withdraws it.
  */
 import type { DocumentByName } from "convex/server";
 import { v, type GenericId } from "convex/values";
@@ -94,7 +95,7 @@ function logSale(ctx: MutationCtx, actorAdminId: AdminId, action: "flash_sale_cr
   });
 }
 
-/** Creates a sale and its announcement. A sale may start now or later, and must end in the future. */
+/** Creates a sale and its participant notification. A sale may start now or later, and must end in the future. */
 export const createFlashSale = mutation({
   args: { ...sessionTokenArgs, ...saleFieldArgs },
   handler: async (ctx, { sessionToken, ...args }) => {
@@ -111,27 +112,16 @@ export const createFlashSale = mutation({
       updatedAt: now,
     });
     await insertSaleItems(ctx, flashSaleId, input);
-    const announcementId = await ctx.db.insert("participantAnnouncements", {
-      kind: "flash_sale",
-      title: input.title,
-      body: input.message,
-      flashSaleId,
-      publishedAt: Math.max(input.startsAt, now),
-      expiresAt: input.endsAt,
-      createdBy: actor._id,
-      createdAt: now,
-    });
     const notificationId = await upsertFlashSaleNotification(ctx, {
       actorAdminId: actor._id,
       flashSaleId,
-      legacyAnnouncementId: announcementId,
       title: input.title,
       message: input.message,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       now,
     });
-    await ctx.db.patch(flashSaleId, { announcementId, notificationId });
+    await ctx.db.patch(flashSaleId, { notificationId });
     await logSale(ctx, actor._id, "flash_sale_created", flashSaleId, now);
     return { flashSaleId };
   },
@@ -154,7 +144,6 @@ export const updateFlashSale = mutation({
       actorAdminId: actor._id,
       flashSaleId,
       existingNotificationId: sale.notificationId,
-      legacyAnnouncementId: sale.announcementId,
       title: input.title,
       message: input.message,
       startsAt: input.startsAt,
@@ -169,17 +158,12 @@ export const updateFlashSale = mutation({
       notificationId,
       updatedAt: now,
     });
-    if (sale.announcementId) {
-      await ctx.db.patch(sale.announcementId, {
-        title: input.title, body: input.message, publishedAt: Math.max(input.startsAt, now), expiresAt: input.endsAt,
-      });
-    }
     await logSale(ctx, actor._id, "flash_sale_updated", flashSaleId, now, ["title", "message", "startsAt", "endsAt", "items"]);
     return { ok: true as const };
   },
 });
 
-/** Cancels a scheduled or live sale. Prices return to normal at once and the announcement is withdrawn. */
+/** Cancels a scheduled or live sale. Prices return to normal at once and its notification is withdrawn. */
 export const cancelFlashSale = mutation({
   args: { ...sessionTokenArgs, flashSaleId: v.id("shopFlashSales") },
   handler: async (ctx, { sessionToken, flashSaleId }) => {
@@ -192,7 +176,6 @@ export const cancelFlashSale = mutation({
 
     await ctx.db.patch(flashSaleId, { cancelledAt: now, cancelledBy: actor._id, updatedAt: now });
     for (const row of await saleItemRows(ctx, flashSaleId)) await ctx.db.patch(row._id, { cancelled: true });
-    if (sale.announcementId) await ctx.db.patch(sale.announcementId, { withdrawnAt: now });
     await cancelFlashSaleNotification(ctx, {
       actorAdminId: actor._id,
       flashSaleId,

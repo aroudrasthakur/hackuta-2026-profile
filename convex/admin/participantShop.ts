@@ -1,5 +1,5 @@
 /**
- * Participant shop and announcements for the profile portal. Written in
+ * Participant shop and notifications for the profile portal. Written in
  * hackuta-2026-admin and synced to hackuta-2026-profile with the rest of the
  * backend.
  *
@@ -17,7 +17,7 @@ import { stockStatus } from "../../shared/admin/shopRules";
 import { flashSaleStatus } from "./shopFlashSales";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
 
-/** Most items, purchases, or announcements one call returns. */
+/** Most items, purchases, or notifications one call returns. */
 export const MAX_PROFILE_SHOP_ROWS = 100;
 
 async function myParticipant(ctx: QueryCtx) {
@@ -103,36 +103,10 @@ export const getMyShopHistory = query({
   },
 });
 
-/** Published, not withdrawn announcements, newest first. Null when signed out. */
-export const listMyAnnouncements = query({
-  args: { nowBucket: v.optional(v.number()) },
-  handler: async (ctx) => {
-    const user = await getAuthUser(ctx);
-    if (!user) return null;
-    const now = Date.now();
-    const rows = await ctx.db.query("participantAnnouncements")
-      .withIndex("by_publishedAt", (q) => q.lte("publishedAt", now))
-      .order("desc")
-      .take(MAX_PROFILE_SHOP_ROWS);
-    return rows
-      .filter((row) => row.withdrawnAt === undefined)
-      .map((row) => ({
-        announcementId: row._id,
-        kind: row.kind,
-        title: row.title,
-        body: row.body,
-        publishedAt: row.publishedAt,
-        expiresAt: row.expiresAt ?? null,
-        active: row.expiresAt === undefined || row.expiresAt > now,
-      }));
-  },
-});
-
 /**
  * Currently published, non-expired notifications for the participant portal,
- * sorted newest first. Never returns draft, scheduled, cancelled, or expired
- * rows, and preserves unmigrated `participantAnnouncements` rows without
- * duplicating migrated or flash-sale-linked notifications.
+ * newest first, including flash-sale notifications. Never returns draft,
+ * scheduled, cancelled, or expired rows. Null when signed out.
  */
 export const listPublishedNotifications = query({
   args: { nowBucket: v.optional(v.number()) },
@@ -141,7 +115,7 @@ export const listPublishedNotifications = query({
     if (!user) return null;
     const now = Date.now();
 
-    const publishedRows = await ctx.db
+    const rows = await ctx.db
       .query("participantNotifications")
       .withIndex("by_status_publishedAt", (q) =>
         q.eq("status", "published").lte("publishedAt", now),
@@ -149,24 +123,11 @@ export const listPublishedNotifications = query({
       .order("desc")
       .take(MAX_PROFILE_SHOP_ROWS);
 
-    const allNotificationRows = await ctx.db
-      .query("participantNotifications")
-      .take(MAX_PROFILE_SHOP_ROWS * 2);
-
-    const representedAnnouncementIds = new Set<string>();
-    const representedSaleIds = new Set<string>();
-    for (const row of allNotificationRows) {
-      if (row.legacyAnnouncementId) representedAnnouncementIds.add(row.legacyAnnouncementId);
-      if (row.relatedFlashSaleId) representedSaleIds.add(row.relatedFlashSaleId);
-    }
-
-    const notifications = publishedRows
+    return rows
       .filter(
         (row) =>
-          row.status === "published" &&
           row.cancelledAt === undefined &&
           row.publishedAt !== undefined &&
-          row.publishedAt <= now &&
           (row.expiresAt === undefined || row.expiresAt > now),
       )
       .map((row) => ({
@@ -179,31 +140,5 @@ export const listPublishedNotifications = query({
         linkUrl: row.linkUrl ?? null,
         linkLabel: row.linkLabel ?? null,
       }));
-
-    const legacyRows = await ctx.db
-      .query("participantAnnouncements")
-      .withIndex("by_publishedAt", (q) => q.lte("publishedAt", now))
-      .order("desc")
-      .take(MAX_PROFILE_SHOP_ROWS);
-
-    for (const row of legacyRows) {
-      if (row.withdrawnAt !== undefined) continue;
-      if (row.expiresAt !== undefined && row.expiresAt <= now) continue;
-      if (representedAnnouncementIds.has(row._id)) continue;
-      if (row.flashSaleId && representedSaleIds.has(row.flashSaleId)) continue;
-      notifications.push({
-        notificationId: String(row._id),
-        title: row.title,
-        message: row.body.trim() || "Limited-time shop discount is live.",
-        type: row.kind === "flash_sale" ? "flash_sale" : "general",
-        publishedAt: row.publishedAt,
-        expiresAt: row.expiresAt ?? null,
-        linkUrl: row.kind === "flash_sale" ? "/dashboard" : null,
-        linkLabel: row.kind === "flash_sale" ? "Open dashboard" : null,
-      });
-    }
-
-    notifications.sort((a, b) => b.publishedAt - a.publishedAt);
-    return notifications.slice(0, MAX_PROFILE_SHOP_ROWS);
   },
 });
