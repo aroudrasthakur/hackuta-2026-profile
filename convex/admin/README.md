@@ -9,7 +9,10 @@ Organizer-only queries, mutations, and internal actions. **Admin-owned** — saf
 | [auth.ts](auth.ts) | Organizer sign-in, sign-out, session lookup, credential provisioning |
 | [staffAuth.ts](staffAuth.ts) | Session resolution and role guards (see [VOLUNTEER_AUTHORIZATION.md](VOLUNTEER_AUTHORIZATION.md)) |
 | [volunteers.ts](volunteers.ts) | Admin-only volunteer management: creation, resets, revoke/restore, capabilities, event assignments, and audit log queries |
+| [events.ts](events.ts) | Admin-only event list, creation, edits, and activation, each audited in `staffConfigLogs` |
 | [participantsAdmin.ts](participantsAdmin.ts) | Admin-only participant roster, details, point corrections, adjustment history, and participant-to-volunteer promotion |
+| [meals.ts](meals.ts) | Admin-only meal create/edit/activate/remove, reactive served counts, and paginated collection history |
+| [mealCountsBackfill.ts](mealCountsBackfill.ts) | Internal, bounded, resumable backfill of served counts for existing meals |
 | [volunteerProvisioning.ts](volunteerProvisioning.ts) | Shared volunteer account provisioning (validation, hashing, audit) used by both modules above |
 | [adminQueryHelpers.ts](adminQueryHelpers.ts) | Display-name lookups and date-range bounds for admin list queries |
 | [staffCredentials.ts](staffCredentials.ts) | Shared password validation, hashing, credential storage, and session invalidation |
@@ -24,8 +27,49 @@ Organizer-only queries, mutations, and internal actions. **Admin-owned** — saf
 | [decisionEmailService.ts](decisionEmailService.ts) | Decision mail via register-locked `sendMailMessage` (same email service HTTP client) |
 | [sendDecisionEmails.ts](sendDecisionEmails.ts) | Internal action that sends decision notifications |
 | [participants.ts](participants.ts) | `createParticipantFromAcceptance` — internal entry point for the helper |
-| [volunteerScan.ts](volunteerScan.ts) | Volunteer scan options and read-only QR preview (`listMyScanOptions`, `resolveQrForScan`) |
+| [volunteerScan.ts](volunteerScan.ts) | Volunteer scan options, meal availability, QR previews, and atomic per-meal redemption |
 | [volunteerScanRateLimit.ts](volunteerScanRateLimit.ts) | Per-volunteer QR lookup throttling in `rateLimits`, plus internal cleanup |
+| [shopAdmin.ts](shopAdmin.ts) | Admin-only shop items, images, stock adjustments, purchase history, refunds, and volunteer shop access |
+| [shopFlashSales.ts](shopFlashSales.ts) | Admin-only flash sales and their participant announcements |
+| [shopRedemption.ts](shopRedemption.ts) | Volunteer shop catalog, purchase preview, and the purchase mutation (`canRedeemShop`) |
+| [shopLedger.ts](shopLedger.ts), [shopPricing.ts](shopPricing.ts) | Internal stock, points, refund, and pricing helpers (not auth boundaries) |
+| [participantShop.ts](participantShop.ts) | Participant shop, own purchase history, and announcements for the profile portal |
+
+## Meal management
+
+Meal management requires `requireAdminRole` on every endpoint. `createMealPeriod`
+and `updateMealPeriod` validate custom names (1–100 characters), optional descriptions
+(up to 1000 characters), and Unix millisecond serving windows with `startsAt < endsAt`.
+Enabled windows must not overlap; adjacent windows are allowed. `setMealPeriodActive`
+rechecks overlaps on activation. `removeMealPeriod` rejects meals with redemption
+history, including collections recorded since the UI loaded; deactivate these meals
+instead. Configuration changes write `staffConfigLogs` entries with the actor,
+meal ID, and schedule/name details, preserving the name even after removal.
+
+`listMealPeriods` returns schedules ordered by start and cached `servedCount`
+values without reading redemption history. Each successful collection increments
+its meal's count in the same transaction as the redemption and audit log; duplicates
+leave it unchanged. Count updates do not change `updatedAt`, so they do not reset
+scanner previews. `listMealRedemptions` requires a meal ID and pagination
+options and accepts inclusive `from`/`to` collection timestamps. History is newest
+first and exposes participant/staff display names and collection times only.
+The food scanner uses `listActiveMealPeriods`, `resolveQrForMeal`, and `redeemMeal`
+from `volunteerScan.ts`. Availability follows enabled schedules and serving-window
+boundaries. Redemption rechecks server time, current eligibility and capability,
+and the indexed per-meal duplicate record in one transaction. Legacy food endpoints
+delegate to the same checks and require a selected meal. Existing
+`participants.foodCheckedInAt` values remain historical data. Deploy backend changes
+through profile after refreshing its admin schema lock.
+
+New meals start with a complete count of zero. For meals created before cached
+counts were introduced, run the internal mutation
+`admin/mealCountsBackfill:backfillMealServedCount` with `{ "mealPeriodId": "<id>" }`
+from profile, repeating until `isDone` is true for each existing meal. Each call
+reads at most 100 redemptions and stores its cursor on the meal. The operation is
+safe to resume or repeat, including while volunteers are serving food: new
+redemptions are marked `countedInServedCount`, and the backfill counts each legacy
+row once. Until complete, the admin page shows “Updating count…” and disables
+removal rather than displaying a partial total. History remains available.
 
 ## Authentication
 
@@ -42,9 +86,9 @@ Protected queries and mutations accept `sessionToken`. The helpers take `(ctx, s
 - `getCurrentAdmin` returns the active `admins` record, or `null` for an invalid, expired, revoked, or orphaned session.
 - `requireReviewerAccess` allows active reviewers and admins; activity logging and application decisions use it.
 - `requireAdminRole` allows only active admins; historical review log queries use it.
-- `requireVolunteerAccess` allows only active volunteers; admins and reviewers cannot act as volunteers.
-- `requireVolunteerCapability` checks an explicit `true` for `canCheckIn` or `canFoodCheckIn` on each request.
-- `requireVolunteerEventAccess` checks the caller's own assignment and an active event. Schedule times are reference only. Removing an assignment takes effect on the next request.
+- `requireVolunteerAccess` allows active volunteers and administrators; reviewers cannot act as volunteers.
+- `requireVolunteerCapability` grants administrators every scan capability; volunteers need an explicit `true` for `canCheckIn`, `canFoodCheckIn`, or `canRedeemShop` on each request.
+- `requireVolunteerEventAccess` grants administrators every active event; volunteers need their own assignment. Schedule times are reference only. Removing an assignment takes effect on the next request.
 
 Each protected request resolves the current stored role and active status. Acting identity always comes from the returned `admin._id`, including `applicationReviews.reviewedBy`, `applicationReviewLogs.adminId`, and `participants.acceptedBy`; public operations never accept an acting admin ID or role. Applicant authentication cannot satisfy these guards.
 
@@ -62,17 +106,31 @@ Volunteers use this same staff login and cookie transport. Applicant Convex Auth
 
 Every export in `volunteers.ts` calls `requireAdminRole` first. Reviewers get `ADMIN_ONLY` and volunteers get `NOT_AUTHORIZED`, so a volunteer cannot change their own capabilities or events, create or restore accounts, reset passwords, or read either audit log.
 
-- `createVolunteer` makes a standalone volunteer (not a participant). The role is always `volunteer`, the account is active, and `canCheckIn` / `canFoodCheckIn` are required booleans (only an explicit `true` grants access). The email is normalized like staff sign-in, and any existing staff row with that email (any role, active or not) is rejected. The password is validated and hashed with the shared staff credential helper.
+- `createVolunteer` makes a standalone volunteer (not a participant). The role is always `volunteer`, the account is active, and `canCheckIn` / `canFoodCheckIn` are optional booleans (omitted or anything but an explicit `true` is denied, so new volunteers normally start with no access). The email is normalized like staff sign-in, and any existing staff row with that email (any role, active or not) is rejected. The password is validated and hashed with the shared staff credential helper.
 - `promoteParticipantToVolunteer` (in `participantsAdmin.ts`, built on `volunteerProvisioning.ts`) creates a **separate** staff account linked through `admins.participantId`. The participant must still be accepted. The email and name default to the registration values and can be overridden. It rejects a second link for the same participant and any email already used by staff, and never converts an admin or reviewer. The participant row (points, QR token), application, `users`, and `authAccounts` are not modified. It is audited as `volunteer_promoted` (with `targetParticipantId`); standalone creation is `volunteer_created`.
 - `listVolunteers` is paginated over `admins.by_role` and returns name, email, active status, linked participant, capabilities, assigned events, and created/updated times. No credentials, sessions, QR tokens, or points.
+- `getVolunteer` returns one volunteer in the same shape, or `null` when the id is missing or not a volunteer.
 - `resetVolunteerPassword` validates the new password and deletes all sessions. No password retrieval API exists.
 - `revokeVolunteer` sets `active: false` and deletes every session, which stops all scanning on the next request. Assignments, capabilities, and history are kept. `restoreVolunteer` reactivates the account and deletes sessions again, so a fresh login is always required.
-- `setVolunteerCapabilities` takes both booleans explicitly. Unchanged values are a no-op; otherwise the log records `changedFields`, `before`, and `after`.
+- `setVolunteerCapabilities` takes `canCheckIn` and `canFoodCheckIn` explicitly, plus an optional `canRedeemShop` (omitted leaves shop access unchanged). Unchanged values are a no-op; otherwise the log records `changedFields`, `before`, and `after`.
 - `setVolunteerEventAccess` replaces the volunteer's event set. It validates the whole list (at most 50, no duplicates, every event exists, no new grants to a revoked volunteer) before any write. Unchanged rows are kept, removed ones are deleted, and duplicate rows for one event are collapsed. The log records the final list plus added and removed ids.
 - `listVolunteerActionLogs` filters by volunteer, action, participant, event, and a `from`/`to` date range, newest first, paginated. The most selective filter picks an index (`by_participant_createdAt`, `by_actor_createdAt`, `by_event_createdAt`, `by_action_createdAt`, or `by_createdAt`). Rows include actor and participant names, event name, point delta, and the reason for admin adjustments only.
 - `listStaffConfigLogs` lists configuration changes newest first, filterable by target staff account, action, and date range, with names and parsed details.
 
 Every configuration change writes a `staffConfigLogs` row with the acting admin and timestamp in the same transaction. Details go through `buildStaffConfigDetails`, which only stores allowlisted booleans, numbers, and ids. Generic organizer provisioning still rejects volunteer targets.
+
+### Events (#63)
+
+Every export in `events.ts` calls `requireAdminRole` first; reviewers get `ADMIN_ONLY`, volunteers `NOT_AUTHORIZED`. Input goes through `normalizeEventInput`: a trimmed name of 1–120 characters, an optional description up to 2,000 characters, whole points from 1 to 100,000, and finite whole-millisecond `startsAt` before `endsAt`; anything else is `INVALID_EVENT`. `createdAt` and `updatedAt` are always set by the server.
+
+- `listEvents` is paginated over every event (switched on or off, past or future), newest first. Each row has `active`, `startsAt`, `endsAt`, and `pointsLocked` (true once `participantEventAwards.by_event` has a row), so the client can label it with `eventStatus`: `inactive`, `upcoming`, `active`, or `ended`. Those labels are display only; the query does not compute status because cached results would not refresh when the clock crosses a boundary.
+- `getEvent` returns one event in the same shape, or `null`.
+- `createEvent` inserts a switched-on event and logs `event_created` with the new values.
+- `updateEvent` changes name, description, and schedule. A missing event is `EVENT_NOT_FOUND`; an unchanged submission is a no-op; otherwise `event_updated` records `changedFields` and the previous and new schedule. A blank description clears it. Schedule times are stored for reference and do not change who can scan.
+- `setEventPoints` changes `pointsAwarded` until the first award, then throws `EVENT_POINTS_LOCKED`. Existing awards and balances are never rewritten. `event_updated` records the previous and new value.
+- `setEventActive` is a no-op when unchanged; otherwise `event_active_changed` records before and after.
+
+Points can be awarded while the event is switched on. `startsAt` / `endsAt` are reference only and are not checked by the award mutation, the ledger helper, or the scan preview. Switching an event off keeps its volunteer assignments, and `listMyScanOptions` lists every assigned switched-on event, so scanning resumes without reassignment when it is switched back on. No export here awards points.
 
 ## Participant administration (#64)
 
@@ -98,8 +156,10 @@ Accounting: `participants.points` = event awards + admin adjustments. Correction
 | Session profile/sign-out | The caller's staff session only |
 | Participant creation | Internal only; accepting staff must be active reviewer/admin |
 | Point ledger and participant eligibility helpers | Ordinary server helpers, not public Convex APIs |
-| Own scan options and QR scan preview | Volunteer, plus the purpose's capability or event assignment |
-| Check-in, food redemption, event point award (`volunteerOperations.ts`) | Volunteer, plus the capability or event assignment, re-checked on every call |
+| Own scan options and QR scan preview | Admin, or volunteer with the purpose's capability or event assignment |
+| Two-step badge check-in (`badgeCheckIn.ts`) | Admin, or volunteer with `canCheckIn`, re-checked on every call |
+| Badge replacement or late assignment (`badgeAdmin.ts`) | Admin |
+| Food redemption, event point award (`volunteerOperations.ts`) | Admin, or volunteer with the capability or event assignment, re-checked on every call |
 
 The participant roster and point corrections (`participantsAdmin.ts`) are admin-only. Scanner endpoints must independently call the relevant volunteer guard **inside their query/mutation** before using participant or ledger helpers. In particular, `awardEventPoints` is a ledger helper, not an authorization boundary: its caller must use `requireVolunteerEventAccess` and derive the actor and timestamp on the server. Scanner and management screens are separate work from this authentication foundation.
 
@@ -111,7 +171,9 @@ After detail loads, the page calls `logApplicationReviewAction` with `action: "v
 
 ## Volunteer QR scan preview (#60)
 
-`listMyScanOptions` returns the caller's own `canCheckIn` / `canFoodCheckIn` and their assigned active events (name, points, schedule). `resolveQrForScan` previews one scanned QR code for `check_in`, `food_check_in`, or `point_scan` and returns a typed status instead of throwing, so its rate-limit rows persist. It changes no participant, award, or log rows; the later state-changing scan mutations must re-check everything. Dietary info appears only in food previews; point totals, emails, applications, and tokens never appear. Order of checks, response fields, and the rate-limit thresholds and cleanup are in [VOLUNTEER_AUTHORIZATION.md](VOLUNTEER_AUTHORIZATION.md#qr-scan-preview-volunteerscants).
+`listMyScanOptions` returns scan capabilities and switched-on events. Administrators receive every capability and every active event; volunteers receive their own grants and assigned events (name, points, schedule). `resolveQrForScan` previews one scanned badge for `food_check_in`, `point_scan`, or `shop` and returns a typed status instead of throwing, so its rate-limit rows persist. It changes no participant, award, or log rows; the later state-changing scan mutations must re-check everything. Dietary info appears only in food previews; point totals, emails, applications, and tokens never appear. Order of checks, response fields, and the rate-limit thresholds and cleanup are in [VOLUNTEER_AUTHORIZATION.md](VOLUNTEER_AUTHORIZATION.md#qr-scan-preview-volunteerscants).
+
+Door check-in is a separate two-scan flow (registration QR, then a preprinted badge, then confirm) that assigns the badge and checks the participant in atomically. After that, food, points, and the shop accept only the badge. See [badge check-in](VOLUNTEER_AUTHORIZATION.md#badge-check-in-badgecheckints).
 
 ## Schema notes
 

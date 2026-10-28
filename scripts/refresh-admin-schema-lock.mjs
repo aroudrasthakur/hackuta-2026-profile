@@ -33,17 +33,17 @@ function readText(path) {
   return readFileSync(path, "utf8").replace(/\r\n/g, "\n");
 }
 
-function walkTs(dir, base, files = []) {
+function walkFiles(dir, base, extensions, files = []) {
   if (!existsSync(dir)) {
     return files;
   }
   for (const entry of readdirSync(dir)) {
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) {
-      walkTs(path, base, files);
+      walkFiles(path, base, extensions, files);
       continue;
     }
-    if (path.endsWith(".ts")) {
+    if (extensions.some((ext) => path.endsWith(ext))) {
       files.push(relative(base, path).replace(/\\/g, "/"));
     }
   }
@@ -61,10 +61,10 @@ function syncFile(sourcePath, destPath) {
   console.log("Copied", relative(root, destPath).replace(/\\/g, "/"));
 }
 
-function syncTsTree(sourceDir, destDir, { keepRelative = new Set() } = {}) {
-  const sourceFiles = walkTs(sourceDir, sourceDir);
+function syncTree(sourceDir, destDir, { keepRelative = new Set(), extensions = [".ts"] } = {}) {
+  const sourceFiles = walkFiles(sourceDir, sourceDir, extensions);
   const sourceSet = new Set(sourceFiles);
-  for (const rel of walkTs(destDir, destDir)) {
+  for (const rel of walkFiles(destDir, destDir, extensions)) {
     if (sourceSet.has(rel) || keepRelative.has(rel)) {
       continue;
     }
@@ -82,13 +82,13 @@ if (!existsSync(adminRoot)) {
   process.exit(1);
 }
 
-syncTsTree(sourceAdminDir, profileAdminDir);
+syncTree(sourceAdminDir, profileAdminDir, { extensions: [".ts", ".md"] });
 syncFile(join(adminRoot, "convex", "schema.ts"), join(root, "convex", "schema.ts"));
-syncTsTree(sourceSharedAdminDir, profileSharedAdminDir, {
+syncTree(sourceSharedAdminDir, profileSharedAdminDir, {
   keepRelative: PROFILE_ONLY_SHARED_ADMIN,
 });
 
-const files = walkTs(profileAdminDir, profileAdminDir).sort();
+const files = walkFiles(profileAdminDir, profileAdminDir, [".ts", ".md"]).sort();
 const manifest = {};
 for (const rel of files) {
   manifest[`convex/admin/${rel}`] = sha256(readText(join(profileAdminDir, rel)));

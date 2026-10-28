@@ -1,4 +1,6 @@
 {
+  "convex/admin/README.md": "d66bc00d37a01ebe7b728713457bf14b5be08a5579b1242316494a06bc3e9f41",
+  "convex/admin/VOLUNTEER_AUTHORIZATION.md": "dd3a80108798b63756074680b026e2df5ed697fdc0f3b68934ee1ea9e21fb1ad",
   "convex/admin/acceptanceDecision.ts": "c372af66e66c40d2cfd4b682cd8cd2fffeb5245140d7ff5a744315928009bde5",
   "convex/admin/adminQueryHelpers.ts": "ee0103f69e3f11613270b186321d288cff2edd29467d0ca240bad1a43d4549fe",
   "convex/admin/adminSignInRateLimit.ts": "97c72bc1d8396626c5a01912191299db199794b6ecac39d137a0008620209ade",

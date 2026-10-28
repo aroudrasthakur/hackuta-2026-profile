@@ -11,7 +11,7 @@ Node scripts invoked from npm lifecycle hooks, local setup, or CI. Not imported 
 | [check-whitespace.mjs](check-whitespace.mjs) | npm run check:whitespace, CI | Fails if tracked text files lack a final newline |
 | [verify-register-schema-lock.mjs](verify-register-schema-lock.mjs) | npm run verify:register-schema-lock, preconvex:push-dev, preconvex:deploy, CI | Hash-checks register-frozen files and schema body |
 | [verify-admin-schema-lock.mjs](verify-admin-schema-lock.mjs) | npm run verify:admin-schema-lock, preconvex:push-dev, preconvex:deploy, CI | Hash-checks convex/admin against the admin lock manifest |
-| [refresh-admin-schema-lock.mjs](refresh-admin-schema-lock.mjs) | npm run admin-schema-lock:refresh | Copies admin convex/admin, schema.ts, and shared/admin into this repo, then rewrites the manifest |
+| [refresh-admin-schema-lock.mjs](refresh-admin-schema-lock.mjs) | npm run admin-schema-lock:refresh | Copies admin convex/admin (`.ts` and `.md`), schema.ts, and shared/admin into this repo, then rewrites the manifest |
 | [refresh-register-schema-lock.mjs](refresh-register-schema-lock.mjs) | npm run register-schema-lock:refresh | Re-copies lock manifest from sibling register repo. Do not run while register production is frozen unless that repo shipped a backend change |
 | [register-schema-lock/](register-schema-lock/README.md) | (frozen artifacts) | manifest.json + schema.reference.ts (code files only) |
 
