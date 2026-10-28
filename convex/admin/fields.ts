@@ -64,6 +64,28 @@ export const staffConfigLogAction = v.union(
   v.literal("flash_sale_created"),
   v.literal("flash_sale_updated"),
   v.literal("flash_sale_cancelled"),
+  v.literal("notification_created"),
+  v.literal("notification_updated"),
+  v.literal("notification_published"),
+  v.literal("notification_scheduled"),
+  v.literal("notification_cancelled"),
+);
+
+/** Notification category on `participantNotifications.type`. */
+export const participantNotificationType = v.union(
+  v.literal("general"),
+  v.literal("event"),
+  v.literal("reminder"),
+  v.literal("flash_sale"),
+  v.literal("important"),
+);
+
+/** Delivery lifecycle on `participantNotifications.status`. */
+export const participantNotificationStatus = v.union(
+  v.literal("draft"),
+  v.literal("scheduled"),
+  v.literal("published"),
+  v.literal("cancelled"),
 );
 
 /** Lifecycle on `shopItems.status`. Archived items stay for purchase history. */

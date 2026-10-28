@@ -13,6 +13,7 @@ import type { DataModel, MutationCtx, QueryCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
 import { normalizeFlashSaleInput } from "../../shared/admin/shopRules";
 import { buildStaffConfigDetails } from "../../shared/admin/volunteerRules";
+import { cancelFlashSaleNotification, upsertFlashSaleNotification } from "./notifications";
 import { hasOverlappingSale } from "./shopPricing";
 import { requireAdminRole, sessionTokenArgs } from "./staffAuth";
 
@@ -120,7 +121,17 @@ export const createFlashSale = mutation({
       createdBy: actor._id,
       createdAt: now,
     });
-    await ctx.db.patch(flashSaleId, { announcementId });
+    const notificationId = await upsertFlashSaleNotification(ctx, {
+      actorAdminId: actor._id,
+      flashSaleId,
+      legacyAnnouncementId: announcementId,
+      title: input.title,
+      message: input.message,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      now,
+    });
+    await ctx.db.patch(flashSaleId, { announcementId, notificationId });
     await logSale(ctx, actor._id, "flash_sale_created", flashSaleId, now);
     return { flashSaleId };
   },
@@ -139,8 +150,24 @@ export const updateFlashSale = mutation({
 
     for (const row of await saleItemRows(ctx, flashSaleId)) await ctx.db.delete(row._id);
     await insertSaleItems(ctx, flashSaleId, input);
+    const notificationId = await upsertFlashSaleNotification(ctx, {
+      actorAdminId: actor._id,
+      flashSaleId,
+      existingNotificationId: sale.notificationId,
+      legacyAnnouncementId: sale.announcementId,
+      title: input.title,
+      message: input.message,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      now,
+    });
     await ctx.db.patch(flashSaleId, {
-      title: input.title, message: input.message, startsAt: input.startsAt, endsAt: input.endsAt, updatedAt: now,
+      title: input.title,
+      message: input.message,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      notificationId,
+      updatedAt: now,
     });
     if (sale.announcementId) {
       await ctx.db.patch(sale.announcementId, {
@@ -166,6 +193,12 @@ export const cancelFlashSale = mutation({
     await ctx.db.patch(flashSaleId, { cancelledAt: now, cancelledBy: actor._id, updatedAt: now });
     for (const row of await saleItemRows(ctx, flashSaleId)) await ctx.db.patch(row._id, { cancelled: true });
     if (sale.announcementId) await ctx.db.patch(sale.announcementId, { withdrawnAt: now });
+    await cancelFlashSaleNotification(ctx, {
+      actorAdminId: actor._id,
+      flashSaleId,
+      existingNotificationId: sale.notificationId,
+      now,
+    });
     await logSale(ctx, actor._id, "flash_sale_cancelled", flashSaleId, now);
     return { ok: true as const };
   },
