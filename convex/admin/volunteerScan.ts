@@ -28,7 +28,7 @@ import {
   type PostCheckInFailure,
 } from "./participantQr";
 import { computeLedgerPoints, isParticipantEligible } from "./pointsLedger";
-import { hasVolunteerCapability, requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
+import { hasVolunteerCapability, requireVolunteerAccess, sessionTokenArgs, volunteerCapabilities, volunteerHasAllEventAccess } from "./staffAuth";
 import {
   isVolunteerScanThrottled,
   recordVolunteerScanAttempt,
@@ -65,7 +65,7 @@ export const listMyScanOptions = query({
   handler: async (ctx, { sessionToken }) => {
     const volunteer = await requireVolunteerAccess(ctx, sessionToken);
     const events = [];
-    if (volunteer.role === "admin") {
+    if (volunteerHasAllEventAccess(volunteer)) {
       const activeEvents = await ctx.db
         .query("events")
         .withIndex("by_active", (q) => q.eq("active", true))
@@ -115,7 +115,7 @@ async function assignedActiveEvent(
   eventId: GenericId<"events"> | undefined,
 ) {
   if (!eventId) return null;
-  if (volunteer.role !== "admin") {
+  if (!volunteerHasAllEventAccess(volunteer)) {
     const assignment = await ctx.db
       .query("volunteerEventAccess")
       .withIndex("by_volunteer_event", (q) =>

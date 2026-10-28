@@ -61,8 +61,8 @@ export async function getCurrentAdmin(
   return resolved?.admin ?? null;
 }
 
-/** Both active reviewers and admins can review applications and make decisions. */
-export async function requireReviewerAccess(
+/** Active administrator session. Volunteers are rejected. */
+export async function requireAdminRole(
   ctx: QueryCtx | MutationCtx,
   sessionToken: string,
 ) {
@@ -70,20 +70,8 @@ export async function requireReviewerAccess(
   if (!admin) {
     throw adminError("NOT_AUTHENTICATED");
   }
-  if (admin.role !== "reviewer" && admin.role !== "admin") {
-    throw adminError("NOT_AUTHORIZED");
-  }
-  return admin;
-}
-
-/** Historical review logs and other admin-only operations require the admin role. */
-export async function requireAdminRole(
-  ctx: QueryCtx | MutationCtx,
-  sessionToken: string,
-) {
-  const admin = await requireReviewerAccess(ctx, sessionToken);
   if (admin.role !== "admin") {
-    throw adminError("ADMIN_ONLY");
+    throw adminError("NOT_AUTHORIZED");
   }
   return admin;
 }
@@ -112,10 +100,16 @@ export function newVolunteerFields() {
     canCheckIn: false,
     canFoodCheckIn: false,
     canRedeemShop: false,
+    canScanAllEvents: false,
   };
 }
 
-/** Active volunteer or administrator session. Reviewers are rejected. */
+/** Administrators and volunteers with `canScanAllEvents` may award any active event. */
+export function volunteerHasAllEventAccess(admin: { role?: string; canScanAllEvents?: boolean }) {
+  return admin.role === "admin" || admin.canScanAllEvents === true;
+}
+
+/** Active volunteer or administrator session. */
 export async function requireVolunteerAccess(
   ctx: QueryCtx | MutationCtx,
   sessionToken: string,
@@ -157,8 +151,9 @@ export async function requireVolunteerCapability(
 }
 
 /**
- * Checks the volunteer's **current** assignment (bypassed for administrators)
- * and an active event immediately before a point-scan (or similar) operation.
+ * Checks the volunteer's **current** assignment (bypassed for administrators
+ * and volunteers with `canScanAllEvents`) and an active event immediately
+ * before a point-scan (or similar) operation.
  *
  * Invariant: deleting `volunteerEventAccess` takes effect on the next request;
  * there is no session cache of assignments. Schedule fields on `events` are not
@@ -170,7 +165,7 @@ export async function requireVolunteerEventAccess(
   eventId: GenericId<"events">,
 ) {
   const volunteer = await requireVolunteerAccess(ctx, sessionToken);
-  if (volunteer.role !== "admin") {
+  if (!volunteerHasAllEventAccess(volunteer)) {
     const assignment = await ctx.db
       .query("volunteerEventAccess")
       .withIndex("by_volunteer_event", (q) =>

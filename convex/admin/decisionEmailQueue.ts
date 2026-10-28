@@ -5,7 +5,7 @@ import { adminError } from "../../shared/admin/errors";
 import { getHackathonName } from "../lib/eventConfig";
 import type { MutationCtx, QueryCtx } from "../lib/dataModel";
 import { applyReleasedApplicationDecision, type ReviewDecision } from "./decisionFinalize";
-import { requireAdminRole, requireReviewerAccess, sessionTokenArgs } from "./staffAuth";
+import { requireAdminRole, sessionTokenArgs } from "./staffAuth";
 
 const openStatuses = new Set(["queued", "held", "sending"]);
 
@@ -40,11 +40,11 @@ function truncateError(error: unknown) {
   return message.slice(0, 500);
 }
 
-/** Pending and recent decision emails. Reviewers and admins can read this queue. */
+/** Pending and recent decision emails. Admins can read this queue. */
 export const listDecisionEmailQueue = query({
   args: sessionTokenArgs,
   handler: async (ctx, { sessionToken }) => {
-    await requireReviewerAccess(ctx, sessionToken);
+    await requireAdminRole(ctx, sessionToken);
     const rows = await ctx.db.query("decisionEmailQueue").collect();
     const counts = { queued: 0, held: 0, sending: 0, failed: 0, sent: 0 };
     for (const row of rows) {

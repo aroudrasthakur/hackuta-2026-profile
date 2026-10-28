@@ -4,7 +4,7 @@
  * lives in `participantsAdmin.ts`; both use `volunteerProvisioning.ts`.
  *
  * Every export calls `requireAdminRole` before reading or writing. Volunteers
- * and reviewers are denied, so nobody can change their own permissions,
+ * are denied, so nobody can change their own permissions,
  * assignments, or credentials here. See
  * [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md).
  *
@@ -90,6 +90,7 @@ async function volunteerRow(
       ? { participantId: volunteer.participantId, name: await names.participantName(volunteer.participantId) }
       : null,
     ...volunteerCapabilities(volunteer),
+    canScanAllEvents: volunteer.canScanAllEvents === true,
     events,
     createdAt: volunteer.createdAt,
     updatedAt: volunteer.updatedAt,
@@ -200,15 +201,20 @@ export const setVolunteerCapabilities = mutation({
 });
 
 /**
- * Replaces the volunteer's assigned events with `eventIds`. The whole input is
- * validated before any row changes. Unchanged assignments keep their row;
+ * Replaces the volunteer's assigned events with `eventIds`. `canScanAllEvents`
+ * grants every current and future event without listing them. The whole input
+ * is validated before any row changes. Unchanged assignments keep their row;
  * duplicate rows for one event are collapsed. Removal takes effect on the
  * volunteer's next request (guards re-query assignments every time).
  */
 export const setVolunteerEventAccess = mutation({
-  args: { ...volunteerArgs, eventIds: v.array(v.id("events")) },
+  args: {
+    ...volunteerArgs,
+    eventIds: v.array(v.id("events")),
+    canScanAllEvents: v.optional(v.boolean()),
+  },
   returns: v.object({ ok: v.literal(true), added: v.number(), removed: v.number() }),
-  handler: async (ctx, { sessionToken, volunteerAdminId, eventIds }) => {
+  handler: async (ctx, { sessionToken, volunteerAdminId, eventIds, canScanAllEvents }) => {
     const actor = await requireAdminRole(ctx, sessionToken);
     const volunteer = await requireVolunteerAccount(ctx, volunteerAdminId);
     const desired = new Set<EventId>(eventIds);
@@ -218,6 +224,10 @@ export const setVolunteerEventAccess = mutation({
     for (const eventId of desired) {
       if (!await ctx.db.get(eventId)) throw adminError("EVENT_NOT_FOUND");
     }
+
+    const previousAllEvents = volunteer.canScanAllEvents === true;
+    const nextAllEvents = canScanAllEvents === undefined ? previousAllEvents : canScanAllEvents === true;
+    const flagChanged = nextAllEvents !== previousAllEvents;
 
     const current = await ctx.db.query("volunteerEventAccess")
       .withIndex("by_volunteer", (q) => q.eq("volunteerAdminId", volunteerAdminId)).collect();
@@ -233,7 +243,9 @@ export const setVolunteerEventAccess = mutation({
       }
     }
     const addedEventIds = eventIds.filter((eventId) => !kept.has(eventId));
-    if (addedEventIds.length > 0 && !volunteer.active) throw adminError("ACCOUNT_INACTIVE");
+    if ((addedEventIds.length > 0 || (flagChanged && nextAllEvents)) && !volunteer.active) {
+      throw adminError("ACCOUNT_INACTIVE");
+    }
 
     const now = Date.now();
     for (const rowId of rowsToDelete) await ctx.db.delete(rowId);
@@ -242,11 +254,21 @@ export const setVolunteerEventAccess = mutation({
         volunteerAdminId, eventId, grantedBy: actor._id, createdAt: now,
       });
     }
-    if (addedEventIds.length > 0 || removedEventIds.size > 0) {
+    if (flagChanged) {
+      await ctx.db.patch(volunteerAdminId, { canScanAllEvents: nextAllEvents, updatedAt: now });
+    }
+    if (addedEventIds.length > 0 || removedEventIds.size > 0 || flagChanged) {
       await ctx.db.insert("staffConfigLogs", {
         actorAdminId: actor._id, action: "volunteer_event_access_updated", targetAdminId: volunteerAdminId,
         details: buildStaffConfigDetails({
           eventIds, addedEventIds, removedEventIds: [...removedEventIds],
+          ...(flagChanged
+            ? {
+              changedFields: ["canScanAllEvents"],
+              before: { canScanAllEvents: previousAllEvents },
+              after: { canScanAllEvents: nextAllEvents },
+            }
+            : {}),
         }),
         createdAt: now,
       });

@@ -130,6 +130,8 @@ export default defineSchema({
     canFoodCheckIn: v.optional(v.boolean()),
     /** Missing means denied; volunteers need explicit `true` to sell shop items. */
     canRedeemShop: v.optional(v.boolean()),
+    /** Missing means denied; explicit `true` awards every current and future event. */
+    canScanAllEvents: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

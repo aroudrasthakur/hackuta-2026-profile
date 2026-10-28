@@ -10,7 +10,7 @@ import {
 import type { ApplicationDoc } from "../lib/dataModel";
 import { ACTIVE_REVIEW_STALE_MS, isFinalReviewStatus, isReviewStale, reviewClaimExpiresAt } from "./reviewClaim";
 import { openDecisionEmailForApplication } from "./decisionEmailQueue";
-import { requireAdminRole, requireReviewerAccess, sessionTokenArgs } from "./staffAuth";
+import { requireAdminRole, sessionTokenArgs } from "./staffAuth";
 import { adminError } from "../../shared/admin/errors";
 
 function formatApplicantSchool(application: Pick<ApplicationDoc, "school" | "otherSchool">) {
@@ -26,7 +26,7 @@ function formatApplicantSchool(application: Pick<ApplicationDoc, "school" | "oth
 export const listSubmittedApplications = query({
   args: sessionTokenArgs,
   handler: async (ctx, { sessionToken }) => {
-    await requireReviewerAccess(ctx, sessionToken);
+    await requireAdminRole(ctx, sessionToken);
 
     const reviews = await ctx.db.query("applicationReviews").collect();
     const reviewByApplicationId = new Map(reviews.map((review) => [review.applicationId, review]));
@@ -75,7 +75,7 @@ export const getApplication = query({
     applicationId: v.string(),
   },
   handler: async (ctx, { sessionToken, applicationId }) => {
-    await requireReviewerAccess(ctx, sessionToken);
+    await requireAdminRole(ctx, sessionToken);
     const id = ctx.db.normalizeId("applications", applicationId);
     if (!id) return null;
     const application = await ctx.db.get(id);

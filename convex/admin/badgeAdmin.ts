@@ -1,7 +1,7 @@
 /**
  * Administrator-only badge recovery for a lost, damaged, or wrong badge.
- * Calls `requireAdminRole` first; reviewers get `ADMIN_ONLY` and volunteers
- * `NOT_AUTHORIZED`, so volunteers can never move a completed assignment.
+ * Calls `requireAdminRole` first; volunteers get `NOT_AUTHORIZED`, so they
+ * can never move a completed assignment.
  * See [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md).
  *
  * Points, meals, awards, and purchases belong to the participant id, not the

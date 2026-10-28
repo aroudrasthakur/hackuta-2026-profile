@@ -12,19 +12,18 @@ Applicant Convex Auth (`convex/auth.ts`) never satisfies staff guards.
 
 | Helper | Who may pass | Use before |
 | --- | --- | --- |
-| `requireReviewerAccess` | Active reviewer or admin | Application list/detail, review activity, decisions, decision-email queue reads |
-| `requireAdminRole` | Active admin | Review history, sample apps, organizer provisioning, decision-email hold/retry/release, all of `volunteers.ts` |
+| `requireAdminRole` | Active admin | Application list/detail, review activity, decisions, review history, sample apps, organizer provisioning, decision-email queue, all of `volunteers.ts` |
 | `requireVolunteerAccess` | Active volunteer or admin | Any participant/event scan operation (check-in, food, point scan, shop) |
 | `requireVolunteerCapability` | Admin, or volunteer with explicit `true` on `canCheckIn`, `canFoodCheckIn`, or `canRedeemShop` | Door check-in, food scan, or shop mutations (missing flag on a volunteer = denied) |
-| `requireVolunteerEventAccess` | Admin, or volunteer with a **current** `volunteerEventAccess` row, plus an **active** event | Point scan mutations that award event-fixed points |
+| `requireVolunteerEventAccess` | Admin, volunteer with `canScanAllEvents === true`, or volunteer with a **current** `volunteerEventAccess` row, plus an **active** event | Point scan mutations that award event-fixed points |
 
-Reviewers **cannot** call volunteer guards: they receive `VOLUNTEER_ONLY`. Volunteers **cannot** call review guards: they receive `NOT_AUTHORIZED`. Administrators automatically satisfy all scan capability and event-access checks.
+Volunteers **cannot** call admin guards: they receive `NOT_AUTHORIZED`. Administrators automatically satisfy all scan capability and event-access checks.
 
 Acting identity always comes from the guard return value (`admin._id`). Never trust client-supplied admin ids, roles, or capabilities.
 
 ## Event assignment semantics (invariant)
 
-- Permission to award an event's points is **only** the presence of a `volunteerEventAccess` row for `(volunteerAdminId, eventId)` at the time of the request.
+- Permission to award an event's points is a `volunteerEventAccess` row for `(volunteerAdminId, eventId)` at the time of the request, **or** `admins.canScanAllEvents === true` (every current and future active event).
 - **Removing** an assignment (leaving the event out of the `setVolunteerEventAccess` list) deletes the row in that transaction. The volunteer loses access on the **next** scan request; there is no caching of assignments in sessions.
 - `events.startsAt` / `events.endsAt` are **reference only** and do not gate point awards.
 - Inactive or missing events reject even when an assignment row still exists (`EVENT_INACTIVE`, `EVENT_NOT_FOUND`). Assignments are not removed when an event is switched off, so switching it back on restores scanning without reassigning.
@@ -47,11 +46,11 @@ If you add a new public mutation that imports `pointsLedger`, add a row to the e
 | `auth.ts` | `signIn`, `signOut` | Public auth flow (no staff session) |
 | `auth.ts` | `getCurrentStaff` | Session lookup only; no participant/event data |
 | `auth.ts` | `createAndProvisionAdmin` | `requireAdminRole` |
-| `applications.ts` | `listSubmittedApplications`, `getApplication` | `requireReviewerAccess` |
+| `applications.ts` | `listSubmittedApplications`, `getApplication` | `requireAdminRole` |
 | `applications.ts` | `createSampleApplication` | `requireAdminRole` |
-| `applicationReviewLogs.ts` | `logApplicationReviewAction`, `setApplicationDecision` | `requireReviewerAccess` |
+| `applicationReviewLogs.ts` | `logApplicationReviewAction`, `setApplicationDecision` | `requireAdminRole` |
 | `applicationReviewLogs.ts` | `listApplicationReviewLogs` | `requireAdminRole` |
-| `decisionEmailQueue.ts` | `listDecisionEmailQueue` | `requireReviewerAccess` |
+| `decisionEmailQueue.ts` | `listDecisionEmailQueue` | `requireAdminRole` |
 | `decisionEmailQueue.ts` | `setDecisionEmailHold`, `retryFailedDecisionEmails`, `claimDecisionEmails` | `requireAdminRole` |
 | `decisionEmailRelease.ts` | `releaseDecisionEmails` | Admin session via action wrapper |
 | `volunteers.ts` | all exports (accounts, capabilities, event access, `listVolunteerActionLogs`, `listStaffConfigLogs`) | `requireAdminRole` |

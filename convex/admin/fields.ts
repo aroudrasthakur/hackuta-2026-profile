@@ -26,7 +26,6 @@ export const applicationReviewLogAction = v.union(
 
 /** Organizer staff role stored on `admins.role`. */
 export const staffRole = v.union(
-  v.literal("reviewer"),
   v.literal("admin"),
   v.literal("volunteer"),
 );

@@ -34,7 +34,7 @@ export const createParticipantFromAcceptance = internalMutation({
     if (!admin?.active) {
       throw new Error("Accepting admin not found or inactive.");
     }
-    if (admin.role !== "admin" && admin.role !== "reviewer") {
+    if (admin.role !== "admin") {
       throw adminError("NOT_AUTHORIZED");
     }
 

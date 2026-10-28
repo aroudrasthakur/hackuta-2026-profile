@@ -12,7 +12,6 @@ import {
   E2E_BADGES,
   E2E_EVENTS,
   E2E_QR_TOKENS,
-  E2E_REVIEWER,
   E2E_SCAN_VOLUNTEER,
   E2E_VOLUNTEER,
 } from "./credentials.ts";
@@ -20,7 +19,7 @@ import {
 const ACTIVE_REVIEW_STALE_MS = 30 * 60 * 1000;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
-type StaffRole = "reviewer" | "admin" | "volunteer";
+type StaffRole = "admin" | "volunteer";
 
 type StaffRecord = {
   adminId: string;
@@ -32,6 +31,7 @@ type StaffRecord = {
   canCheckIn?: boolean;
   canFoodCheckIn?: boolean;
   canRedeemShop?: boolean;
+  canScanAllEvents?: boolean;
 };
 
 type ParticipantRecord = {
@@ -320,16 +320,16 @@ function resetStore() {
   nextEventId = 1;
 
   seedStaff({
-    adminId: "e2e-admin-reviewer",
-    email: E2E_REVIEWER.email,
-    name: E2E_REVIEWER.name,
-    role: E2E_REVIEWER.role,
-  });
-  seedStaff({
     adminId: "e2e-admin-admin",
     email: E2E_ADMIN.email,
     name: E2E_ADMIN.name,
     role: E2E_ADMIN.role,
+  });
+  seedStaff({
+    adminId: "e2e-admin-other",
+    email: "other-admin@e2e.hackuta.test",
+    name: "E2E Other Admin",
+    role: "admin",
   });
   seedStaff({
     adminId: "e2e-admin-volunteer",
@@ -436,7 +436,7 @@ function resetStore() {
     },
     {
       status: "under_review",
-      reviewedBy: "e2e-admin-reviewer",
+      reviewedBy: "e2e-admin-other",
       startedAt: now - 600_000,
       lastActiveAt: now - 300_000,
       createdAt: now - 600_000,
@@ -457,7 +457,7 @@ function resetStore() {
     },
     {
       status: "under_review",
-      reviewedBy: "e2e-admin-reviewer",
+      reviewedBy: "e2e-admin-admin",
       startedAt: now - 120_000,
       lastActiveAt: now - 60_000,
       createdAt: now - 120_000,
@@ -545,7 +545,7 @@ export function configureE2eDecisionQueue(scenario: DecisionQueueScenario) {
 }
 
 function adminFromSessionToken(sessionToken: string) {
-  const embedded = /^e2e-session-(e2e-admin-(?:reviewer|admin|volunteer|lead))-(\d+)$/.exec(sessionToken);
+  const embedded = /^e2e-session-(e2e-admin-(?:admin|volunteer|lead))-(\d+)$/.exec(sessionToken);
   if (embedded?.[1]) {
     if (Number(embedded[2]) + SESSION_TTL_MS <= Date.now()) return null;
     const admin = staffById.get(embedded[1]);
@@ -573,7 +573,7 @@ function requireVolunteer(sessionToken: string) {
 }
 
 function assignedEvents(staff: StaffRecord) {
-  if (staff.role === "admin") {
+  if (staff.role === "admin" || staff.canScanAllEvents === true) {
     return [...events.values()]
       .filter((event) => event.active)
       .sort((a, b) => a.startsAt - b.startsAt || a.name.localeCompare(b.name));
@@ -610,6 +610,7 @@ function volunteerRow(volunteer: StaffRecord) {
     canCheckIn: volunteer.canCheckIn === true,
     canFoodCheckIn: volunteer.canFoodCheckIn === true,
     canRedeemShop: volunteer.canRedeemShop === true,
+    canScanAllEvents: volunteer.canScanAllEvents === true,
     events: (eventAssignments.get(volunteer.adminId) ?? []).flatMap((eventId) => {
       const event = events.get(eventId);
       return event ? [{ eventId, name: event.name, active: event.active }] : [];
@@ -693,7 +694,7 @@ function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: 
   let event: EventRecord | undefined;
   if (purpose === "point_scan") {
     const eventId = String(args.eventId ?? "");
-    const hasAccess = isAdmin || (eventAssignments.get(staff.adminId) ?? []).includes(eventId);
+    const hasAccess = isAdmin || staff.canScanAllEvents === true || (eventAssignments.get(staff.adminId) ?? []).includes(eventId);
     event = hasAccess ? events.get(eventId) : undefined;
     if (!event) return { failure: "event_denied" as const };
     if (!event.active) return { failure: "event_inactive" as const };
@@ -758,16 +759,10 @@ function runMockMealScan(staff: StaffRecord, args: Record<string, unknown>, rede
   return { status: "success", redeemedAt: now, meal: selected };
 }
 
-function requireReviewer(sessionToken: string) {
-  const staff = requireSession(sessionToken);
-  if (staff.role === "volunteer") throw adminError("NOT_AUTHORIZED");
-  return staff;
-}
-
 function requireAdmin(sessionToken: string) {
   const admin = requireSession(sessionToken);
   if (admin.role !== "admin") {
-    throw adminError("ADMIN_ONLY");
+    throw adminError("NOT_AUTHORIZED");
   }
   return admin;
 }
@@ -810,7 +805,6 @@ export function e2eMockSignIn(email: string, password: string) {
   const normalized = email.trim().toLowerCase();
   const staff = staffByEmail.get(normalized);
   const valid =
-    (normalized === E2E_REVIEWER.email && password === E2E_REVIEWER.password) ||
     (normalized === E2E_ADMIN.email && password === E2E_ADMIN.password) ||
     (normalized === E2E_VOLUNTEER.email && password === E2E_VOLUNTEER.password) ||
     (normalized === E2E_SCAN_VOLUNTEER.email && password === E2E_SCAN_VOLUNTEER.password);
@@ -929,7 +923,7 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
       return paginate([...events.values()].sort((left, right) => right.createdAt - left.createdAt).map(eventRow), args);
     }
     case "admin/applications:listSubmittedApplications": {
-      requireReviewer(sessionToken);
+      requireAdmin(sessionToken);
       return [...applications.values()]
         .map((application) => {
           const review = reviews.get(application._id);
@@ -1017,7 +1011,7 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
       };
     }
     case "admin/applications:getApplication": {
-      requireReviewer(sessionToken);
+      requireAdmin(sessionToken);
       const applicationId = String(args.applicationId ?? "");
       const application = applications.get(applicationId);
       if (!application) return null;
@@ -1040,7 +1034,7 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
       };
     }
     case "admin/decisionEmailQueue:listDecisionEmailQueue": {
-      requireReviewer(sessionToken);
+      requireAdmin(sessionToken);
       if (decisionQueueScenario === "loading") return undefined;
       if (decisionQueueScenario === "error") throw new Error("Mock decision queue unavailable");
       const rows = [...decisionQueue.entries()].map(([applicationId, row]) => {
@@ -1181,7 +1175,7 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       return { status: "success", pointsAwarded: event!.pointsAwarded };
     }
     case "admin/applicationReviewLogs:logApplicationReviewAction": {
-      const admin = requireReviewer(sessionToken);
+      const admin = requireAdmin(sessionToken);
       const applicationId = String(args.applicationId ?? "");
       const action = String(args.action ?? "");
       if (!applications.has(applicationId)) throw adminError("APPLICATION_NOT_FOUND");
@@ -1230,7 +1224,7 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       return logId;
     }
     case "admin/applicationReviewLogs:setApplicationDecision": {
-      const admin = requireReviewer(sessionToken);
+      const admin = requireAdmin(sessionToken);
       const applicationId = String(args.applicationId ?? "");
       const decision = String(args.decision ?? "") as "accepted" | "rejected" | "waitlisted";
       if (!applications.has(applicationId)) throw adminError("APPLICATION_NOT_FOUND");
@@ -1389,15 +1383,26 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       const eventIds = Array.isArray(args.eventIds) ? args.eventIds.map(String) : [];
       if (new Set(eventIds).size !== eventIds.length) throw adminError("INVALID_EVENT_ASSIGNMENT");
       if (eventIds.some((eventId) => !events.has(eventId))) throw adminError("EVENT_NOT_FOUND");
+      const previousAllEvents = volunteer.canScanAllEvents === true;
+      const nextAllEvents = typeof args.canScanAllEvents === "boolean" ? args.canScanAllEvents : previousAllEvents;
+      const flagChanged = nextAllEvents !== previousAllEvents;
       const current = eventAssignments.get(volunteer.adminId) ?? [];
       const addedEventIds = eventIds.filter((eventId) => !current.includes(eventId));
       const removedEventIds = current.filter((eventId) => !eventIds.includes(eventId));
-      if (addedEventIds.length > 0 && volunteer.active === false) throw adminError("ACCOUNT_INACTIVE");
+      if ((addedEventIds.length > 0 || (flagChanged && nextAllEvents)) && volunteer.active === false) {
+        throw adminError("ACCOUNT_INACTIVE");
+      }
       eventAssignments.set(volunteer.adminId, eventIds);
-      if (addedEventIds.length > 0 || removedEventIds.length > 0) {
+      if (flagChanged) volunteer.canScanAllEvents = nextAllEvents;
+      if (addedEventIds.length > 0 || removedEventIds.length > 0 || flagChanged) {
         logStaffConfig({
           actorAdminId: actor.adminId, action: "volunteer_event_access_updated", targetAdminId: volunteer.adminId,
-          details: { eventIds, addedEventIds, removedEventIds },
+          details: {
+            eventIds, addedEventIds, removedEventIds,
+            ...(flagChanged
+              ? { changedFields: ["canScanAllEvents"], before: { canScanAllEvents: previousAllEvents }, after: { canScanAllEvents: nextAllEvents } }
+              : {}),
+          },
         });
       }
       bump();

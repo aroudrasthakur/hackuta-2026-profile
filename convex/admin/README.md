@@ -84,9 +84,8 @@ Organizer auth is **independent** from applicant Convex Auth (`convex/auth.ts`).
 Protected queries and mutations accept `sessionToken`. The helpers take `(ctx, sessionToken)` because internal authentication uses explicit session tokens:
 
 - `getCurrentAdmin` returns the active `admins` record, or `null` for an invalid, expired, revoked, or orphaned session.
-- `requireReviewerAccess` allows active reviewers and admins; activity logging and application decisions use it.
-- `requireAdminRole` allows only active admins; historical review log queries use it.
-- `requireVolunteerAccess` allows active volunteers and administrators; reviewers cannot act as volunteers.
+- `requireAdminRole` allows only active admins; application review, decisions, history, and other admin operations use it.
+- `requireVolunteerAccess` allows active volunteers and administrators.
 - `requireVolunteerCapability` grants administrators every scan capability; volunteers need an explicit `true` for `canCheckIn`, `canFoodCheckIn`, or `canRedeemShop` on each request.
 - `requireVolunteerEventAccess` grants administrators every active event; volunteers need their own assignment. Schedule times are reference only. Removing an assignment takes effect on the next request.
 
@@ -104,16 +103,16 @@ Volunteers use this same staff login and cookie transport. Applicant Convex Auth
 
 ## Volunteer management (#62)
 
-Every export in `volunteers.ts` calls `requireAdminRole` first. Reviewers get `ADMIN_ONLY` and volunteers get `NOT_AUTHORIZED`, so a volunteer cannot change their own capabilities or events, create or restore accounts, reset passwords, or read either audit log.
+Every export in `volunteers.ts` calls `requireAdminRole` first. Volunteers get `NOT_AUTHORIZED`, so a volunteer cannot change their own capabilities or events, create or restore accounts, reset passwords, or read either audit log.
 
 - `createVolunteer` makes a standalone volunteer (not a participant). Admins can call it from the Volunteers page. The role is always `volunteer`, the account is active, and `canCheckIn` / `canFoodCheckIn` are optional booleans (omitted or anything but an explicit `true` is denied, so new volunteers normally start with no access). The email is normalized like staff sign-in, and any existing staff row with that email (any role, active or not) is rejected. The password is validated and hashed with the shared staff credential helper.
-- `promoteParticipantToVolunteer` (in `participantsAdmin.ts`, built on `volunteerProvisioning.ts`) creates a **separate** staff account linked through `admins.participantId`. The participant must still be accepted. The email and name default to the registration values and can be overridden. It rejects a second link for the same participant and any email already used by staff, and never converts an admin or reviewer. The participant row (points, QR token), application, `users`, and `authAccounts` are not modified. It is audited as `volunteer_promoted` (with `targetParticipantId`); standalone creation is `volunteer_created`.
+- `promoteParticipantToVolunteer` (in `participantsAdmin.ts`, built on `volunteerProvisioning.ts`) creates a **separate** staff account linked through `admins.participantId`. The participant must still be accepted. The email and name default to the registration values and can be overridden. It rejects a second link for the same participant and any email already used by staff, and never converts an admin. The participant row (points, QR token), application, `users`, and `authAccounts` are not modified. It is audited as `volunteer_promoted` (with `targetParticipantId`); standalone creation is `volunteer_created`.
 - `listVolunteers` is paginated over `admins.by_role` and returns name, email, active status, linked participant, capabilities, assigned events, and created/updated times. No credentials, sessions, QR tokens, or points.
 - `getVolunteer` returns one volunteer in the same shape, or `null` when the id is missing or not a volunteer.
 - `resetVolunteerPassword` validates the new password and deletes all sessions. No password retrieval API exists.
 - `revokeVolunteer` sets `active: false` and deletes every session, which stops all scanning on the next request. Assignments, capabilities, and history are kept. `restoreVolunteer` reactivates the account and deletes sessions again, so a fresh login is always required.
 - `setVolunteerCapabilities` takes `canCheckIn` and `canFoodCheckIn` explicitly, plus an optional `canRedeemShop` (omitted leaves shop access unchanged). Unchanged values are a no-op; otherwise the log records `changedFields`, `before`, and `after`.
-- `setVolunteerEventAccess` replaces the volunteer's event set. It validates the whole list (at most 50, no duplicates, every event exists, no new grants to a revoked volunteer) before any write. Unchanged rows are kept, removed ones are deleted, and duplicate rows for one event are collapsed. The log records the final list plus added and removed ids.
+- `setVolunteerEventAccess` replaces the volunteer's event set. Optional `canScanAllEvents` grants every current and future event without listing them. It validates the whole list (at most 50, no duplicates, every event exists, no new grants to a revoked volunteer) before any write. Unchanged rows are kept, removed ones are deleted, and duplicate rows for one event are collapsed. The log records the final list plus added and removed ids, and the all-events flag when it changes.
 - `listVolunteerActionLogs` filters by volunteer, action, participant, event, and a `from`/`to` date range, newest first, paginated. The most selective filter picks an index (`by_participant_createdAt`, `by_actor_createdAt`, `by_event_createdAt`, `by_action_createdAt`, or `by_createdAt`). Rows include actor and participant names, event name, point delta, and the reason for admin adjustments only.
 - `listStaffConfigLogs` lists configuration changes newest first, filterable by target staff account, action, and date range, with names and parsed details.
 
@@ -121,7 +120,7 @@ Every configuration change writes a `staffConfigLogs` row with the acting admin 
 
 ### Events (#63)
 
-Every export in `events.ts` calls `requireAdminRole` first; reviewers get `ADMIN_ONLY`, volunteers `NOT_AUTHORIZED`. Input goes through `normalizeEventInput`: a trimmed name of 1–120 characters, an optional description up to 2,000 characters, whole points from 1 to 100,000, and finite whole-millisecond `startsAt` before `endsAt`; anything else is `INVALID_EVENT`. `createdAt` and `updatedAt` are always set by the server.
+Every export in `events.ts` calls `requireAdminRole` first; volunteers get `NOT_AUTHORIZED`. Input goes through `normalizeEventInput`: a trimmed name of 1–120 characters, an optional description up to 2,000 characters, whole points from 1 to 100,000, and finite whole-millisecond `startsAt` before `endsAt`; anything else is `INVALID_EVENT`. `createdAt` and `updatedAt` are always set by the server.
 
 - `listEvents` is paginated over every event (switched on or off, past or future), newest first. Each row has `active`, `startsAt`, `endsAt`, and `pointsLocked` (true once `participantEventAwards.by_event` has a row), so the client can label it with `eventStatus`: `inactive`, `upcoming`, `active`, or `ended`. Those labels are display only; the query does not compute status because cached results would not refresh when the clock crosses a boundary.
 - `getEvent` returns one event in the same shape, or `null`.
@@ -134,7 +133,7 @@ Points can be awarded while the event is switched on. `startsAt` / `endsAt` are 
 
 ## Participant administration (#64)
 
-Every export in `participantsAdmin.ts` calls `requireAdminRole` first; reviewers get `ADMIN_ONLY`, volunteers `NOT_AUTHORIZED`. QR tokens are never returned.
+Every export in `participantsAdmin.ts` calls `requireAdminRole` first; volunteers get `NOT_AUTHORIZED`. QR tokens are never returned.
 
 - `listParticipants` returns the accepted-participant roster (rows whose application review is not `accepted` are skipped): participant id, full name, email, point balance, check-in and food timestamps, and the linked volunteer's id and active status. Filters: `search` (name or email, case-insensitive, up to 100 characters), `checkedIn`, `foodRedeemed`, and `volunteerStatus` (`none`, `linked`, `active`, `inactive`). Order is participant creation order. Each call reads at most 100 participants and filters that slice, so there is never an unbounded read; a filtered page can be shorter than requested (or empty) while `isDone` is false, and `scanned` reports how many rows were read. Name and email live on register-locked `applications`, so no search index is added.
 - `getParticipantDetails` returns one accepted participant with event awards, dietary info, linked volunteer, and `ledgerPoints` / `pointsConsistent` comparing the cached balance with awards plus adjustments. Missing or non-accepted participants return `null`.
@@ -146,15 +145,15 @@ Accounting: `participants.points` = event awards + admin adjustments. Correction
 
 | Entry point | Required access |
 | --- | --- |
-| Application list/detail, review activity and decisions | Reviewer or admin |
+| Application list/detail, review activity and decisions | Admin |
 | Application history and sample application creation | Admin |
-| Decision email queue reads | Reviewer or admin |
+| Decision email queue reads | Admin |
 | Decision email hold, retry, release (via the guarded internal claim mutation) | Admin |
 | Generic organizer provisioning | Admin; volunteer targets rejected |
 | Volunteer listing, creation, promotion, reset, revoke, restore, capabilities, assignments, and audit logs | Admin |
 | Participant roster, details, point corrections, and adjustment history | Admin |
 | Session profile/sign-out | The caller's staff session only |
-| Participant creation | Internal only; accepting staff must be active reviewer/admin |
+| Participant creation | Internal only; accepting staff must be an active admin |
 | Point ledger and participant eligibility helpers | Ordinary server helpers, not public Convex APIs |
 | Own scan options and QR scan preview | Admin, or volunteer with the purpose's capability or event assignment |
 | Two-step badge check-in (`badgeCheckIn.ts`) | Admin, or volunteer with `canCheckIn`, re-checked on every call |
@@ -165,7 +164,7 @@ The participant roster and point corrections (`participantsAdmin.ts`) are admin-
 
 Deployment: sync these admin-owned modules and `shared/admin` helpers into `hackuta-2026-profile` using its `npm run admin-schema-lock:refresh`, verify its schema includes #58, and run backend checks there. Backend uploads must run from profile to preserve `convex/profile`. Do not upload from this repository or refresh register-owned files for this change.
 
-`getApplication` uses `requireReviewerAccess` before reading applicant data. It returns `null` for malformed, missing, or unsubmitted applications, and returns resume availability separately from the application. A missing review record remains missing; reading detail never creates review rows, audit events, or participants. No historical reviewer logs are returned.
+`getApplication` uses `requireAdminRole` before reading applicant data. It returns `null` for malformed, missing, or unsubmitted applications, and returns resume availability separately from the application. A missing review record remains missing; reading detail never creates review rows, audit events, or participants. No historical reviewer logs are returned.
 
 After detail loads, the page calls `logApplicationReviewAction` with `action: "viewed"`. The mutation requires a submitted application and appends an event with the session-derived admin ID and server timestamp. Repeated visits remain separate events; viewing never claims the application or changes review state.
 

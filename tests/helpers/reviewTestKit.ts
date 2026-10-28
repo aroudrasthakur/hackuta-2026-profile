@@ -4,7 +4,7 @@ import type { ConvexTestInstance } from "./convexTestContext";
 import { ADMIN_SESSION_TTL_MS } from "../../convex/admin/staffAuth";
 import { insertStaffSession } from "./staffTestFixtures";
 
-export type StaffRole = "reviewer" | "admin";
+export type StaffRole = "admin" | "volunteer";
 export type Decision = "accepted" | "rejected" | "waitlisted";
 
 let staffCounter = 0;
@@ -20,7 +20,7 @@ export async function seedStaff(
     ctx.db.insert("admins", {
       email: `staff-${n}@hackuta.org`,
       name: fields.name ?? `Organizer ${n}`,
-      role: fields.role ?? "reviewer",
+      role: fields.role ?? "admin",
       active: fields.active ?? true,
       createdAt: 1,
       updatedAt: 1,
