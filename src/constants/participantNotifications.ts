@@ -9,7 +9,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<ParticipantNotificationType, strin
   general: "General",
   event: "Event",
   reminder: "Reminder",
-  flash_sale: "Flash Sale",
+  flash_sale: "Flash sale",
   important: "Important",
 };
 
