@@ -1,5 +1,6 @@
 import QRCode from "react-qr-code";
 import { Link, useOutletContext } from "react-router-dom";
+import { AddToAppleWalletButton } from "../../components/participant/AddToAppleWalletButton";
 import type { ParticipantDashboard } from "../../convex/api";
 import { formatCheckInLong } from "./dashboardUtils";
 
@@ -87,6 +88,7 @@ export default function ParticipantScanPage() {
               aria-label="Participant check-in QR code"
             />
           </div>
+          <AddToAppleWalletButton />
           <p className="participant-scan__hint">
             This code is only for your first check-in. After that, your physical badge is your event pass. Keep it
             private.

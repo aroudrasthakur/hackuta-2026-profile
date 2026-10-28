@@ -141,6 +141,31 @@ export const getMySubmittedApplicationRef = makeFunctionReference<
   SubmittedApplication | null
 >("profile/submission:getMySubmittedApplication");
 
+export type AppleWalletPassResponse =
+  | {
+      ok: true;
+      passUrl: string | null;
+      pkpassBase64: string;
+      filename: string;
+      serialNumber: string;
+    }
+  | {
+      ok: false;
+      code:
+        | "unauthenticated"
+        | "not_eligible"
+        | "already_checked_in"
+        | "not_configured"
+        | "signing_failed";
+      message: string;
+    };
+
+export const generateMyAppleWalletPassRef = makeFunctionReference<
+  "action",
+  Record<string, never>,
+  AppleWalletPassResponse
+>("profile/appleWalletPass:generateMyAppleWalletPass");
+
 export type ParticipantNotificationType =
   | "general"
   | "event"
