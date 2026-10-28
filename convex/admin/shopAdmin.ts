@@ -1,5 +1,5 @@
 /**
- * Administrator-only shop management: items, images, purchase history,
+ * Administrator-only shop management: items, purchase history,
  * refunds, and which volunteers may sell. Every export calls
  * `requireAdminRole` first. Flash sales live in `shopFlashSales.ts`.
  *
@@ -13,8 +13,6 @@ import { adminError } from "../../shared/admin/errors";
 import {
   normalizeShopItemInput,
   normalizeShopReason,
-  SHOP_IMAGE_MAX_BYTES,
-  SHOP_IMAGE_TYPES,
 } from "../../shared/admin/shopRules";
 import { buildStaffConfigDetails } from "../../shared/admin/volunteerRules";
 import { nameLookups } from "./adminQueryHelpers";
@@ -28,13 +26,11 @@ export const MAX_SHOP_ITEMS = 200;
 export const MAX_SHOP_SEARCH_LENGTH = 100;
 
 type ShopItemDoc = DocumentByName<DataModel, "shopItems">;
-type StorageId = GenericId<"_storage">;
 
 const itemFieldArgs = {
   name: v.string(),
   description: v.string(),
   pointsCost: v.number(),
-  imageStorageId: v.optional(v.union(v.id("_storage"), v.null())),
 };
 
 function normalizeSearch(search: string | undefined) {
@@ -43,22 +39,13 @@ function normalizeSearch(search: string | undefined) {
   return trimmed;
 }
 
-/** Rejects uploads that are missing, not an allowed image type, or over 2 MB. */
-async function assertShopImage(ctx: MutationCtx, storageId: StorageId) {
-  const file = await ctx.db.system.get(storageId);
-  const type = file?.contentType ?? "";
-  if (!file || !(SHOP_IMAGE_TYPES as readonly string[]).includes(type) || file.size > SHOP_IMAGE_MAX_BYTES) {
-    throw adminError("INVALID_SHOP_IMAGE");
-  }
-}
-
 async function requireItem(ctx: MutationCtx, itemId: GenericId<"shopItems">) {
   const item = await ctx.db.get(itemId);
   if (!item) throw adminError("SHOP_ITEM_NOT_FOUND");
   return item;
 }
 
-/** Admin listing row. Omits image URLs; stored images are kept for other surfaces. */
+/** Admin listing row with live price. */
 export async function shopItemAdminView(ctx: QueryCtx | MutationCtx, item: ShopItemDoc, now: number) {
   const price = await effectivePrice(ctx, item, now);
   return {
@@ -75,15 +62,6 @@ export async function shopItemAdminView(ctx: QueryCtx | MutationCtx, item: ShopI
   };
 }
 
-/** Upload URL for an item image. The image is checked when the item is saved. */
-export const generateShopImageUploadUrl = mutation({
-  args: sessionTokenArgs,
-  handler: async (ctx, { sessionToken }) => {
-    await requireAdminRole(ctx, sessionToken);
-    return ctx.storage.generateUploadUrl();
-  },
-});
-
 /** New item. Items start active unless `active` is false. */
 export const createShopItem = mutation({
   args: {
@@ -91,10 +69,9 @@ export const createShopItem = mutation({
     ...itemFieldArgs,
     active: v.optional(v.boolean()),
   },
-  handler: async (ctx, { sessionToken, active, imageStorageId, ...fields }) => {
+  handler: async (ctx, { sessionToken, active, ...fields }) => {
     const actor = await requireAdminRole(ctx, sessionToken);
     const input = normalizeShopItemInput(fields);
-    if (imageStorageId) await assertShopImage(ctx, imageStorageId);
     const now = Date.now();
 
     const itemId = await ctx.db.insert("shopItems", {
@@ -102,7 +79,6 @@ export const createShopItem = mutation({
       description: input.description,
       pointsCost: input.pointsCost,
       status: active === false ? "inactive" : "active",
-      ...(imageStorageId ? { imageStorageId } : {}),
       createdAt: now,
       updatedAt: now,
     });
@@ -113,23 +89,18 @@ export const createShopItem = mutation({
   },
 });
 
-/**
- * Edits item details and price. `imageStorageId: null` removes the image;
- * a replaced image is deleted. Past redemptions keep their own prices.
- */
+/** Edits item details and price. Past redemptions keep their own prices. */
 export const updateShopItem = mutation({
   args: { ...sessionTokenArgs, itemId: v.id("shopItems"), ...itemFieldArgs },
-  handler: async (ctx, { sessionToken, itemId, imageStorageId, ...fields }) => {
+  handler: async (ctx, { sessionToken, itemId, ...fields }) => {
     const actor = await requireAdminRole(ctx, sessionToken);
     const item = await requireItem(ctx, itemId);
     const input = normalizeShopItemInput(fields);
-    if (imageStorageId) await assertShopImage(ctx, imageStorageId);
 
     const next = {
       name: input.name,
       description: input.description,
       pointsCost: input.pointsCost,
-      imageStorageId: imageStorageId === undefined ? item.imageStorageId : imageStorageId ?? undefined,
     };
     const changedFields = (Object.keys(next) as Array<keyof typeof next>)
       .filter((key) => next[key] !== item[key]);
@@ -137,9 +108,6 @@ export const updateShopItem = mutation({
 
     const now = Date.now();
     await ctx.db.patch(itemId, { ...next, updatedAt: now });
-    if (item.imageStorageId && item.imageStorageId !== next.imageStorageId) {
-      await ctx.storage.delete(item.imageStorageId);
-    }
     await ctx.db.insert("staffConfigLogs", {
       actorAdminId: actor._id, action: "shop_item_updated", targetShopItemId: itemId,
       details: buildStaffConfigDetails({ changedFields }), createdAt: now,

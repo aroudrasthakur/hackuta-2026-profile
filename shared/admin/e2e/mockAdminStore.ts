@@ -1721,7 +1721,7 @@ function runShopQuery(path: string, args: Record<string, unknown>, sessionToken:
     case "admin/shopRedemption:listShopCatalogForVolunteer": {
       requireShopVolunteer(sessionToken);
       const items = [...shopItems.values()].filter((item) => item.status === "active").map((item) => ({
-        itemId: item.itemId, name: item.name, description: item.description, imageUrl: null, ...shopPrice(item, now),
+        itemId: item.itemId, name: item.name, description: item.description, ...shopPrice(item, now),
       })).sort((a, b) => a.name.localeCompare(b.name));
       return { items, maxQuantity: SHOP_MAX_QUANTITY, nextPriceChangeAt: nextShopPriceChange(now) };
     }
@@ -1770,10 +1770,6 @@ function runShopQuery(path: string, args: Record<string, unknown>, sessionToken:
 function runShopMutation(path: string, args: Record<string, unknown>, sessionToken: string) {
   const now = Date.now();
   switch (path) {
-    case "admin/shopAdmin:generateShopImageUploadUrl": {
-      requireAdmin(sessionToken);
-      return "https://e2e-upload.invalid/upload";
-    }
     case "admin/shopAdmin:createShopItem": {
       requireAdmin(sessionToken);
       const name = String(args.name ?? "").trim();

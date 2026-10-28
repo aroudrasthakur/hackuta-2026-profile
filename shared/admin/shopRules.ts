@@ -8,8 +8,6 @@ export const SHOP_REASON_MAX_LENGTH = 200;
 export const FLASH_SALE_TITLE_MAX_LENGTH = 80;
 export const FLASH_SALE_MESSAGE_MAX_LENGTH = 300;
 export const FLASH_SALE_MAX_ITEMS = 50;
-export const SHOP_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
-export const SHOP_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{16,100}$/;
 

@@ -49,7 +49,6 @@ async function catalogItem(ctx: QueryCtx, item: ShopItemDoc, now: number) {
     itemId: item._id,
     name: item.name,
     description: item.description,
-    imageUrl: item.imageStorageId ? await ctx.storage.getUrl(item.imageStorageId) : null,
     unitPointsCost: price.unitPointsCost,
     basePointsCost: price.basePointsCost,
     flashSaleId: price.flashSaleId,

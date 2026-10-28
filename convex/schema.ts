@@ -367,7 +367,6 @@ export default defineSchema({
   shopItems: defineTable({
     name: v.string(),
     description: v.string(),
-    imageStorageId: v.optional(v.id("_storage")),
     pointsCost: v.number(),
     status: shopItemStatus,
     createdAt: v.number(),

@@ -49,7 +49,6 @@ export const listShop = query({
         itemId: item._id,
         name: item.name,
         description: item.description,
-        imageUrl: item.imageStorageId ? await ctx.storage.getUrl(item.imageStorageId) : null,
         pointsCost: price.unitPointsCost,
         basePointsCost: price.basePointsCost,
         onSale: price.flashSaleId !== null,

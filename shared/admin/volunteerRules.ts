@@ -61,7 +61,6 @@ const CHANGED_FIELD_NAMES = new Set([
   "participantId",
   "pointsCost",
   "status",
-  "imageStorageId",
   "title",
   "message",
   "items",
