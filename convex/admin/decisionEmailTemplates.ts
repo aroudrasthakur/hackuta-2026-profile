@@ -14,12 +14,11 @@ function decisionBody(decision: DecisionKind, hackathonName: string) {
   if (decision === "accepted") {
     return paragraphs(
       `Congratulations. Your application to ${hackathonName} has been accepted, and we would like you to join us.`,
-      `${hackathonName} is a free, in-person, 24-hour hackathon on ${EVENT_WHEN} at ${EVENT_WHERE}. Meals, snacks, workspace, and swag are provided. Please bring a laptop, charger, and a government-issued photo ID or student ID for check-in. All project work must be done during the event.`,
-      "We will email logistics, the schedule, and travel notes as the weekend gets closer. Until then, you can find event information and team formation here:",
-      WEBSITE_URL,
+      `${hackathonName} is a free, in-person, 24-hour hackathon on ${EVENT_WHEN} at ${EVENT_WHERE}. Meals, snacks, workspace, and swag are provided. Please bring a laptop, charger, and a government-issued photo ID or UTA ID for check-in. All project work must be done during the event.`,
+      "We will email logistics, the schedule, and travel notes as the weekend gets closer. If you are looking for team members, you can post in the team-formation channel on our discord:",
       DISCORD_URL,
-      `If your plans change and you can no longer attend, reply to this email or write to ${CONTACT_EMAIL} so we can offer your spot to someone on the waitlist.`,
-      "We look forward to building with you.",
+      `If your plans change and you can no longer attend, contact us at ${CONTACT_EMAIL} so we can offer your spot to someone on the waitlist.`,
+      "We look forward to building with you. Stay tuned for next steps as we get closer to the event.",
     );
   }
 
