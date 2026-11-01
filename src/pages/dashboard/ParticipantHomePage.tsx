@@ -88,18 +88,6 @@ export default function ParticipantHomePage() {
           </ul>
         </div>
 
-        {data.reviewStatus === "accepted" && !data.participant ? (
-          <div className="participant-schedule__panel" aria-label="RSVP">
-            <div className="participant-schedule__day-head">
-              <h2>Claim your spot</h2>
-            </div>
-            <p className="participant-home__lead">Confirm you&apos;re coming so we can save you a seat.</p>
-            <button type="button" className="participant-home__cta participant-home__cta--block" disabled>
-              RSVP to claim your spot
-            </button>
-          </div>
-        ) : null}
-
         <div className="participant-schedule__panel" aria-labelledby="notifications-heading">
           <div className="participant-schedule__day-head">
             <h2 id="notifications-heading">Notifications</h2>

@@ -1,11 +1,9 @@
 import { makeFunctionReference } from "convex/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readPkpassZipArchive } from "../../convex/profile/appleWalletPass";
 import {
   generateMyAppleWalletPassRef,
   getMyParticipantDashboardRef,
 } from "../../src/convex/api";
-import { getRuntimeTestAppleWalletCredentials } from "../helpers/appleWalletTestCerts";
 import { createConvexTest, type ConvexTestInstance } from "../helpers/convexTestContext";
 import { seedApplicant, seedStaff } from "../helpers/reviewTestKit";
 import { insertStaffSession } from "../helpers/staffTestFixtures";
@@ -25,14 +23,30 @@ const checkInWithBadgeRef = makeFunctionReference<
 const TOKEN_A = "a1".repeat(32);
 const TOKEN_B = "b2".repeat(32);
 const BADGE_A = "HACKUTA-BADGE-0001";
+const WALLET_SERVICE_URL = "https://wallet.test.hackuta.local";
+const WALLET_SERVICE_API_KEY = "wallet-service-api-key-32-chars-min";
+const MOCK_PKPASS_BYTES = Buffer.from("PKPASS-MOCK-BYTES");
 
-function stubAppleWalletEnv() {
-  const creds = getRuntimeTestAppleWalletCredentials();
-  vi.stubEnv("APPLE_PASS_TYPE_IDENTIFIER", creds.passTypeIdentifier);
-  vi.stubEnv("APPLE_TEAM_IDENTIFIER", creds.teamIdentifier);
-  vi.stubEnv("APPLE_PASS_SIGNER_CERT_PEM", creds.signerCertPem);
-  vi.stubEnv("APPLE_PASS_SIGNER_KEY_PEM", creds.signerKeyPem);
-  vi.stubEnv("APPLE_WWDR_CERT_PEM", creds.wwdrCertPem);
+function stubWalletServiceEnv() {
+  vi.stubEnv("WALLET_SERVICE_URL", WALLET_SERVICE_URL);
+  vi.stubEnv("WALLET_SERVICE_API_KEY", WALLET_SERVICE_API_KEY);
+}
+
+function mockWalletServiceFetch(
+  handler?: (url: string, init?: RequestInit) => Response | Promise<Response>,
+) {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (handler) {
+      return handler(url, init);
+    }
+    return new Response(MOCK_PKPASS_BYTES, {
+      status: 200,
+      headers: { "Content-Type": "application/vnd.apple.pkpass" },
+    });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 }
 
 async function seedAcceptedParticipant(
@@ -91,11 +105,14 @@ async function seedVolunteerSession(t: ConvexTestInstance, sessionToken: string)
 
 describe("Apple Wallet pass generation and check-in integration", () => {
   beforeEach(() => {
-    stubAppleWalletEnv();
+    stubWalletServiceEnv();
+    mockWalletServiceFetch();
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("rejects signed-out callers", async () => {
@@ -108,6 +125,7 @@ describe("Apple Wallet pass generation and check-in integration", () => {
       code: "unauthenticated",
       message: "Sign in to add your check-in pass to Apple Wallet.",
     });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   it("rejects applicants who are not accepted or whose acceptance email is still queued", async () => {
@@ -145,9 +163,10 @@ describe("Apple Wallet pass generation and check-in integration", () => {
       code: "not_eligible",
       message: "Your check-in pass is not available for Apple Wallet.",
     });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
-  it("returns not_configured when Apple Wallet credentials are missing on the server", async () => {
+  it("returns not_configured when the wallet service is not set on the server", async () => {
     vi.unstubAllEnvs();
     const t = createConvexTest();
     const { asParticipant } = await seedAcceptedParticipant(t, "nocreds@example.com", TOKEN_A);
@@ -158,9 +177,50 @@ describe("Apple Wallet pass generation and check-in integration", () => {
       code: "not_configured",
       message: "Apple Wallet passes are not available right now. Please use the QR code above.",
     });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
-  it("generates a signed .pkpass for an accepted pre-check-in participant with their own QR token", async () => {
+  it("returns not_configured when the wallet service reports signing is unavailable", async () => {
+    mockWalletServiceFetch(
+      () =>
+        new Response(JSON.stringify({ error: { code: "signing_unavailable" } }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const t = createConvexTest();
+    const { asParticipant } = await seedAcceptedParticipant(t, "unavail@example.com", TOKEN_A);
+
+    const result = await asParticipant.action(generateMyAppleWalletPassRef, {});
+    expect(result).toEqual({
+      ok: false,
+      code: "not_configured",
+      message: "Apple Wallet passes are not available right now. Please use the QR code above.",
+    });
+  });
+
+  it("returns signing_failed when the wallet service rejects the request", async () => {
+    mockWalletServiceFetch(
+      () =>
+        new Response(JSON.stringify({ error: { code: "internal_error" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const t = createConvexTest();
+    const { asParticipant } = await seedAcceptedParticipant(t, "fail@example.com", TOKEN_A);
+
+    const result = await asParticipant.action(generateMyAppleWalletPassRef, {});
+    expect(result).toEqual({
+      ok: false,
+      code: "signing_failed",
+      message:
+        "We could not generate your Apple Wallet pass. Please try again or use the QR code above.",
+    });
+  });
+
+  it("asks the wallet service for a .pkpass using the participant's own registration QR token", async () => {
+    const fetchMock = mockWalletServiceFetch();
     const t = createConvexTest();
     const participantA = await seedAcceptedParticipant(t, "alice@example.com", TOKEN_A, {
       firstName: "Alice",
@@ -178,28 +238,29 @@ describe("Apple Wallet pass generation and check-in integration", () => {
     expect(result.filename).toBe("hackuta-2026-checkin.pkpass");
     expect(result.serialNumber).toBe(`hackuta-2026-${participantA.participantId}`);
     expect(result.passUrl).toBeTruthy();
+    expect(result.pkpassBase64).toBe(MOCK_PKPASS_BYTES.toString("base64"));
 
-    const entries = readPkpassZipArchive(Buffer.from(result.pkpassBase64, "base64"));
-    const passJsonText = entries["pass.json"]!.toString("utf8");
-    const passJson = JSON.parse(passJsonText) as {
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [requestUrl, requestInit] = fetchMock.mock.calls[0]!;
+    expect(String(requestUrl)).toBe(`${WALLET_SERVICE_URL}/passes/generate`);
+    expect(requestInit?.method).toBe("POST");
+    const headers = new Headers(requestInit?.headers);
+    expect(headers.get("Authorization")).toBe(`Bearer ${WALLET_SERVICE_API_KEY}`);
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("Accept")).toBe("application/vnd.apple.pkpass");
+
+    const body = JSON.parse(String(requestInit?.body)) as {
       serialNumber: string;
-      barcodes: Array<{ format: string; message: string }>;
-      eventTicket: { secondaryFields: Array<{ key: string; value: string }> };
+      attendeeName: string;
+      qrToken: string;
     };
-
-    expect(passJson.serialNumber).toBe(`hackuta-2026-${participantA.participantId}`);
-    expect(passJson.barcodes[0]).toMatchObject({
-      format: "PKBarcodeFormatQR",
-      message: TOKEN_A,
+    expect(body).toEqual({
+      serialNumber: `hackuta-2026-${participantA.participantId}`,
+      attendeeName: "Alice Maverick",
+      qrToken: TOKEN_A,
     });
-    expect(passJson.eventTicket.secondaryFields).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ key: "participant_name", value: "Alice Maverick" }),
-      ]),
-    );
-    expect(passJsonText).not.toContain(TOKEN_B);
+    expect(JSON.stringify(body)).not.toContain(TOKEN_B);
 
-    // Verify scheduled cleanup removes temporary storage file
     vi.useFakeTimers();
     try {
       vi.advanceTimersByTime(65_000);
@@ -221,33 +282,26 @@ describe("Apple Wallet pass generation and check-in integration", () => {
     expect(beforePass.ok).toBe(true);
     if (!beforePass.ok) throw new Error("Expected pre-check-in pass");
 
-    const entries = readPkpassZipArchive(Buffer.from(beforePass.pkpassBase64, "base64"));
-    const walletQrToken = (
-      JSON.parse(entries["pass.json"]!.toString("utf8")) as {
-        barcodes: Array<{ message: string }>;
-      }
-    ).barcodes[0]!.message;
-    expect(walletQrToken).toBe(TOKEN_A);
+    const fetchMock = globalThis.fetch as ReturnType<typeof mockWalletServiceFetch>;
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as { qrToken: string };
+    expect(body.qrToken).toBe(TOKEN_A);
 
-    // Step 1: Volunteer scans the Apple Wallet QR code at check-in desk
     const preview = await t.mutation(resolveRegistrationForCheckInRef, {
       sessionToken,
-      registrationQrCodeToken: walletQrToken,
+      registrationQrCodeToken: TOKEN_A,
     });
     expect(preview).toEqual({
       status: "ok",
       participant: { name: "Dana Participant" },
     });
 
-    // Step 2: Volunteer assigns physical badge BADGE_A
     const checkInResult = await t.mutation(checkInWithBadgeRef, {
       sessionToken,
-      registrationQrCodeToken: walletQrToken,
+      registrationQrCodeToken: TOKEN_A,
       badgeQrCodeToken: BADGE_A,
     });
     expect(checkInResult.status).toBe("success");
 
-    // Step 3: New Apple Wallet pass generation is blocked and never exposes BADGE_A
     const afterPass = await asParticipant.action(generateMyAppleWalletPassRef, {});
     expect(afterPass).toEqual({
       ok: false,
@@ -257,17 +311,16 @@ describe("Apple Wallet pass generation and check-in integration", () => {
     });
     expect(JSON.stringify(afterPass)).not.toContain(BADGE_A);
     expect(JSON.stringify(afterPass)).not.toContain(TOKEN_A);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // Step 4: Dashboard hides the registration QR and badge QR
     const dashboard = await asParticipant.query(getMyParticipantDashboardRef, {});
     expect(dashboard?.participant?.status).toBe("checked_in");
     expect(JSON.stringify(dashboard)).not.toContain(BADGE_A);
     expect(JSON.stringify(dashboard)).not.toContain(TOKEN_A);
 
-    // Step 5: Previously saved Apple Wallet QR is rejected if scanned again
     const rescanWalletQr = await t.mutation(resolveRegistrationForCheckInRef, {
       sessionToken,
-      registrationQrCodeToken: walletQrToken,
+      registrationQrCodeToken: TOKEN_A,
     });
     expect(rescanWalletQr.status).toBe("registration_qr_used");
   });

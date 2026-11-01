@@ -390,7 +390,6 @@
     color: rgb(26 58 82 / 0.88);
   }
 
-  .participant-dashboard__cta,
   .participant-dashboard__link {
     display: inline-flex;
     align-items: center;
@@ -406,18 +405,8 @@
     cursor: pointer;
   }
 
-  .participant-dashboard__cta:hover,
   .participant-dashboard__link:hover {
     background: var(--color-ink);
-  }
-
-  .participant-dashboard__cta--block {
-    width: 100%;
-  }
-
-  .participant-dashboard__cta:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .participant-dashboard__section-head {
@@ -1842,15 +1831,6 @@
   .participant-home__cta:hover {
     background: var(--color-night);
     border-color: var(--color-night);
-  }
-
-  .participant-home__cta--block {
-    width: 100%;
-  }
-
-  .participant-home__cta:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .participant-schedule__day-head .participant-dashboard__badge {

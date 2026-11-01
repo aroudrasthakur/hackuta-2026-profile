@@ -1,10 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { getAuthUser } from "../lib/applications";
-import { getEventConfigRow } from "../lib/eventConfig";
 import { normalizeEmail } from "../lib/normalizeEmail";
-import { DEFAULT_HACKATHON_NAME } from "../../shared/hackathon/eventDefaults";
-import { resolveHackathonTimelineSource } from "../../shared/hackathon/schedule";
 import { normalizeRegistrationQr } from "../../shared/admin/qrValues";
 import { resolveApplicationForAuthUser } from "./applicationLookup";
 import {
@@ -17,11 +14,7 @@ import { isParticipantCheckedIn } from "./participantCheckIn";
 export type AppleWalletPassDataInput = {
   serialNumber: string;
   displayName: string;
-  email: string | null;
   qrCodeToken: string;
-  hackathonName: string;
-  startsAt: number;
-  endsAt: number;
 };
 
 export type AppleWalletPassLookupResult =
@@ -36,8 +29,8 @@ export function formatAppleWalletSerialNumber(participantId: string) {
 }
 
 /**
- * Loads the signed-in participant's pre-check-in registration QR and event metadata
- * for server-side Apple Wallet pass generation.
+ * Loads the signed-in participant's pre-check-in registration QR and display name
+ * for server-side Apple Wallet pass generation via the wallet service.
  *
  * Rejects unauthenticated users, unaccepted/masked applications, and checked-in
  * participants (whose registration QR has been replaced by a physical badge).
@@ -85,10 +78,6 @@ export const getMyAppleWalletPassInput = internalQuery({
       return { status: "not_eligible" };
     }
 
-    const eventConfig = await getEventConfigRow(ctx);
-    const hackathonName = eventConfig?.name ?? DEFAULT_HACKATHON_NAME;
-    const schedule = resolveHackathonTimelineSource(eventConfig);
-
     const firstName = application?.firstName?.trim() ?? "";
     const lastName = application?.lastName?.trim() ?? "";
     const displayName =
@@ -102,11 +91,7 @@ export const getMyAppleWalletPassInput = internalQuery({
       passInput: {
         serialNumber: formatAppleWalletSerialNumber(String(visibleParticipant._id)),
         displayName,
-        email: normalizeEmail(user.email) ?? null,
         qrCodeToken,
-        hackathonName,
-        startsAt: schedule.startsAt,
-        endsAt: schedule.endsAt,
       },
     };
   },
