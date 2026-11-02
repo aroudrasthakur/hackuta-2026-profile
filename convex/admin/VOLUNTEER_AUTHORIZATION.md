@@ -68,7 +68,7 @@ If you add a new public mutation that imports `pointsLedger`, add a row to the e
 | `volunteerOperations.ts` | `foodCheckInParticipant`, `awardEventPoints` | `requireVolunteerAccess`, then capability / assignment checks |
 | `volunteerScanRateLimit.ts` | `pruneVolunteerScanRateLimits` | **Internal only** (`internalMutation`) |
 | `participants.ts` | — | **Internal only** (`internalMutation`) |
-| `pointsLedger.ts`, `pointsBackfill.ts` | — | **Helpers / internal only** |
+| `pointsLedger.ts` | — | **Helpers only** |
 
 Future volunteer scan modules belong in `convex/admin/` and must follow the guard table above.
 

@@ -63,6 +63,12 @@ export const staffConfigLogAction = v.union(
   v.literal("flash_sale_created"),
   v.literal("flash_sale_updated"),
   v.literal("flash_sale_cancelled"),
+  // Historical rows from the removed notification admin. New writes never use these.
+  v.literal("notification_created"),
+  v.literal("notification_updated"),
+  v.literal("notification_published"),
+  v.literal("notification_scheduled"),
+  v.literal("notification_cancelled"),
 );
 
 /** Lifecycle on `shopItems.status`. Archived items stay for purchase history. */
