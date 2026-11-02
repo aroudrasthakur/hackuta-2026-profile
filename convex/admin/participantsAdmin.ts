@@ -94,7 +94,7 @@ export const listParticipants = query({
     for (const participant of result.page) {
       const attendee = await checkedInForParticipant(ctx, participant._id);
       if (checkedIn !== undefined && (attendee !== null) !== checkedIn) continue;
-      const mealRedeemedAt = await latestMealRedeemedAt(ctx, participant._id, attendee?._id);
+      const mealRedeemedAt = await latestMealRedeemedAt(ctx, attendee?._id);
       if (foodRedeemed !== undefined && (mealRedeemedAt !== null) !== foodRedeemed) continue;
       if (!await isParticipantEligible(ctx, participant)) continue;
       const { name, email } = await participantIdentity(ctx, participant);
@@ -152,9 +152,9 @@ export const getParticipantDetails = query({
     const volunteer = await linkedVolunteer(ctx, participantId);
     const points = attendee?.points ?? 0;
     const ledgerPoints = attendee
-      ? await computeLedgerPoints(ctx, attendee._id, participantId)
+      ? await computeLedgerPoints(ctx, attendee._id)
       : 0;
-    const mealRedeemedAt = await latestMealRedeemedAt(ctx, participantId, attendee?._id);
+    const mealRedeemedAt = await latestMealRedeemedAt(ctx, attendee?._id);
     return {
       participantId,
       name,

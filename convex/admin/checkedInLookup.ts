@@ -54,16 +54,12 @@ export async function participantIdOfHolder(
   return undefined;
 }
 
-export function historyRefs(
-  _participantId: GenericId<"participants">,
-  checkedInId: GenericId<"checkedIn">,
-) {
+export function historyRefs(checkedInId: GenericId<"checkedIn">) {
   return { checkedInId };
 }
 
 export async function latestMealRedeemedAt(
   ctx: QueryCtx | MutationCtx,
-  _participantId: GenericId<"participants">,
   checkedInId?: GenericId<"checkedIn">,
 ) {
   if (!checkedInId) return null;
@@ -73,12 +69,4 @@ export async function latestMealRedeemedAt(
     .order("desc")
     .first();
   return byCheckedIn?.redeemedAt ?? null;
-}
-
-export async function hasMealRedemption(
-  ctx: QueryCtx | MutationCtx,
-  participantId: GenericId<"participants">,
-  checkedInId?: GenericId<"checkedIn">,
-) {
-  return (await latestMealRedeemedAt(ctx, participantId, checkedInId)) !== null;
 }

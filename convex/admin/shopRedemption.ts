@@ -44,7 +44,7 @@ function requireShopVolunteer(ctx: QueryCtx | MutationCtx, sessionToken: string)
 async function displayBalance(ctx: QueryOrMutationCtx, participant: ParticipantDoc) {
   const checkedIn = await checkedInForParticipant(ctx, participant._id);
   if (!checkedIn) return 0;
-  return checkedIn.points ?? await computeLedgerPoints(ctx, checkedIn._id, participant._id);
+  return checkedIn.points ?? await computeLedgerPoints(ctx, checkedIn._id);
 }
 
 async function catalogItem(ctx: QueryCtx, item: ShopItemDoc, now: number) {

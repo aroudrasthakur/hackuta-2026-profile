@@ -92,7 +92,6 @@ export const awardEventPoints = mutation({
 
     const award = await applyEventAward(ctx, {
       actorAdminId: volunteer._id,
-      participant,
       checkedIn,
       event,
       now: scan.now,

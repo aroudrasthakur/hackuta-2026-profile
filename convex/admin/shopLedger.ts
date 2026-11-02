@@ -27,7 +27,7 @@ type RedemptionDoc = DocumentByName<DataModel, "shopRedemptions">;
 /** Cached balance, falling back to the ledger before backfill (never to zero). */
 export async function checkedInBalance(ctx: MutationCtx, checkedIn: CheckedInDoc) {
   return assertPointBalance(
-    checkedIn.points ?? await computeLedgerPoints(ctx, checkedIn._id, checkedIn.participantId),
+    checkedIn.points ?? await computeLedgerPoints(ctx, checkedIn._id),
   );
 }
 
@@ -77,7 +77,7 @@ export async function recordPurchase(
   const pointsAfter = assertPointBalance(pointsBefore - totalPointsSpent);
 
   const redemptionId = await ctx.db.insert("shopRedemptions", {
-    ...historyRefs(args.participant._id, args.checkedIn._id),
+    ...historyRefs(args.checkedIn._id),
     itemId: args.item._id,
     itemName: args.item.name,
     quantity: args.quantity,
@@ -94,7 +94,7 @@ export async function recordPurchase(
   await ctx.db.patch(args.checkedIn._id, pointBalancePatch(pointsBefore, pointsAfter, args.now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
-    ...historyRefs(args.participant._id, args.checkedIn._id),
+    ...historyRefs(args.checkedIn._id),
     action: "shop_purchase",
     pointsDelta: -totalPointsSpent,
     previousPoints: pointsBefore,
@@ -133,7 +133,7 @@ export async function recordRefund(
   await ctx.db.patch(checkedIn._id, pointBalancePatch(previousPoints, newPoints, args.now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
-    ...historyRefs(checkedIn.participantId, checkedIn._id),
+    ...historyRefs(checkedIn._id),
     action: "shop_refund",
     pointsDelta: redemption.totalPointsSpent,
     previousPoints,

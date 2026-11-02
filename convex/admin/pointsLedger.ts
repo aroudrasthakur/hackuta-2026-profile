@@ -20,7 +20,6 @@ type ParticipantId = GenericId<"participants">;
 type CheckedInId = GenericId<"checkedIn">;
 type EventId = GenericId<"events">;
 type AdminId = GenericId<"admins">;
-type ParticipantDoc = DocumentByName<DataModel, "participants">;
 type EventDoc = DocumentByName<DataModel, "events">;
 
 /** Log actions whose `pointsDelta` counts toward the balance. Event awards count from their own table. */
@@ -83,12 +82,11 @@ export async function awardEventPoints(
     now: number;
   },
 ) {
-  const participant = await requireEligibleParticipant(ctx, args.participantId);
+  await requireEligibleParticipant(ctx, args.participantId);
   const checkedIn = await requireCheckedInForParticipant(ctx, args.participantId);
   const event = await requireStoredEvent(ctx, args.eventId);
   const result = await applyEventAward(ctx, {
     actorAdminId: args.actorAdminId,
-    participant,
     checkedIn,
     event,
     now: args.now,
@@ -113,13 +111,12 @@ export async function applyEventAward(
   ctx: MutationCtx,
   args: {
     actorAdminId: AdminId;
-    participant: ParticipantDoc;
     checkedIn: CheckedInDoc;
     event: EventDoc;
     now: number;
   },
 ) {
-  const { participant, checkedIn, event } = args;
+  const { checkedIn, event } = args;
   if (!Number.isSafeInteger(event.pointsAwarded) || event.pointsAwarded <= 0) {
     throw adminError("INVALID_EVENT");
   }
@@ -141,7 +138,7 @@ export async function applyEventAward(
   const newPoints = assertPointBalance(previousPoints + pointsAwarded);
 
   await ctx.db.insert("participantEventAwards", {
-    ...historyRefs(participant._id, checkedIn._id),
+    ...historyRefs(checkedIn._id),
     eventId: event._id,
     pointsAwarded,
     awardedBy: args.actorAdminId,
@@ -150,7 +147,7 @@ export async function applyEventAward(
   await ctx.db.patch(checkedIn._id, pointBalancePatch(previousPoints, newPoints, args.now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
-    ...historyRefs(participant._id, checkedIn._id),
+    ...historyRefs(checkedIn._id),
     action: "point_scan",
     eventId: event._id,
     pointsDelta: pointsAwarded,
@@ -209,7 +206,7 @@ export async function adjustPoints(
   await ctx.db.patch(checkedIn._id, pointBalancePatch(previousPoints, newPoints, now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
-    ...historyRefs(participant._id, checkedIn._id),
+    ...historyRefs(checkedIn._id),
     action: "admin_adjust",
     pointsDelta: delta,
     previousPoints,
@@ -228,7 +225,6 @@ export async function adjustPoints(
 export async function computeLedgerPoints(
   ctx: QueryCtx | MutationCtx,
   checkedInId: CheckedInId,
-  _participantId?: ParticipantId,
 ) {
   const awards = await ctx.db
     .query("participantEventAwards")

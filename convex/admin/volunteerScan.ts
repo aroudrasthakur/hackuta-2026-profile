@@ -198,11 +198,11 @@ async function previewMeal(ctx: MutationCtx, volunteer: AdminDoc, args: MealScan
 export async function redeemMealForVolunteer(ctx: MutationCtx, volunteer: AdminDoc, args: MealScanArgs) {
   const target = await prepareMealScan(ctx, volunteer, args);
   if (target.status !== undefined) return { status: target.status };
-  const { participant, checkedIn, meal, redemption, now } = target;
+  const { checkedIn, meal, redemption, now } = target;
   const selectedMeal = { mealPeriodId: meal._id, name: meal.name };
   if (redemption) return { status: "already_redeemed" as const, redeemedAt: redemption.redeemedAt, meal: selectedMeal };
   await ctx.db.insert("mealRedemptions", {
-    ...historyRefs(participant._id, checkedIn._id),
+    ...historyRefs(checkedIn._id),
     mealPeriodId: meal._id, scannedBy: volunteer._id, redeemedAt: now,
     countedInServedCount: true,
   });
@@ -213,7 +213,7 @@ export async function redeemMealForVolunteer(ctx: MutationCtx, volunteer: AdminD
   });
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: volunteer._id,
-    ...historyRefs(participant._id, checkedIn._id),
+    ...historyRefs(checkedIn._id),
     mealPeriodId: meal._id,
     action: "food_check_in", createdAt: now,
   });
@@ -286,7 +286,7 @@ async function resolveQr(
     participant: {
       participantId: participant._id,
       name,
-      points: checkedIn.points ?? await computeLedgerPoints(ctx, checkedIn._id, participant._id),
+      points: checkedIn.points ?? await computeLedgerPoints(ctx, checkedIn._id),
     },
   };
 }
