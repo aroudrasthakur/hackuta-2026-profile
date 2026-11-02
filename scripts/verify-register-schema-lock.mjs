@@ -32,6 +32,7 @@ const ADMIN_EDITABLE_TABLES = [
   "shopFlashSaleItems",
 ];
 const REFERENCE_EDITABLE_TABLES = ["applicationReviews"];
+const PROFILE_EDITABLE_TABLES = ["schedule"];
 
 function sha256(content) {
   return createHash("sha256").update(content).digest("hex");
@@ -227,7 +228,7 @@ function verifyRegisterSchemaPortion(manifest) {
   );
   const adminBody = stripTableDefinitions(
     extractSchemaBodyFixed(admin),
-    ADMIN_EDITABLE_TABLES,
+    [...ADMIN_EDITABLE_TABLES, ...PROFILE_EDITABLE_TABLES],
   );
 
   const referenceNorm = normalizeSchemaBody(referenceBody);
@@ -237,7 +238,7 @@ function verifyRegisterSchemaPortion(manifest) {
     if (sha256(adminNorm) !== manifest.registerSchemaLockedHash) {
       return [
         "convex/schema.ts register-owned tables do not match the frozen reference",
-        "Only admin-owned schema tables may differ — see convex/REGISTER_SCHEMA.md",
+        "Only admin- or profile-owned schema tables may differ — see convex/REGISTER_SCHEMA.md",
       ];
     }
     return [];
@@ -246,7 +247,7 @@ function verifyRegisterSchemaPortion(manifest) {
   if (referenceNorm !== adminNorm) {
     return [
       "convex/schema.ts register-owned tables do not match scripts/register-schema-lock/schema.reference.ts",
-      "Only admin-owned schema tables may differ — see convex/REGISTER_SCHEMA.md",
+      "Only admin- or profile-owned schema tables may differ — see convex/REGISTER_SCHEMA.md",
     ];
   }
   return [];

@@ -32,6 +32,7 @@ const EDITABLE_TABLES = [
   "adminSessions",
   "decisionEmailQueue",
 ];
+const PROFILE_TABLES = ["schedule"];
 
 function sha256(content) {
   return createHash("sha256").update(content).digest("hex");
@@ -205,7 +206,7 @@ function main() {
   const adminSchema = readText(join(root, "convex", "schema.ts"));
   const registerSchemaLockedHash = sha256(
     normalizeSchemaForHash(
-      stripTablesForHash(adminSchema, EDITABLE_TABLES),
+      stripTablesForHash(adminSchema, [...EDITABLE_TABLES, ...PROFILE_TABLES]),
     ),
   );
 
@@ -214,6 +215,7 @@ function main() {
     referenceSchema: "scripts/register-schema-lock/schema.reference.ts",
     registerSchemaPath: "convex/schema.ts",
     editableTables: EDITABLE_TABLES,
+    profileTables: PROFILE_TABLES,
     registerSchemaLockedHash,
     files: manifestFiles,
   };

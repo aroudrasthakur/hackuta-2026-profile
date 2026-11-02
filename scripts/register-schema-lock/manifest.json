@@ -16,6 +16,9 @@
     "adminSessions",
     "decisionEmailQueue"
   ],
+  "profileTables": [
+    "schedule"
+  ],
   "registerSchemaLockedHash": "6615388d7df3c575ac3d83654896914cf3601cd1f7d59bbd7b0a58927db53c45",
   "files": {
     "convex/applicant.ts": "42f8c4b422180cf62e8ab52abe2f0dfc5ba4b35f7a0b8898420ea7a33f01c0d3",

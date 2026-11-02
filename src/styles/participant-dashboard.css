@@ -1140,7 +1140,7 @@
 
   .participant-schedule__slot {
     display: grid;
-    grid-template-columns: 6em minmax(0, 1fr);
+    grid-template-columns: max-content minmax(0, 1fr);
     gap: clamp(0.625rem, 1.2vw, 1rem);
     padding-bottom: 0.75rem;
     border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
@@ -1149,6 +1149,49 @@
   .participant-schedule__slot time {
     color: var(--color-ocean);
     font-weight: 600;
+  }
+
+  @media (max-width: 40rem) {
+    .participant-schedule__slot {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .participant-schedule__slot-details {
+    min-width: 0;
+  }
+
+  .participant-schedule__slot-details p {
+    margin: 0.35rem 0 0;
+    line-height: 1.5;
+  }
+
+  .participant-schedule__slot-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .participant-schedule__slot-heading h3 {
+    margin: 0;
+    font: inherit;
+    font-weight: 700;
+    color: var(--color-night);
+  }
+
+  .participant-schedule__category {
+    color: var(--color-ocean);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .participant-schedule__slot-details .participant-schedule__location {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-ocean);
   }
 
   /* Leaderboard: reuses the Schedule tab and panel language (square frames, inset rules, numerals). */
