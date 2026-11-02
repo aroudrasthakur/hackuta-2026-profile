@@ -236,7 +236,7 @@ describe("Apple Wallet pass generation and check-in integration", () => {
     });
     expect(preview).toEqual({
       status: "ok",
-      participant: { name: "Dana Participant" },
+      participant: { name: "Dana Participant", foodRestriction: null },
     });
 
     // Step 2: Volunteer assigns physical badge BADGE_A

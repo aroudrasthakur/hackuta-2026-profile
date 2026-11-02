@@ -102,15 +102,19 @@ async function availableBadge(ctx: MutationCtx, scan: Scan, raw: string) {
   return { result: { status: checked.conflict } };
 }
 
-function okPreview(name: string) {
-  return { status: "ok" as const, participant: { name } };
+function okPreview(name: string, foodRestriction?: string) {
+  return {
+    status: "ok" as const,
+    participant: { name, foodRestriction: foodRestriction ?? null },
+  };
 }
 
 /**
  * Step 1. Identifies the participant behind a registration QR. Statuses:
- * `ok` (with name), `already_checked_in` and `registration_qr_used` (with
- * name and time), `qr_not_found`, `participant_not_eligible`,
- * `not_authorized`, and `rate_limited`. Changes no participant.
+ * `ok` (with name and dietary snapshot), `already_checked_in` and
+ * `registration_qr_used` (with name and time), `qr_not_found`,
+ * `participant_not_eligible`, `not_authorized`, and `rate_limited`. Changes
+ * no participant.
  */
 export const resolveRegistrationForCheckIn = mutation({
   args: registrationArgs,
@@ -119,7 +123,10 @@ export const resolveRegistrationForCheckIn = mutation({
     if ("result" in begun) return begun.result;
     const holder = await registrationHolder(ctx, begun.scan, registrationQrCodeToken);
     if ("result" in holder) return holder.result;
-    return okPreview(await participantName(ctx, holder.participant));
+    return okPreview(
+      await participantName(ctx, holder.participant),
+      holder.participant.foodRestriction,
+    );
   },
 });
 
@@ -137,7 +144,10 @@ export const resolveBadgeForCheckIn = mutation({
     if ("result" in holder) return holder.result;
     const badge = await availableBadge(ctx, begun.scan, badgeQrCodeToken);
     if ("result" in badge) return badge.result;
-    return okPreview(await participantName(ctx, holder.participant));
+    return okPreview(
+      await participantName(ctx, holder.participant),
+      holder.participant.foodRestriction,
+    );
   },
 });
 
