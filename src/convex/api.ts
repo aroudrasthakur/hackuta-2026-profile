@@ -154,7 +154,7 @@ export type ParticipantSchedule = {
 export const listPublicScheduleRef = makeFunctionReference<
   "query",
   Record<string, never>,
-  ParticipantSchedule | null
+  ParticipantSchedule
 >("profile/schedule:listPublicSchedule");
 
 export const getMySubmittedApplicationRef = makeFunctionReference<

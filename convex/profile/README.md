@@ -13,7 +13,7 @@ npm run convex:push-dev
 | Module | Purpose |
 | --- | --- |
 | [`dashboard.ts`](dashboard.ts) | `getMyParticipantDashboard` — returns the signed-in user's application status, event timeline fields, and check-in QR token when a participant row exists |
-| [`schedule.ts`](schedule.ts) | `listPublicSchedule` — authenticated reactive schedule of active participant activities, ordered by start time |
+| [`schedule.ts`](schedule.ts) | `listPublicSchedule` — public reactive schedule of active participant activities, ordered by start time (landing + profile) |
 | [`scheduleMigration.ts`](scheduleMigration.ts) | `migrateLegacyWeekendSchedule` — idempotent internal seed for any legacy activity data |
 | [`appleWalletPass.ts`](appleWalletPass.ts) | `generateMyAppleWalletPass` — signs and serves a pre-check-in `.pkpass` bundle for Apple Wallet using the participant's existing registration QR token |
 | [`appleWalletPassData.ts`](appleWalletPassData.ts) | Internal query and storage cleanup helpers for Apple Wallet pass generation |

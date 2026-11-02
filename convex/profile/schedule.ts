@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { getEventSchedule } from "../lib/eventConfig";
-import { getAuthUser } from "../lib/applications";
 
 const publicScheduleEntry = v.object({
   id: v.id("schedule"),
@@ -19,14 +18,11 @@ const participantSchedule = v.object({
   entries: v.array(publicScheduleEntry),
 });
 
-/** Returns the signed-in participant's live, active schedule. */
+/** Returns the live, active participant schedule. No auth — landing and profile both read this. */
 export const listPublicSchedule = query({
   args: {},
-  returns: v.union(v.null(), participantSchedule),
+  returns: participantSchedule,
   handler: async (ctx) => {
-    const user = await getAuthUser(ctx);
-    if (!user) return null;
-
     const eventSchedule = await getEventSchedule(ctx);
     const entries = await ctx.db
       .query("schedule")
