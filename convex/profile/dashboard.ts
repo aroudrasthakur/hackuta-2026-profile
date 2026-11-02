@@ -35,6 +35,12 @@ export const getMyParticipantDashboard = query({
       .query("participants")
       .withIndex("by_auth_user", (q) => q.eq("authUserId", authUserId))
       .unique();
+    const attendee = participant
+      ? await ctx.db
+        .query("checkedIn")
+        .withIndex("by_participant", (q) => q.eq("participantId", participant._id))
+        .unique()
+      : null;
 
     const eventConfig = await getEventConfigRow(ctx);
     const hackathonName = eventConfig?.name ?? DEFAULT_HACKATHON_NAME;
@@ -72,8 +78,13 @@ export const getMyParticipantDashboard = query({
           }
         : null,
       reviewStatus,
-      // After badge check-in, `qrCodeToken` on the row is the badge value; participantPortalView never returns it.
-      participant: visibleParticipant ? participantPortalView(visibleParticipant) : null,
+      participant: visibleParticipant
+        ? participantPortalView({
+          acceptedAt: visibleParticipant.acceptedAt,
+          qrCodeToken: visibleParticipant.qrCodeToken,
+          checkedInAt: attendee?.checkedInAt ?? visibleParticipant.checkedInAt,
+        })
+        : null,
       hackathon: {
         name: hackathonName,
         startsAt: eventConfig?.startsAt ?? null,

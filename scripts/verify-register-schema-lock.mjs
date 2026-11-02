@@ -14,6 +14,7 @@ const ADMIN_EDITABLE_TABLES = [
   "admins",
   "applicationReviewLogs",
   "participants",
+  "checkedIn",
   "retiredBadgeTokens",
   "mealPeriods",
   "mealRedemptions",

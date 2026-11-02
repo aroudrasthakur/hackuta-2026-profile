@@ -18,6 +18,11 @@ import { adminError } from "../../shared/admin/errors";
 import { assertPointBalance, normalizeAdjustmentReason } from "../../shared/admin/volunteerRules";
 import { createdAtBounds, nameLookups, UNNAMED_PARTICIPANT } from "./adminQueryHelpers";
 import {
+  checkedInForParticipant,
+  latestMealRedeemedAt,
+  participantIdOfHolder,
+} from "./checkedInLookup";
+import {
   adjustPoints,
   computeLedgerPoints,
   isParticipantEligible,
@@ -87,8 +92,10 @@ export const listParticipants = query({
 
     const page = [];
     for (const participant of result.page) {
-      if (checkedIn !== undefined && (participant.checkedInAt !== undefined) !== checkedIn) continue;
-      if (foodRedeemed !== undefined && (participant.foodCheckedInAt !== undefined) !== foodRedeemed) continue;
+      const attendee = await checkedInForParticipant(ctx, participant._id);
+      if (checkedIn !== undefined && (attendee !== null) !== checkedIn) continue;
+      const mealRedeemedAt = await latestMealRedeemedAt(ctx, attendee?._id);
+      if (foodRedeemed !== undefined && (mealRedeemedAt !== null) !== foodRedeemed) continue;
       if (!await isParticipantEligible(ctx, participant)) continue;
       const { name, email } = await participantIdentity(ctx, participant);
       if (term && !name.toLowerCase().includes(term) && !(email ?? "").toLowerCase().includes(term)) continue;
@@ -101,10 +108,10 @@ export const listParticipants = query({
         participantId: participant._id,
         name,
         email,
-        points: participant.points ?? 0,
-        checkedInAt: participant.checkedInAt ?? null,
-        foodCheckedInAt: participant.foodCheckedInAt ?? null,
-        badgeAssigned: participant.badgeQrCodeToken !== undefined,
+        points: attendee?.points ?? 0,
+        checkedInAt: attendee?.checkedInAt ?? participant.checkedInAt ?? null,
+        foodCheckedInAt: mealRedeemedAt,
+        badgeAssigned: attendee?.badgeQrCodeToken !== undefined,
         volunteer: volunteer ? { adminId: volunteer._id, active: volunteer.active } : null,
       });
     }
@@ -125,9 +132,12 @@ export const getParticipantDetails = query({
     if (!participant || !await isParticipantEligible(ctx, participant)) return null;
     const { name, email } = await participantIdentity(ctx, participant);
     const names = nameLookups(ctx);
-    const awardRows = await ctx.db.query("participantEventAwards")
-      .withIndex("by_participant_event", (q) => q.eq("participantId", participantId))
-      .collect();
+    const attendee = await checkedInForParticipant(ctx, participantId);
+    const awardRows = attendee
+      ? await ctx.db.query("participantEventAwards")
+        .withIndex("by_checkedIn_event", (q) => q.eq("checkedInId", attendee._id))
+        .collect()
+      : [];
     const awards = [];
     for (const award of awardRows) {
       awards.push({
@@ -140,8 +150,11 @@ export const getParticipantDetails = query({
     }
     awards.sort((a, b) => a.awardedAt - b.awardedAt);
     const volunteer = await linkedVolunteer(ctx, participantId);
-    const points = participant.points ?? 0;
-    const ledgerPoints = await computeLedgerPoints(ctx, participantId);
+    const points = attendee?.points ?? 0;
+    const ledgerPoints = attendee
+      ? await computeLedgerPoints(ctx, attendee._id)
+      : 0;
+    const mealRedeemedAt = await latestMealRedeemedAt(ctx, attendee?._id);
     return {
       participantId,
       name,
@@ -150,13 +163,13 @@ export const getParticipantDetails = query({
       points,
       ledgerPoints,
       pointsConsistent: points === ledgerPoints,
-      checkedInAt: participant.checkedInAt ?? null,
-      foodCheckedInAt: participant.foodCheckedInAt ?? null,
-      badge: participant.badgeQrCodeToken !== undefined && participant.badgeAssignedAt !== undefined
+      checkedInAt: attendee?.checkedInAt ?? participant.checkedInAt ?? null,
+      foodCheckedInAt: mealRedeemedAt,
+      badge: attendee?.badgeQrCodeToken !== undefined && attendee.badgeAssignedAt !== undefined
         ? {
-          assignedAt: participant.badgeAssignedAt,
-          assignedBy: participant.badgeAssignedBy
-            ? { adminId: participant.badgeAssignedBy, name: await names.staffName(participant.badgeAssignedBy) }
+          assignedAt: attendee.badgeAssignedAt,
+          assignedBy: attendee.badgeAssignedBy
+            ? { adminId: attendee.badgeAssignedBy, name: await names.staffName(attendee.badgeAssignedBy) }
             : null,
         }
         : null,
@@ -199,8 +212,10 @@ export const setParticipantPoints = mutation({
     const actor = await requireAdminRole(ctx, sessionToken);
     const target = assertPointBalance(points);
     const normalizedReason = normalizeAdjustmentReason(reason);
-    const participant = await requireEligibleParticipant(ctx, participantId);
-    const previousPoints = assertPointBalance(participant.points ?? 0);
+    await requireEligibleParticipant(ctx, participantId);
+    const attendee = await checkedInForParticipant(ctx, participantId);
+    if (!attendee) throw adminError("PARTICIPANT_NOT_CHECKED_IN");
+    const previousPoints = assertPointBalance(attendee.points ?? 0);
     const pointsDelta = target - previousPoints;
     if (pointsDelta === 0) {
       return { ok: true as const, changed: false, previousPoints, newPoints: target, pointsDelta };
@@ -226,10 +241,11 @@ export const listPointAdjustments = query({
     await requireAdminRole(ctx, sessionToken);
     const { lower, upper } = createdAtBounds(from, to);
     const table = ctx.db.query("volunteerActionLogs");
-    const indexed = participantId
+    const attendee = participantId ? await checkedInForParticipant(ctx, participantId) : null;
+    const indexed = attendee
       ? table
-        .withIndex("by_participant_createdAt", (q) =>
-          q.eq("participantId", participantId).gte("createdAt", lower).lte("createdAt", upper))
+        .withIndex("by_checkedIn_createdAt", (q) =>
+          q.eq("checkedInId", attendee._id).gte("createdAt", lower).lte("createdAt", upper))
         .filter((q) => q.eq(q.field("action"), "admin_adjust"))
       : table.withIndex("by_action_createdAt", (q) =>
         q.eq("action", "admin_adjust").gte("createdAt", lower).lte("createdAt", upper));
@@ -245,7 +261,10 @@ export const listPointAdjustments = query({
         logId: log._id,
         createdAt: log.createdAt,
         admin: { adminId: log.actorAdminId, name: await names.staffName(log.actorAdminId) },
-        participant: { participantId: log.participantId, name: await names.participantName(log.participantId) },
+        participant: {
+          participantId: await participantIdOfHolder(ctx, log),
+          name: await names.holderName(log),
+        },
         previousPoints: log.previousPoints ?? null,
         newPoints: log.newPoints ?? null,
         pointsDelta: log.pointsDelta ?? null,

@@ -13,6 +13,7 @@ import { v, type GenericId } from "convex/values";
 import { query } from "../_generated/server";
 import { getAuthUser } from "../lib/applications";
 import type { QueryCtx } from "../lib/dataModel";
+import { checkedInForParticipant } from "./checkedInLookup";
 import { flashSaleStatus } from "./shopFlashSales";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
 
@@ -21,19 +22,20 @@ export const MAX_PROFILE_SHOP_ROWS = 100;
 
 async function myParticipant(ctx: QueryCtx) {
   const user = await getAuthUser(ctx);
-  if (!user) return { user: null, participant: null };
+  if (!user) return { user: null, participant: null, checkedIn: null };
   const participant = await ctx.db
     .query("participants")
     .withIndex("by_auth_user", (q) => q.eq("authUserId", user._id))
     .unique();
-  return { user, participant };
+  const checkedIn = participant ? await checkedInForParticipant(ctx, participant._id) : null;
+  return { user, participant, checkedIn };
 }
 
 /** Active items, live sales, and the caller's balance (null when not a participant). Null when signed out. */
 export const listShop = query({
   args: { nowBucket: v.optional(v.number()) },
   handler: async (ctx) => {
-    const { user, participant } = await myParticipant(ctx);
+    const { user, checkedIn } = await myParticipant(ctx);
     if (!user) return null;
     const now = Date.now();
     const rows = await ctx.db.query("shopItems")
@@ -69,7 +71,7 @@ export const listShop = query({
     return {
       items,
       activeSales,
-      points: participant ? participant.points ?? 0 : null,
+      points: checkedIn ? checkedIn.points : null,
       nextPriceChangeAt: await nextPriceChangeAt(ctx, rows.map((row) => row._id), now),
     };
   },
@@ -79,12 +81,14 @@ export const listShop = query({
 export const getMyShopHistory = query({
   args: {},
   handler: async (ctx) => {
-    const { participant } = await myParticipant(ctx);
+    const { participant, checkedIn } = await myParticipant(ctx);
     if (!participant) return [];
-    const rows = await ctx.db.query("shopRedemptions")
-      .withIndex("by_participant_redeemedAt", (q) => q.eq("participantId", participant._id))
-      .order("desc")
-      .take(MAX_PROFILE_SHOP_ROWS);
+    const rows = checkedIn
+      ? await ctx.db.query("shopRedemptions")
+        .withIndex("by_checkedIn_redeemedAt", (q) => q.eq("checkedInId", checkedIn._id))
+        .order("desc")
+        .take(MAX_PROFILE_SHOP_ROWS)
+      : [];
     return rows.map((row) => ({
       redemptionId: row._id,
       itemName: row.itemName,

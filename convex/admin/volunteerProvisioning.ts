@@ -13,6 +13,7 @@ import { isValidEmailSyntax, normalizeEmail } from "../lib/normalizeEmail";
 import { adminError } from "../../shared/admin/errors";
 import { buildStaffConfigDetails } from "../../shared/admin/volunteerRules";
 import { validatePasswordRequirements } from "../../shared/auth/password";
+import { checkedInForParticipant } from "./checkedInLookup";
 import { requireEligibleParticipant } from "./pointsLedger";
 import { newVolunteerFields } from "./staffAuth";
 import { setStaffPassword } from "./staffCredentials";
@@ -47,6 +48,7 @@ export async function insertVolunteer(
     name: string;
     password: string;
     participantId?: ParticipantId;
+    checkedInId?: GenericId<"checkedIn">;
   },
 ) {
   const now = Date.now();
@@ -61,6 +63,7 @@ export async function insertVolunteer(
     ...newVolunteerFields(),
     ...capabilities,
     ...(fields.participantId ? { participantId: fields.participantId } : {}),
+    ...(fields.checkedInId ? { checkedInId: fields.checkedInId } : {}),
     createdAt: now,
     updatedAt: now,
   });
@@ -70,6 +73,7 @@ export async function insertVolunteer(
     action: fields.participantId ? "volunteer_promoted" : "volunteer_created",
     targetAdminId: adminId,
     ...(fields.participantId ? { targetParticipantId: fields.participantId } : {}),
+    ...(fields.checkedInId ? { targetCheckedInId: fields.checkedInId } : {}),
     details: buildStaffConfigDetails({ after: { ...capabilities, active: true } }),
     createdAt: now,
   });
@@ -93,6 +97,8 @@ export async function promoteParticipant(
   },
 ) {
   const participant = await requireEligibleParticipant(ctx, args.participantId);
+  const checkedIn = await checkedInForParticipant(ctx, args.participantId);
+  if (!checkedIn) throw adminError("PARTICIPANT_NOT_CHECKED_IN");
   const linked = await ctx.db.query("admins")
     .withIndex("by_participant", (q) => q.eq("participantId", args.participantId)).first();
   if (linked) throw adminError("STAFF_ACCOUNT_EXISTS");
@@ -102,7 +108,7 @@ export async function promoteParticipant(
   validatePasswordRequirements(args.password);
   const email = await requireAvailableStaffEmail(ctx, args.email ?? registrationEmail);
   return insertVolunteer(ctx, actorAdminId, {
-    email, name, password: args.password, participantId: args.participantId,
+    email, name, password: args.password, participantId: args.participantId, checkedInId: checkedIn._id,
     ...(args.canCheckIn !== undefined ? { canCheckIn: args.canCheckIn } : {}),
     ...(args.canFoodCheckIn !== undefined ? { canFoodCheckIn: args.canFoodCheckIn } : {}),
   });

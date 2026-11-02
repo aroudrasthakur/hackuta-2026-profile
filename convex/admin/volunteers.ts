@@ -20,6 +20,7 @@ import { buildStaffConfigDetails } from "../../shared/admin/volunteerRules";
 import { validatePasswordRequirements } from "../../shared/auth/password";
 import { staffConfigLogAction, volunteerActionLogAction } from "./fields";
 import { createdAtBounds, nameLookups } from "./adminQueryHelpers";
+import { participantIdOfHolder } from "./checkedInLookup";
 import { invalidateAdminSessions } from "./sessionLifecycle";
 import { requireAdminRole, sessionTokenArgs, volunteerCapabilities } from "./staffAuth";
 import { setStaffPassword } from "./staffCredentials";
@@ -299,9 +300,12 @@ export const listVolunteerActionLogs = query({
     const { lower, upper } = createdAtBounds(from, to);
     const table = ctx.db.query("volunteerActionLogs");
     const { participantId, volunteerAdminId, eventId, action } = filters;
-    const indexed = participantId
-      ? table.withIndex("by_participant_createdAt", (q) =>
-        q.eq("participantId", participantId).gte("createdAt", lower).lte("createdAt", upper))
+    const attendee = participantId
+      ? await ctx.db.query("checkedIn").withIndex("by_participant", (q) => q.eq("participantId", participantId)).unique()
+      : null;
+    const indexed = attendee
+      ? table.withIndex("by_checkedIn_createdAt", (q) =>
+        q.eq("checkedInId", attendee._id).gte("createdAt", lower).lte("createdAt", upper))
       : volunteerAdminId
         ? table.withIndex("by_actor_createdAt", (q) =>
           q.eq("actorAdminId", volunteerAdminId).gte("createdAt", lower).lte("createdAt", upper))
@@ -330,7 +334,7 @@ export const listVolunteerActionLogs = query({
         logId: log._id,
         actor: { adminId: log.actorAdminId, name: await names.staffName(log.actorAdminId) },
         action: log.action,
-        participant: { participantId: log.participantId, name: await names.participantName(log.participantId) },
+        participant: { participantId: await participantIdOfHolder(ctx, log), name: await names.holderName(log) },
         event: log.eventId ? { eventId: log.eventId, name: await names.eventName(log.eventId) } : null,
         pointsDelta: log.pointsDelta ?? null,
         reason: REASON_ACTIONS.has(log.action) ? (log.reason ?? null) : null,

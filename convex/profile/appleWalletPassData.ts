@@ -62,6 +62,12 @@ export const getMyAppleWalletPassInput = internalQuery({
       .query("participants")
       .withIndex("by_auth_user", (q) => q.eq("authUserId", user._id))
       .unique();
+    const attendee = participant
+      ? await ctx.db
+        .query("checkedIn")
+        .withIndex("by_participant", (q) => q.eq("participantId", participant._id))
+        .unique()
+      : null;
 
     const pendingDecisionEmail = application
       ? await openDecisionEmailForApplication(ctx, application._id)
@@ -73,10 +79,7 @@ export const getMyAppleWalletPassInput = internalQuery({
       return { status: "not_eligible" };
     }
 
-    if (
-      isParticipantCheckedIn(visibleParticipant) ||
-      visibleParticipant.badgeQrCodeToken !== undefined
-    ) {
+    if (attendee || isParticipantCheckedIn(visibleParticipant)) {
       return { status: "already_checked_in" };
     }
 
