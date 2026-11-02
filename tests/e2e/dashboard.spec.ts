@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { test, expect, devices, type Page } from "@playwright/test";
 import jsQR from "jsqr";
 
@@ -53,6 +54,7 @@ test.describe("participant portal", () => {
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toBeVisible();
     await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Download QR image" })).toBeVisible();
   });
 
   test("downloads a .pkpass file when Add to Apple Wallet is clicked before check-in", async ({ page }) => {
@@ -65,6 +67,28 @@ test.describe("participant portal", () => {
     await walletButton.click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("hackuta-2026-checkin.pkpass");
+  });
+
+  test("downloads a PNG of the check-in QR before check-in", async ({ page }) => {
+    await signInToDashboard(page);
+    await openCheckIn(page);
+    const downloadButton = page.getByRole("button", { name: "Download QR image" });
+    await expect(downloadButton).toBeVisible();
+
+    await downloadButton.scrollIntoViewIfNeeded();
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      downloadButton.click(),
+    ]);
+    expect(download.suggestedFilename()).toBe("hackuta-2026-checkin.png");
+
+    const pngPath = await download.path();
+    if (!pngPath) throw new Error("QR image download path was not available");
+    const png = await readFile(pngPath);
+    const pixels = await decodePngInPage(page, png);
+    expect(pixels.height).toBeGreaterThan(pixels.width);
+    const result = jsQR(Uint8ClampedArray.from(pixels.data), pixels.width, pixels.height);
+    expect(result?.data).toBe(MOCK_QR_TOKEN);
   });
 
   test("rendered QR decodes to the participant's registration token", async ({ page }) => {
@@ -89,6 +113,7 @@ test.describe("participant portal", () => {
     await expect(page.getByText("Keep your badge with you.")).toBeVisible();
     await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);
     await expect(page.locator(".participant-scan__frame")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toHaveCount(0);
   });
@@ -165,6 +190,7 @@ test.describe("participant portal on mobile", () => {
     await expect(page.getByText("Keep your badge with you.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);
     await expect(page.locator(".participant-scan__frame")).toHaveCount(0);
   });
 });
