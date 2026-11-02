@@ -30,7 +30,6 @@ const ADMIN_EDITABLE_TABLES = [
   "shopRedemptions",
   "shopFlashSales",
   "shopFlashSaleItems",
-  "participantNotifications",
 ];
 const REFERENCE_EDITABLE_TABLES = ["applicationReviews"];
 

@@ -93,19 +93,37 @@ test.describe("participant portal", () => {
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toHaveCount(0);
   });
 
-  test("shows only the latest notification and the Devpost placeholder on Home", async ({ page }) => {
+  test("shows application status and important links without a notification card on Home", async ({ page }) => {
     await signInToDashboard(page);
     await expect(page.getByRole("heading", { name: "Important dates" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Profile", exact: true })).toHaveCount(0);
-    const latest = page.getByRole("list", { name: "Latest notification" });
-    await expect(latest.getByText("Check-in QR code")).toBeVisible();
-    await expect(latest.getByText("Schedule updates")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Application status" })).toBeVisible();
+    await expect(page.getByText("Accepted", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: /View submission/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Important links" })).toBeVisible();
+    await expect(page.getByRole("main")).not.toContainText(/notification/i);
+    await expect(page.getByRole("list", { name: "Latest notification" })).toHaveCount(0);
+    await expect(page.locator(".participant-home .participant-schedule__panel")).toHaveCount(2);
     await expect(page.getByText("Devpost")).toBeVisible();
     await expect(page.getByText("Coming soon")).toBeVisible();
     await expect(page.getByRole("link", { name: /Instagram/ })).toHaveAttribute(
       "href",
       "https://www.instagram.com/hack.uta/",
     );
+  });
+
+  test("redirects the retired notifications URL through the normal authentication flow", async ({ page }) => {
+    await page.goto("/dashboard/notifications");
+    await expect(page).toHaveURL(/\/sign-in$/);
+    await signInToDashboard(page);
+    // Mock auth lives in memory; navigate within the app to retain the signed-in session.
+    await page.evaluate(() => {
+      window.history.pushState({}, "", "/dashboard/notifications");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "Application status" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Notifications|Alerts/ })).toHaveCount(0);
   });
 
   test("signs out from the sidebar account block", async ({ page }) => {
@@ -122,8 +140,10 @@ test.describe("participant portal on mobile", () => {
 
   test("uses short tab labels and shows the animated checked-in card", async ({ page }) => {
     await signInToDashboard(page);
-    await expect(page.getByRole("link", { name: "Alerts", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Board", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Alerts", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await openCheckIn(page);
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toBeVisible();
 

@@ -165,28 +165,3 @@ export const generateMyAppleWalletPassRef = makeFunctionReference<
   Record<string, never>,
   AppleWalletPassResponse
 >("profile/appleWalletPass:generateMyAppleWalletPass");
-
-export type ParticipantNotificationType =
-  | "general"
-  | "event"
-  | "reminder"
-  | "flash_sale"
-  | "important";
-
-export type ParticipantNotificationItem = {
-  notificationId: string;
-  title: string;
-  message: string;
-  type: ParticipantNotificationType;
-  publishedAt: number;
-  expiresAt: number | null;
-  linkUrl: string | null;
-  linkLabel: string | null;
-};
-
-export const listPublishedNotificationsRef = makeFunctionReference<
-  "query",
-  { nowBucket?: number },
-  ParticipantNotificationItem[] | null
->("admin/participantShop:listPublishedNotifications");
-

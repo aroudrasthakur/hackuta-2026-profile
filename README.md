@@ -56,9 +56,19 @@ npm run convex:push-dev
 
 ### Production
 
+For issue #103, complete the [notification removal release checks](#issue-103-release-checks) before uploading the backend.
+
 1. `npm run check:whitespace && npm run verify:register-schema-lock && npm run verify:admin-schema-lock && npm run lint && npm run typecheck && npm run test:coverage && npm run build`
 2. `npm run convex:deploy` (runs both schema locks first)
 3. Deploy the admin and profile frontends. The register Vercel app stays as it is.
+
+### Issue #103 release checks
+
+The synchronized backend combines admin branch `refactor/103-remove-notification-backend`, reviewed at `e9709da17d238e9aa7040d40d3071084e72d4c1c` ([#104](https://github.com/aroudrasthakur/hackuta-2026-admin/pull/104), [#105](https://github.com/aroudrasthakur/hackuta-2026-admin/pull/105), [#107](https://github.com/aroudrasthakur/hackuta-2026-admin/pull/107)), with admin `main` at `302ed67` ([#106](https://github.com/aroudrasthakur/hackuta-2026-admin/pull/106)). This preserves the `checkedIn` table migration already integrated by profile [#16](https://github.com/aroudrasthakur/hackuta-2026-profile/pull/16). The admin stack must also retain that migration when integrated. After the admin stack reaches `main`, refresh and verify the admin lock again before release.
+
+Before deploying the final schema removal, confirm the owner's empty-data assumption for `participantNotifications`, legacy `shopFlashSales.notificationId`, and notification-specific `staffConfigLogs.action` values and `targetNotificationId`. Check for jobs targeting `admin/notifications:publishScheduledNotification`; cancel pending jobs and let running jobs finish before removing the handler. If incompatible records exist, stop the schema upload and resolve them safely. Preserve sales, sale items, purchases, inventory, participants, and unrelated audit records. Follow admin's [release instructions](../hackuta-2026-admin/docs/OPERATIONS.md#releasing-issue-103).
+
+These changes do not perform live-data cleanup, cancel deployed jobs, or deploy Convex. Deployment must run exclusively from this repository after coordinated review and the checks above. Authentication and application decision emails retain their existing flows.
 
 ## Quality
 

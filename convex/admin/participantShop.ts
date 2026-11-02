@@ -1,5 +1,5 @@
 /**
- * Participant shop and notifications for the profile portal. Written in
+ * Participant shop and purchase history for the profile portal. Written in
  * hackuta-2026-admin and synced to hackuta-2026-profile with the rest of the
  * backend.
  *
@@ -17,7 +17,7 @@ import { checkedInForParticipant } from "./checkedInLookup";
 import { flashSaleStatus } from "./shopFlashSales";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
 
-/** Most items, purchases, or notifications one call returns. */
+/** Most items or purchases one call returns. */
 export const MAX_PROFILE_SHOP_ROWS = 100;
 
 async function myParticipant(ctx: QueryCtx) {
@@ -99,45 +99,5 @@ export const getMyShopHistory = query({
       redeemedAt: row.redeemedAt,
       refunded: row.refund !== undefined,
     }));
-  },
-});
-
-/**
- * Currently published, non-expired notifications for the participant portal,
- * newest first, including flash-sale notifications. Never returns draft,
- * scheduled, cancelled, or expired rows. Null when signed out.
- */
-export const listPublishedNotifications = query({
-  args: { nowBucket: v.optional(v.number()) },
-  handler: async (ctx) => {
-    const user = await getAuthUser(ctx);
-    if (!user) return null;
-    const now = Date.now();
-
-    const rows = await ctx.db
-      .query("participantNotifications")
-      .withIndex("by_status_publishedAt", (q) =>
-        q.eq("status", "published").lte("publishedAt", now),
-      )
-      .order("desc")
-      .take(MAX_PROFILE_SHOP_ROWS);
-
-    return rows
-      .filter(
-        (row) =>
-          row.cancelledAt === undefined &&
-          row.publishedAt !== undefined &&
-          (row.expiresAt === undefined || row.expiresAt > now),
-      )
-      .map((row) => ({
-        notificationId: String(row._id),
-        title: row.title,
-        message: row.message,
-        type: row.type,
-        publishedAt: row.publishedAt!,
-        expiresAt: row.expiresAt ?? null,
-        linkUrl: row.linkUrl ?? null,
-        linkLabel: row.linkLabel ?? null,
-      }));
   },
 });
