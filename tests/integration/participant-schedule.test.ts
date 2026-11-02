@@ -1,0 +1,86 @@
+import { makeFunctionReference } from "convex/server";
+import { describe, expect, it } from "vitest";
+import { listPublicScheduleRef } from "../../src/convex/api";
+import { createConvexTest } from "../helpers/convexTestContext";
+import { seedApplicant } from "../helpers/reviewTestKit";
+
+const migrateLegacyWeekendScheduleRef = makeFunctionReference<
+  "mutation",
+  Record<string, never>,
+  { ok: true; inserted: number; alreadyPresent: number }
+>("profile/scheduleMigration:migrateLegacyWeekendSchedule");
+
+describe("participant schedule query", () => {
+  it("requires authentication", async () => {
+    const t = createConvexTest();
+    expect(await t.query(listPublicScheduleRef, {})).toBeNull();
+  });
+
+  it("returns only active entries in chronological order with participant UI fields", async () => {
+    const t = createConvexTest();
+    const applicant = await seedApplicant(t, { email: "schedule-viewer@example.com" });
+    const entries = await t.run(async (ctx) => {
+      const later = await ctx.db.insert("schedule", {
+        title: "Closing ceremony",
+        startsAt: 2_000,
+        endsAt: 3_000,
+        category: "event",
+        active: true,
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const inactive = await ctx.db.insert("schedule", {
+        title: "Hidden event",
+        startsAt: 1_000,
+        endsAt: 1_500,
+        category: "announcement",
+        active: false,
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const earlier = await ctx.db.insert("schedule", {
+        title: "Opening remarks",
+        description: "Welcome",
+        startsAt: 1_500,
+        endsAt: 1_800,
+        location: "Main stage",
+        category: "event",
+        active: true,
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      return { earlier, inactive, later };
+    });
+
+    const schedule = await t
+      .withIdentity({ subject: applicant.userId, email: "schedule-viewer@example.com" })
+      .query(listPublicScheduleRef, {});
+
+    expect(schedule?.entries.map((entry) => entry.title)).toEqual(["Opening remarks", "Closing ceremony"]);
+    expect(schedule?.entries.map((entry) => entry.id)).toEqual([entries.earlier, entries.later]);
+    expect(schedule?.entries[0]).toMatchObject({
+      description: "Welcome",
+      startsAt: 1_500,
+      endsAt: 1_800,
+      location: "Main stage",
+      category: "event",
+    });
+    expect(schedule?.eventEndsAt).toBeGreaterThan(schedule?.eventStartsAt ?? 0);
+    expect(JSON.stringify(schedule)).not.toContain("createdAt");
+  });
+
+  it("runs the legacy seed safely more than once", async () => {
+    const t = createConvexTest();
+    await expect(t.mutation(migrateLegacyWeekendScheduleRef, {})).resolves.toEqual({
+      ok: true,
+      inserted: 0,
+      alreadyPresent: 0,
+    });
+    await expect(t.mutation(migrateLegacyWeekendScheduleRef, {})).resolves.toEqual({
+      ok: true,
+      inserted: 0,
+      alreadyPresent: 0,
+    });
+    await expect(t.run((ctx) => ctx.db.query("schedule").collect())).resolves.toHaveLength(0);
+  });
+});
