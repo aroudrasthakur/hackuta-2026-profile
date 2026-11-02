@@ -21,7 +21,6 @@ const sourceSharedAdminDir = join(adminRoot, "shared", "admin");
 
 /** Profile portal helpers that do not exist in the admin repo. */
 const PROFILE_ONLY_SHARED_ADMIN = new Set([
-  "weekendSchedule.ts",
   "submissionDisplay.ts",
 ]);
 

@@ -12,7 +12,7 @@ Generated types live in [_generated/](_generated/) (gitignored). Local typecheck
 | [`schema.ts`](schema.ts) | Deployment schema |
 | [`../hackuta-2026-register/convex/schema.ts`](../hackuta-2026-register/convex/schema.ts) | Live reference in register repo |
 
-**Editable:** admin-owned tables in `schema.ts` (including `adminAuthAccounts`, `adminSessions`), plus [`admin/`](admin/README.md).
+**Editable:** admin-owned tables in `schema.ts` (including `adminAuthAccounts`, `adminSessions`) and [`admin/`](admin/README.md); the profile-owned `schedule` table and [`profile/`](profile/README.md).
 
 **Frozen:** all other top-level modules, [`lib/`](lib/README.md), [`email/`](email/README.md), and register-owned [`shared/`](../shared/README.md) paths. [`profile/`](profile/README.md) is participant-portal code and is deployed with this repo.
 

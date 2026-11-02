@@ -135,6 +135,28 @@ export const getMyPointsLeaderboardRef = makeFunctionReference<
   PointsLeaderboard | null
 >("profile/leaderboard:getMyPointsLeaderboard");
 
+export type ScheduleEntry = {
+  id: string;
+  title: string;
+  description?: string;
+  startsAt: number;
+  endsAt: number;
+  location?: string;
+  category: string;
+};
+
+export type ParticipantSchedule = {
+  eventStartsAt: number;
+  eventEndsAt: number;
+  entries: ScheduleEntry[];
+};
+
+export const listPublicScheduleRef = makeFunctionReference<
+  "query",
+  Record<string, never>,
+  ParticipantSchedule | null
+>("profile/schedule:listPublicSchedule");
+
 export const getMySubmittedApplicationRef = makeFunctionReference<
   "query",
   Record<string, never>,

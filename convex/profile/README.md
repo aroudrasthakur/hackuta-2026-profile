@@ -1,6 +1,6 @@
 # Profile Convex functions
 
-Participant-only queries. Callers must be authenticated with Convex Auth (same accounts as registration).
+Participant-only queries and internal seed functions. Participant queries use Convex Auth (the same accounts as registration).
 
 After adding or changing these modules locally, deploy to the shared dev deployment (`standing-manatee-425`) from the profile repo root. This is the only repo that should upload Convex functions:
 
@@ -13,6 +13,8 @@ npm run convex:push-dev
 | Module | Purpose |
 | --- | --- |
 | [`dashboard.ts`](dashboard.ts) | `getMyParticipantDashboard` — returns the signed-in user's application status, event timeline fields, and check-in QR token when a participant row exists |
+| [`schedule.ts`](schedule.ts) | `listPublicSchedule` — authenticated reactive schedule of active participant activities, ordered by start time |
+| [`scheduleMigration.ts`](scheduleMigration.ts) | `migrateLegacyWeekendSchedule` — idempotent internal seed for any legacy activity data |
 | [`appleWalletPass.ts`](appleWalletPass.ts) | `generateMyAppleWalletPass` — signs and serves a pre-check-in `.pkpass` bundle for Apple Wallet using the participant's existing registration QR token |
 | [`appleWalletPassData.ts`](appleWalletPassData.ts) | Internal query and storage cleanup helpers for Apple Wallet pass generation |
 | [`leaderboard.ts`](leaderboard.ts) | `getMyPointsLeaderboard` — live top 10 by points (rank, name, points, `isYou` only) |
@@ -20,6 +22,8 @@ npm run convex:push-dev
 | [`seedTestVolunteer.ts`](seedTestVolunteer.ts) | Dev-only internal seed for an admin-app volunteer with scan access (`seedTestVolunteer`) |
 
 Do not expose participant or QR data by application id or email. Always scope reads to the authenticated `users` row.
+
+The schedule lives in its own `schedule` table and does not change `events`, which remains responsible for point awards and volunteer scanning. The legacy participant schedule contained no activity rows to seed; its two date tabs were placeholders. The idempotent internal migration can be run with `npx convex run profile/scheduleMigration:migrateLegacyWeekendSchedule --env-file .env.local`.
 
 ### Dev test accounts (standing-manatee-425 only)
 

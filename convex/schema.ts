@@ -235,6 +235,21 @@ export default defineSchema({
     .index("by_active_startsAt", ["active", "startsAt"])
     .index("by_startsAt", ["startsAt"]),
 
+  /** Participant-facing activities; separate from point-award `events`. */
+  schedule: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    startsAt: v.number(),
+    endsAt: v.number(),
+    location: v.optional(v.string()),
+    category: v.string(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_startsAt", ["startsAt"])
+    .index("by_active_startsAt", ["active", "startsAt"]),
+
   /**
    * Authoritative meal collection history for checked-in attendees.
    * The redemption mutation must check by_checkedIn_meal and insert atomically;

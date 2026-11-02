@@ -15,14 +15,15 @@ Every path listed in **Register-owned (immutable)** below is frozen at the byte 
 
 ---
 
-## Admin-owned (editable)
+## Profile- and admin-owned (editable)
 
-These paths are **not** in the lock manifest. You may add or change them freely.
+These paths are **not** part of the register-owned lock. Profile-owned schedule work stays separate from admin-owned point-award and volunteer-scanning code.
 
 | Path | Purpose |
 | --- | --- |
 | [`schema.ts`](schema.ts) | See [Schema tables](#schema-tables) — admin-owned review and participant tables |
 | [`admin/`](admin/) | Organizer Convex queries, mutations, actions |
+| [`profile/`](profile/) | Participant portal queries, including the schedule query and migration |
 | [`../src/`](../src/) | Admin dashboard UI |
 | [`../scripts/`](../scripts/) | Admin tooling (except frozen register snapshots under `register-schema-lock/`) |
 | [`../shared/admin/`](../shared/admin/) | **Future admin-only shared code** — not register-owned |
@@ -62,8 +63,9 @@ File: [`convex/schema.ts`](schema.ts)
 | `shopItems` | Admin | **Yes** — shop catalog (name, description, price, status; no inventory) |
 | `shopRedemptions` | Admin | **Yes** — completed purchases with the price charged and any refund |
 | `shopFlashSales`, `shopFlashSaleItems` | Admin | **Yes** — timed promotions and their item prices |
+| `schedule` | Profile | **Yes** — participant activity schedule; separate from point-award `events` |
 
-All register-owned blocks must remain identical to [`schema.reference.ts`](../scripts/register-schema-lock/schema.reference.ts) aside from `applicationReviews` and admin-owned tables listed above.
+All register-owned blocks must remain identical to [`schema.reference.ts`](../scripts/register-schema-lock/schema.reference.ts) aside from `applicationReviews`, admin-owned tables, and profile-owned tables listed above.
 
 ### `participants` columns
 
