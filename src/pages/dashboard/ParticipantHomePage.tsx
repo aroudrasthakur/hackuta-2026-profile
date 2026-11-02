@@ -24,9 +24,12 @@ export default function ParticipantHomePage() {
   const submitted = data.application?.submitted ?? false;
   const dietaryRows = data.submittedApplication?.sections
     .flatMap((section) => section.rows)
-    .filter((row) =>
-      ["Dietary restrictions", "Allergy details", "Other dietary restrictions"].includes(row.label),
-    );
+    .filter((row) => ["Dietary restrictions", "Allergy details", "Other dietary restrictions"].includes(row.label));
+  const dietaryRestrictions = dietaryRows
+    ?.filter((row) => row.label !== "Allergy details")
+    .map((row) => row.value)
+    .join(", ");
+  const allergyDetails = dietaryRows?.find((row) => row.label === "Allergy details")?.value;
 
   return (
     <section className="participant-home" aria-labelledby="participant-home-title">
@@ -130,12 +133,14 @@ export default function ParticipantHomePage() {
             <p className="participant-home__dietary-empty">Dietary information is unavailable.</p>
           ) : dietaryRows?.length ? (
             <dl className="participant-home__dietary-list">
-              {dietaryRows.map((row) => (
-                <div className="participant-home__dietary-row" key={row.label}>
-                  <dt>{row.label}</dt>
-                  <dd>{row.value}</dd>
-                </div>
-              ))}
+              <div className="participant-home__dietary-row">
+                <dt>Dietary restrictions</dt>
+                <dd>{dietaryRestrictions || "None specified"}</dd>
+              </div>
+              <div className="participant-home__dietary-row">
+                <dt>Allergy details</dt>
+                <dd>{allergyDetails || "None specified"}</dd>
+              </div>
             </dl>
           ) : (
             <p className="participant-home__dietary-empty">None specified</p>

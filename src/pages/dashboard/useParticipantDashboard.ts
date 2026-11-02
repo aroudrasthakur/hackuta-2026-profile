@@ -48,6 +48,7 @@ export function useParticipantDashboard(): {
               title: "Event Preferences",
               rows: [
                 { label: "Dietary restrictions", value: "Vegetarian, Halal" },
+                { label: "Other dietary restrictions", value: "No pork" },
                 { label: "Allergy details", value: "Peanuts" },
               ],
             },
