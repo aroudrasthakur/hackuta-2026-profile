@@ -357,6 +357,7 @@ function resetStore() {
     name: "Avery Arrival",
     points: 0,
     eligible: true,
+    foodRestriction: "Vegetarian; Allergies: dairy",
     awardedEventIds: new Set(),
   });
   seedScanParticipant({
@@ -669,7 +670,7 @@ function scanTarget(staff: StaffRecord, args: Record<string, unknown>, purpose: 
   return { participant, event };
 }
 
-/** Mirrors `badgeCheckIn.ts`: registration step, then badge step, then the atomic check-in. */
+/** Mirrors `badgeCheckIn.ts`: registration step, then badge step, then the atomic check-in. The ID step is UI-only. */
 function mockCheckIn(staff: StaffRecord, args: Record<string, unknown>, stage: "registration" | "badge" | "commit") {
   if (staff.role !== "admin" && staff.canCheckIn !== true) return { status: "not_authorized" };
   const registrationRaw = String(args.registrationQrCodeToken ?? "");
@@ -684,10 +685,11 @@ function mockCheckIn(staff: StaffRecord, args: Record<string, unknown>, stage: "
   if (scanned.kind === "registration_replaced") return { status: "registration_qr_used", participant: summary };
   if (!participant.eligible) return { status: "participant_not_eligible" };
   if (scanned.kind === "badge" || participant.checkedInAt !== undefined) return { status: "already_checked_in", participant: summary };
-  if (stage === "registration") return { status: "ok", participant: { name: participant.name } };
+  const preview = { name: participant.name, foodRestriction: participant.foodRestriction ?? null };
+  if (stage === "registration") return { status: "ok", participant: preview };
   const checked = mockBadgeConflict(badgeRaw);
   if ("conflict" in checked) return { status: checked.conflict };
-  if (stage === "badge") return { status: "ok", participant: { name: participant.name } };
+  if (stage === "badge") return { status: "ok", participant: preview };
   const now = Date.now();
   participant.badgeToken = checked.badge;
   participant.checkedInAt = now;

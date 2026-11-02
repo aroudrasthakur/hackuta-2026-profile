@@ -74,11 +74,11 @@ Future volunteer scan modules belong in `convex/admin/` and must follow the guar
 
 ## Badge check-in (`badgeCheckIn.ts`)
 
-Door check-in takes two scans and one confirmation. The registration QR (from the participant portal) identifies the participant; a preprinted badge QR becomes their identity for the rest of the event. Badge values are opaque: trimmed, 1–256 characters, no control characters, and otherwise stored exactly as printed. The backend never generates badges.
+Door check-in takes two scans, a government-ID check on the desk (name and dietary notes only; no backend write), and one confirmation. The registration QR (from the participant portal) identifies the participant; a preprinted badge QR becomes their identity for the rest of the event. Badge values are opaque: trimmed, 1–256 characters, no control characters, and otherwise stored exactly as printed. The backend never generates badges.
 
 | Mutation | Args | Writes |
 | --- | --- | --- |
-| `resolveRegistrationForCheckIn` | `registrationQrCodeToken` | Rate-limit rows only. Returns the participant's name |
+| `resolveRegistrationForCheckIn` | `registrationQrCodeToken` | Rate-limit rows only. Returns the participant's name and dietary snapshot |
 | `resolveBadgeForCheckIn` | `registrationQrCodeToken`, `badgeQrCodeToken` | Rate-limit rows only. Rechecks the registration, then the badge |
 | `checkInWithBadge` | same | In one transaction: badge fields, `qrCodeToken` → badge, `registrationQrCodeToken` ← old token, `checkedInAt`, `updatedAt`, one `check_in` log |
 

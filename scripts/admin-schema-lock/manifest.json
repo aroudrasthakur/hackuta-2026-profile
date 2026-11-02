@@ -1,6 +1,6 @@
 {
   "convex/admin/README.md": "c54f7351fbb5286fde070d67d9704cd68e874a90a9eb089d3356bdd54549e35f",
-  "convex/admin/VOLUNTEER_AUTHORIZATION.md": "4886a83af1ba88525ad4859ab9b21bb83b177e9e48110ec1abd08321f6ebb7bb",
+  "convex/admin/VOLUNTEER_AUTHORIZATION.md": "99b08d02a9f2df6bbc4c196f997797ca4950e4352dfbcc9bc341544f72d80896",
   "convex/admin/acceptanceDecision.ts": "c372af66e66c40d2cfd4b682cd8cd2fffeb5245140d7ff5a744315928009bde5",
   "convex/admin/adminQueryHelpers.ts": "7fabd266091af50945f9d1ee2114622936714b25418f2210186a3ae0ee337a68",
   "convex/admin/adminSignInRateLimit.ts": "97c72bc1d8396626c5a01912191299db199794b6ecac39d137a0008620209ade",
@@ -8,7 +8,7 @@
   "convex/admin/applications.ts": "cb0b1ba7aef4254532edbe24a641ec020809271a74b793f96c9d4a63aeb23bf9",
   "convex/admin/auth.ts": "91ab2716771a16e4a30400e7766aff5fb80d878ed26550ccee190ff3677bba5a",
   "convex/admin/badgeAdmin.ts": "9893b184bd1496888c3f2c3b0cf5c026623a4f7477e6082be531d7b8b2f21c43",
-  "convex/admin/badgeCheckIn.ts": "2c5949480ec4a360978f9be1eb0544133c6944aaa829c6b46944b46799702abd",
+  "convex/admin/badgeCheckIn.ts": "9ec88b6cd93cde48903476005d21a84299fc45c2dbfea2dcfae9466a739a4773",
   "convex/admin/checkedInLookup.ts": "2806b51377c418acff36e3512b8fd1b5ab2952cea6851262db0c6479d848c09b",
   "convex/admin/decisionEmailQueue.ts": "5ec95620d4c268d1b385cfbfcc5f958ea7f00da3fe201bde01a54451a5809c0f",
   "convex/admin/decisionEmailRelease.ts": "40d7a21a02314e6cc3490159f5036789dc76bcc07f3b36cd654a3937c043615d",
