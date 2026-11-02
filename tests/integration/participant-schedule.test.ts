@@ -2,7 +2,6 @@ import { makeFunctionReference } from "convex/server";
 import { describe, expect, it } from "vitest";
 import { listPublicScheduleRef } from "../../src/convex/api";
 import { createConvexTest } from "../helpers/convexTestContext";
-import { seedApplicant } from "../helpers/reviewTestKit";
 
 const migrateLegacyWeekendScheduleRef = makeFunctionReference<
   "mutation",
@@ -11,14 +10,15 @@ const migrateLegacyWeekendScheduleRef = makeFunctionReference<
 >("profile/scheduleMigration:migrateLegacyWeekendSchedule");
 
 describe("participant schedule query", () => {
-  it("requires authentication", async () => {
+  it("returns the live schedule without authentication", async () => {
     const t = createConvexTest();
-    expect(await t.query(listPublicScheduleRef, {})).toBeNull();
+    const schedule = await t.query(listPublicScheduleRef, {});
+    expect(schedule.entries).toEqual([]);
+    expect(schedule.eventEndsAt).toBeGreaterThan(schedule.eventStartsAt);
   });
 
   it("returns only active entries in chronological order with participant UI fields", async () => {
     const t = createConvexTest();
-    const applicant = await seedApplicant(t, { email: "schedule-viewer@example.com" });
     const entries = await t.run(async (ctx) => {
       const later = await ctx.db.insert("schedule", {
         title: "Closing ceremony",
@@ -52,9 +52,7 @@ describe("participant schedule query", () => {
       return { earlier, inactive, later };
     });
 
-    const schedule = await t
-      .withIdentity({ subject: applicant.userId, email: "schedule-viewer@example.com" })
-      .query(listPublicScheduleRef, {});
+    const schedule = await t.query(listPublicScheduleRef, {});
 
     expect(schedule?.entries.map((entry) => entry.title)).toEqual(["Opening remarks", "Closing ceremony"]);
     expect(schedule?.entries.map((entry) => entry.id)).toEqual([entries.earlier, entries.later]);

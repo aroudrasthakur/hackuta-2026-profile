@@ -28,7 +28,7 @@ export function useParticipantSchedule(): {
     };
   }
 
-  if (!client || schedule === null) {
+  if (!client) {
     return { loading: false, error: true, data: null };
   }
 
