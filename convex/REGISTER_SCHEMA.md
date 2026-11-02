@@ -62,7 +62,6 @@ File: [`convex/schema.ts`](schema.ts)
 | `shopItems` | Admin | **Yes** — shop catalog (name, description, price, status; no inventory) |
 | `shopRedemptions` | Admin | **Yes** — completed purchases with the price charged and any refund |
 | `shopFlashSales`, `shopFlashSaleItems` | Admin | **Yes** — timed promotions and their item prices |
-| `participantNotifications` | Admin | **Yes** — participant portal notifications, including flash-sale alerts (drafts, scheduled, published, cancelled) |
 
 All register-owned blocks must remain identical to [`schema.reference.ts`](../scripts/register-schema-lock/schema.reference.ts) aside from `applicationReviews` and admin-owned tables listed above.
 

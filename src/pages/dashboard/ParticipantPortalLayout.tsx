@@ -1,6 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
 import {
-  NavBellIcon,
   NavHomeIcon,
   NavScanIcon,
   NavScheduleIcon,
@@ -18,7 +17,6 @@ const NAV: { to: string; end: boolean; label: string; shortLabel?: string; icon:
   { to: "/dashboard/scan", end: false, label: "Check-in", icon: NavScanIcon },
   { to: "/dashboard/schedule", end: false, label: "Schedule", icon: NavScheduleIcon },
   { to: "/dashboard/leaderboard", end: false, label: "Leaderboard", shortLabel: "Board", icon: NavTrophyIcon },
-  { to: "/dashboard/notifications", end: false, label: "Notifications", shortLabel: "Alerts", icon: NavBellIcon },
 ];
 
 export default function ParticipantPortalLayout() {

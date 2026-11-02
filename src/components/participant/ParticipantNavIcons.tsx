@@ -36,15 +36,6 @@ export function NavTrophyIcon({ className }: IconProps) {
   );
 }
 
-export function NavBellIcon({ className }: IconProps) {
-  return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 4a4 4 0 0 0-4 4v2.5c0 .6-.2 1.2-.6 1.7L6 15h12l-1.4-2.8c-.4-.5-.6-1.1-.6-1.7V8a4 4 0 0 0-4-4Z" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
 export function NavSignOutIcon({ className }: IconProps) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">

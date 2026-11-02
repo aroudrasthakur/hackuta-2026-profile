@@ -8,9 +8,7 @@ import {
 import type { ParticipantDashboard } from "../../convex/api";
 import { ImportantLinksGrid } from "../../components/participant/ImportantLinksGrid";
 import { REGISTER_URL } from "../../constants/site";
-import { formatNotificationTimestamp } from "../../constants/participantNotifications";
 import { statusBannerCopy, statusLabel } from "./dashboardUtils";
-import { useParticipantNotifications } from "./useParticipantNotifications";
 
 const HOME_TABS = [
   { to: "/dashboard", end: true, label: "Home", icon: NavHomeIcon },
@@ -21,8 +19,6 @@ const HOME_TABS = [
 export default function ParticipantHomePage() {
   const data = useOutletContext<ParticipantDashboard>();
   const status = statusLabel(data.reviewStatus);
-  const { loading: notificationsLoading, notifications } = useParticipantNotifications();
-  const latestNotification = notifications[0] ?? null;
   const submitted = data.application?.submitted ?? false;
 
   return (
@@ -30,7 +26,7 @@ export default function ParticipantHomePage() {
       <ParticipantPageHeader
         id="participant-home-title"
         title={`Welcome back, ${data.profile.displayName}`}
-        description="Your HackUTA hub for check-in, schedule, and event updates."
+        description="Your HackUTA hub for check-in, schedule, and important links."
       />
 
       <div className="participant-portal__inner">
@@ -99,44 +95,6 @@ export default function ParticipantHomePage() {
             </button>
           </div>
         ) : null}
-
-        <div className="participant-schedule__panel" aria-labelledby="notifications-heading">
-          <div className="participant-schedule__day-head">
-            <h2 id="notifications-heading">Notifications</h2>
-            <Link to="/dashboard/notifications" className="participant-home__head-link">
-              See all
-            </Link>
-          </div>
-          <ul className="participant-profile__rows" aria-label="Latest notification">
-            <li className="participant-profile-row participant-profile-row--flush">
-              {notificationsLoading ? (
-                <p className="participant-profile-row__meta" role="status">
-                  Loading notifications…
-                </p>
-              ) : latestNotification ? (
-                <Link to="/dashboard/notifications" className="participant-profile-row__link">
-                  <div className="participant-profile-row__body">
-                    <p className="participant-profile-row__title">{latestNotification.title}</p>
-                    <p className="participant-profile-row__meta">{latestNotification.message}</p>
-                    <p className="participant-profile-row__meta">
-                      <time dateTime={new Date(latestNotification.publishedAt).toISOString()}>
-                        {formatNotificationTimestamp(latestNotification.publishedAt)}
-                      </time>
-                    </p>
-                  </div>
-                  <span className="participant-profile-row__chevron" aria-hidden="true">
-                    ›
-                  </span>
-                </Link>
-              ) : (
-                <div className="participant-profile-row__body">
-                  <p className="participant-profile-row__title">No notifications yet</p>
-                  <p className="participant-profile-row__meta">Updates from the HackUTA team will show up here.</p>
-                </div>
-              )}
-            </li>
-          </ul>
-        </div>
 
         <div className="participant-schedule__panel participant-home__links-panel" aria-labelledby="links-heading">
           <div className="participant-schedule__day-head">
