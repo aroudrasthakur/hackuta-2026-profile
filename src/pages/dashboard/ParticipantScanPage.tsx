@@ -1,6 +1,8 @@
+import { useRef } from "react";
 import QRCode from "react-qr-code";
 import { Link, useOutletContext } from "react-router-dom";
 import { AddToAppleWalletButton } from "../../components/participant/AddToAppleWalletButton";
+import { DownloadQrImageButton } from "../../components/participant/DownloadQrImageButton";
 import type { ParticipantDashboard } from "../../convex/api";
 import { formatCheckInLong } from "./dashboardUtils";
 
@@ -59,6 +61,7 @@ function CheckedInConfirmation({ checkedInAt }: { checkedInAt: number }) {
 export default function ParticipantScanPage() {
   const data = useOutletContext<ParticipantDashboard>();
   const participant = data.participant;
+  const qrFrameRef = useRef<HTMLDivElement>(null);
 
   if (participant?.status === "checked_in") {
     return (
@@ -79,7 +82,7 @@ export default function ParticipantScanPage() {
           <p className="participant-page-lead participant-scan__lead">
             Show this code to a volunteer at the HackUTA check-in desk to pick up your badge.
           </p>
-          <div className="participant-scan__frame">
+          <div className="participant-scan__frame" ref={qrFrameRef}>
             <QRCode
               value={participant.qrCodeToken}
               size={300}
@@ -88,7 +91,19 @@ export default function ParticipantScanPage() {
               aria-label="Participant check-in QR code"
             />
           </div>
-          <AddToAppleWalletButton />
+          <div className="participant-scan__actions">
+            <AddToAppleWalletButton />
+            <DownloadQrImageButton
+              sourceRef={qrFrameRef}
+              details={{
+                displayName: data.profile.displayName,
+                email: data.profile.email,
+                hackathonName: data.hackathon.name,
+                startsAt: data.hackathon.startsAt,
+                endsAt: data.hackathon.endsAt,
+              }}
+            />
+          </div>
           <p className="participant-scan__hint">
             This code is only for your first check-in. After that, your physical badge is your event pass. Keep it
             private.

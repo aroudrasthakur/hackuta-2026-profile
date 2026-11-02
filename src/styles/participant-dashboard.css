@@ -637,10 +637,11 @@
 
   .participant-scan--fullpage {
     flex: 1;
-    min-height: 100%;
-    justify-content: center;
-    padding: clamp(1.5rem, 5vh, 3rem) clamp(1rem, 4vw, 2rem);
-    gap: 1.15rem;
+    min-height: 0;
+    justify-content: safe center;
+    padding: clamp(1.25rem, 4vh, 3rem) clamp(1rem, 4vw, 2rem);
+    gap: clamp(0.65rem, 1.6vh, 1.15rem);
+    overflow-y: auto;
   }
 
   .participant-scan .participant-dashboard__badge {
@@ -672,12 +673,89 @@
     height: 300px;
   }
 
+  .participant-scan__actions {
+    --pass-badge-height: 3.5rem;
+    --pass-badge-width: calc(var(--pass-badge-height) * 110.739 / 35.016);
+    --pass-badge-radius: calc(var(--pass-badge-height) * 8.443 / 35.016);
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    margin-top: 0.25rem;
+  }
+
   .participant-wallet {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
-    margin-top: 0.25rem;
+  }
+
+  .participant-qr-download__button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    flex: 0 0 var(--pass-badge-width);
+    width: var(--pass-badge-width);
+    min-width: var(--pass-badge-width);
+    max-width: var(--pass-badge-width);
+    height: var(--pass-badge-height);
+    min-height: var(--pass-badge-height);
+    max-height: var(--pass-badge-height);
+    padding: 0 0.65rem;
+    border: 0;
+    border-radius: var(--pass-badge-radius);
+    background: #000;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans);
+    line-height: 1;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .participant-qr-download__icon {
+    position: absolute;
+    top: 50%;
+    left: 0.65rem;
+    flex-shrink: 0;
+    transform: translateY(-50%);
+  }
+
+  .participant-qr-download__copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  .participant-qr-download__kicker {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: rgb(255 255 255 / 0.88);
+  }
+
+  .participant-qr-download__label {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .participant-qr-download__button:focus-visible,
+  .participant-wallet__button:focus-visible {
+    outline: 2px solid var(--color-ocean);
+    outline-offset: 3px;
+    border-radius: var(--pass-badge-radius);
+  }
+
+  .participant-qr-download__button:disabled,
+  .participant-wallet__button:disabled {
+    cursor: wait;
   }
 
   /* Official Apple badge: no custom chrome, shadows, dimming, or animation. */
@@ -685,26 +763,23 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.35rem;
+    padding: 0;
     border: 0;
     background: transparent;
     cursor: pointer;
-  }
-
-  .participant-wallet__button:focus-visible {
-    outline: 2px solid var(--color-ocean);
-    outline-offset: 3px;
-    border-radius: 0.4rem;
-  }
-
-  .participant-wallet__button:disabled {
-    cursor: wait;
+    border-radius: var(--pass-badge-radius);
   }
 
   .participant-wallet__badge {
     display: block;
-    width: auto;
-    height: 3.5rem;
+    flex: 0 0 auto;
+    width: var(--pass-badge-width);
+    min-width: var(--pass-badge-width);
+    max-width: var(--pass-badge-width);
+    height: var(--pass-badge-height);
+    min-height: var(--pass-badge-height);
+    max-height: var(--pass-badge-height);
+    object-fit: fill;
   }
 
   .participant-wallet__status {
