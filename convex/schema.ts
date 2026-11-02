@@ -123,6 +123,8 @@ export default defineSchema({
     active: v.boolean(),
     /** When a participant is promoted to volunteer staff. */
     participantId: v.optional(v.id("participants")),
+    /** On-site attendee row after check-in; used for self-scan. */
+    checkedInId: v.optional(v.id("checkedIn")),
     /** Missing means denied; volunteers need explicit `true` to scan check-in. */
     canCheckIn: v.optional(v.boolean()),
     /** Missing means denied; volunteers need explicit `true` to scan food. */
@@ -136,7 +138,8 @@ export default defineSchema({
   })
     .index("by_email", ["email"])
     .index("by_role", ["role"])
-    .index("by_participant", ["participantId"]),
+    .index("by_participant", ["participantId"])
+    .index("by_checkedIn", ["checkedInId"]),
 
   applicationReviewLogs: defineTable({
     applicationId: v.id("applications"),
@@ -152,37 +155,48 @@ export default defineSchema({
    * Accepted applicants — one row per accepted application, created only after acceptance.
    * Profile data stays on `applications`; this row reuses the applicant's existing `users` account.
    * `foodRestriction` is copied from the linked application at acceptance (dietary + allergy fields).
+   * After door check-in, `checkedInAt` is set and the on-site record lives in `checkedIn`.
    */
   participants: defineTable({
     applicationId: v.id("applications"),
     authUserId: v.id("users"),
     acceptedAt: v.number(),
     acceptedBy: v.id("admins"),
-    /**
-     * The one active scan identity, looked up through `by_qr_token`. Holds the
-     * registration token until check-in assigns a badge, then the badge value.
-     */
+    /** Registration QR. Never replaced by a badge; post-check-in scans use `checkedIn`. */
     qrCodeToken: v.string(),
-    /** Registration token kept for history after a badge replaces it. Never scannable. */
-    registrationQrCodeToken: v.optional(v.string()),
-    /** Preprinted badge value; equals `qrCodeToken` while assigned. */
+    foodRestriction: v.optional(v.string()),
+    checkedInAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_application", ["applicationId"])
+    .index("by_auth_user", ["authUserId"])
+    .index("by_qr_token", ["qrCodeToken"]),
+
+  /**
+   * On-site attendee created at door check-in. Owns badge QR, points, and
+   * post-check-in scan identity. One row per checked-in participant.
+   */
+  checkedIn: defineTable({
+    participantId: v.id("participants"),
+    applicationId: v.id("applications"),
+    authUserId: v.id("users"),
+    acceptedAt: v.number(),
+    acceptedBy: v.id("admins"),
+    foodRestriction: v.optional(v.string()),
+    checkedInAt: v.number(),
+    checkedInBy: v.id("admins"),
+    qrCodeToken: v.string(),
+    registrationQrCodeToken: v.string(),
     badgeQrCodeToken: v.optional(v.string()),
     badgeAssignedAt: v.optional(v.number()),
     badgeAssignedBy: v.optional(v.id("admins")),
-    foodRestriction: v.optional(v.string()),
-    checkedInAt: v.optional(v.number()),
-    /** Legacy single-use food timestamp; preserved when meal redemptions replace food check-in. */
-    foodCheckedInAt: v.optional(v.number()),
-    /** Cached balance; optional until backfill, then required in a later deploy. */
-    points: v.optional(v.number()),
-    /**
-     * When the current `points` total was reached. Ranking metadata only; never
-     * returned on participant APIs. Unset while the balance is 0.
-     */
+    points: v.number(),
     pointsReachedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index("by_participant", ["participantId"])
     .index("by_application", ["applicationId"])
     .index("by_auth_user", ["authUserId"])
     .index("by_qr_token", ["qrCodeToken"])
@@ -196,7 +210,7 @@ export default defineSchema({
    */
   retiredBadgeTokens: defineTable({
     tokenHash: v.string(),
-    participantId: v.id("participants"),
+    checkedInId: v.id("checkedIn"),
     retiredBy: v.id("admins"),
     retiredAt: v.number(),
   }).index("by_token_hash", ["tokenHash"]),
@@ -224,21 +238,21 @@ export default defineSchema({
     .index("by_startsAt", ["startsAt"]),
 
   /**
-   * Authoritative meal collection history, independent of legacy foodCheckedInAt.
-   * The redemption mutation must check by_participant_meal and insert atomically;
+   * Authoritative meal collection history for checked-in attendees.
+   * The redemption mutation must check by_checkedIn_meal and insert atomically;
    * indexes do not enforce uniqueness. Duplicate scans must preserve redeemedAt.
    */
   mealRedemptions: defineTable({
-    participantId: v.id("participants"),
+    checkedInId: v.id("checkedIn"),
     mealPeriodId: v.id("mealPeriods"),
     scannedBy: v.id("admins"),
     redeemedAt: v.number(),
     /** Legacy rows are counted once by the resumable served-count backfill. */
     countedInServedCount: v.optional(v.boolean()),
   })
-    .index("by_participant_meal", ["participantId", "mealPeriodId"])
+    .index("by_checkedIn_meal", ["checkedInId", "mealPeriodId"])
     .index("by_meal", ["mealPeriodId", "redeemedAt"])
-    .index("by_participant", ["participantId", "redeemedAt"]),
+    .index("by_checkedIn", ["checkedInId", "redeemedAt"]),
 
   /** Point-bearing hackathon activities volunteers may award (fixed points per event). */
   events: defineTable({
@@ -264,13 +278,13 @@ export default defineSchema({
 
   /** Authoritative record that a participant received an event's points (not the action log). */
   participantEventAwards: defineTable({
-    participantId: v.id("participants"),
+    checkedInId: v.id("checkedIn"),
     eventId: v.id("events"),
     pointsAwarded: v.number(),
     awardedBy: v.id("admins"),
     awardedAt: v.number(),
   })
-    .index("by_participant_event", ["participantId", "eventId"])
+    .index("by_checkedIn_event", ["checkedInId", "eventId"])
     .index("by_event", ["eventId"]),
 
   /**
@@ -279,7 +293,7 @@ export default defineSchema({
    */
   volunteerActionLogs: defineTable({
     actorAdminId: v.id("admins"),
-    participantId: v.id("participants"),
+    checkedInId: v.optional(v.id("checkedIn")),
     action: volunteerActionLogAction,
     eventId: v.optional(v.id("events")),
     mealPeriodId: v.optional(v.id("mealPeriods")),
@@ -292,10 +306,10 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_actor", ["actorAdminId"])
-    .index("by_participant", ["participantId"])
+    .index("by_checkedIn", ["checkedInId"])
     .index("by_createdAt", ["createdAt"])
     .index("by_actor_createdAt", ["actorAdminId", "createdAt"])
-    .index("by_participant_createdAt", ["participantId", "createdAt"])
+    .index("by_checkedIn_createdAt", ["checkedInId", "createdAt"])
     .index("by_event_createdAt", ["eventId", "createdAt"])
     .index("by_action_createdAt", ["action", "createdAt"]),
 
@@ -307,6 +321,7 @@ export default defineSchema({
     targetEventId: v.optional(v.id("events")),
     targetMealPeriodId: v.optional(v.id("mealPeriods")),
     targetParticipantId: v.optional(v.id("participants")),
+    targetCheckedInId: v.optional(v.id("checkedIn")),
     targetShopItemId: v.optional(v.id("shopItems")),
     targetFlashSaleId: v.optional(v.id("shopFlashSales")),
     targetNotificationId: v.optional(v.id("participantNotifications")),
@@ -380,7 +395,7 @@ export default defineSchema({
    * unique by lookup inside the purchase transaction.
    */
   shopRedemptions: defineTable({
-    participantId: v.id("participants"),
+    checkedInId: v.id("checkedIn"),
     itemId: v.id("shopItems"),
     itemName: v.string(),
     quantity: v.number(),
@@ -402,7 +417,7 @@ export default defineSchema({
     })),
   })
     .index("by_idempotency_key", ["idempotencyKey"])
-    .index("by_participant_redeemedAt", ["participantId", "redeemedAt"])
+    .index("by_checkedIn_redeemedAt", ["checkedInId", "redeemedAt"])
     .index("by_item_redeemedAt", ["itemId", "redeemedAt"])
     .index("by_volunteer_redeemedAt", ["redeemedBy", "redeemedAt"])
     .index("by_redeemedAt", ["redeemedAt"]),

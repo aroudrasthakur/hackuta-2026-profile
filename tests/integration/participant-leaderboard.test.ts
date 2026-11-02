@@ -46,18 +46,37 @@ async function seedScoredParticipant(
       reviewedBy: staff.adminId,
       completedAt: Date.now(),
     });
-    return ctx.db.insert("participants", {
+    const participantId = await ctx.db.insert("participants", {
       applicationId: applicant.applicationId,
       authUserId: applicant.userId,
       acceptedAt: 1,
       acceptedBy: staff.adminId,
       qrCodeToken: nextQrToken(),
-      foodRestriction: options.dietary,
+      ...(options.dietary !== undefined ? { foodRestriction: options.dietary } : {}),
+      checkedInAt: 1,
+      createdAt: 1,
+      updatedAt: options.pointsReachedAt ?? 1,
+    });
+    await ctx.db.insert("checkedIn", {
+      participantId,
+      applicationId: applicant.applicationId,
+      authUserId: applicant.userId,
+      acceptedAt: 1,
+      acceptedBy: staff.adminId,
+      ...(options.dietary !== undefined ? { foodRestriction: options.dietary } : {}),
+      checkedInAt: 1,
+      checkedInBy: staff.adminId,
+      qrCodeToken: nextQrToken(),
+      registrationQrCodeToken: nextQrToken(),
+      badgeQrCodeToken: `HACKUTA-BADGE-${qrSerial.toString().padStart(4, "0")}`,
+      badgeAssignedAt: 1,
+      badgeAssignedBy: staff.adminId,
       points: options.points,
       ...(options.pointsReachedAt !== undefined ? { pointsReachedAt: options.pointsReachedAt } : {}),
       createdAt: 1,
       updatedAt: options.pointsReachedAt ?? 1,
     });
+    return participantId;
   });
   return { ...applicant, participantId, adminId: staff.adminId, sessionToken: staff.sessionToken };
 }
@@ -217,25 +236,32 @@ describe("points leaderboard query", () => {
       const participant = await ctx.db.get(viewer.participantId);
       const event = await ctx.db.get(setup.eventId);
       if (!participant || !event) throw new Error("missing rows");
+      const checkedIn = await ctx.db
+        .query("checkedIn")
+        .withIndex("by_participant", (q) => q.eq("participantId", viewer.participantId))
+        .unique();
+      if (!checkedIn) throw new Error("missing checkedIn");
       const first = await applyEventAward(ctx, {
         actorAdminId: viewer.adminId,
         participant,
+        checkedIn,
         event,
         now: 500,
       });
       expect(first.status).toBe("success");
-      const after = await ctx.db.get(viewer.participantId);
+      const after = await ctx.db.get(checkedIn._id);
       expect(after?.points).toBe(15);
       expect(after?.pointsReachedAt).toBe(500);
 
       const repeat = await applyEventAward(ctx, {
         actorAdminId: viewer.adminId,
-        participant: after!,
+        participant,
+        checkedIn: after!,
         event,
         now: 900,
       });
       expect(repeat.status).toBe("already_awarded");
-      const unchanged = await ctx.db.get(viewer.participantId);
+      const unchanged = await ctx.db.get(checkedIn._id);
       expect(unchanged?.pointsReachedAt).toBe(500);
     });
   });
@@ -258,7 +284,13 @@ describe("points leaderboard query", () => {
     });
     expect(result).toMatchObject({ changed: false, pointsDelta: 0, newPoints: 22 });
 
-    const after = await t.run((ctx) => ctx.db.get(viewer.participantId));
+    const after = await t.run(async (ctx) => {
+      const checkedIn = await ctx.db
+        .query("checkedIn")
+        .withIndex("by_participant", (q) => q.eq("participantId", viewer.participantId))
+        .unique();
+      return checkedIn;
+    });
     expect(after?.pointsReachedAt).toBe(70);
   });
 });

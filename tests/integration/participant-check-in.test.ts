@@ -1,6 +1,6 @@
 import { makeFunctionReference } from "convex/server";
 import { describe, expect, it } from "vitest";
-import { getMyParticipantDashboardRef } from "../../src/convex/api";
+import { getMyParticipantDashboardRef, getMyPointsLeaderboardRef } from "../../src/convex/api";
 import { createConvexTest, type ConvexTestInstance } from "../helpers/convexTestContext";
 import { seedApplicant, seedStaff } from "../helpers/reviewTestKit";
 import { insertStaffSession } from "../helpers/staffTestFixtures";
@@ -11,6 +11,12 @@ const checkInWithBadgeRef = makeFunctionReference<
   { sessionToken: string; registrationQrCodeToken: string; badgeQrCodeToken: string },
   { status: string; checkedInAt?: number }
 >("admin/badgeCheckIn:checkInWithBadge");
+
+const listShopRef = makeFunctionReference<
+  "query",
+  { nowBucket?: number },
+  { points: number | null } | null
+>("admin/participantShop:listShop");
 
 async function seedAcceptedParticipant(t: ConvexTestInstance, email: string, qrCodeToken: string) {
   const applicant = await seedApplicant(t, { email, submitted: true });
@@ -84,6 +90,7 @@ describe("participant dashboard after volunteer check-in", () => {
     const t = createConvexTest();
     const asParticipant = await seedAcceptedParticipant(t, "scanned@example.com", TOKEN_A);
     const sessionToken = await seedVolunteerSession(t, "f".repeat(64), true);
+    expect((await asParticipant.query(listShopRef, {}))?.points).toBeNull();
 
     const result = await t.mutation(checkInWithBadgeRef, checkIn(sessionToken, TOKEN_A, BADGE_A));
     expect(result.status).toBe("success");
@@ -96,6 +103,28 @@ describe("participant dashboard after volunteer check-in", () => {
     });
     expect(dashboard?.participant && "qrCodeToken" in dashboard.participant).toBe(false);
     expect(JSON.stringify(dashboard)).not.toMatch(new RegExp(`${TOKEN_A}|${BADGE_A}`));
+
+    const shop = await asParticipant.query(listShopRef, {});
+    expect(shop?.points).toBe(0);
+    const board = await asParticipant.query(getMyPointsLeaderboardRef, {});
+    expect(board).toEqual({ entries: [], you: { rank: null, points: 0 } });
+    expect(await t.run(async (ctx) => {
+      const participant = await ctx.db.query("participants").first();
+      const attendee = await ctx.db.query("checkedIn")
+        .withIndex("by_participant", (q) => q.eq("participantId", participant!._id))
+        .unique();
+      return {
+        participantCheckedInAt: participant?.checkedInAt,
+        attendeeCheckedInAt: attendee?.checkedInAt,
+        attendeePoints: attendee?.points,
+        attendeeBadge: attendee?.badgeQrCodeToken,
+      };
+    })).toEqual({
+      participantCheckedInAt: result.checkedInAt,
+      attendeeCheckedInAt: result.checkedInAt,
+      attendeePoints: 0,
+      attendeeBadge: BADGE_A,
+    });
   });
 
   it("stays checked in after a repeat scan", async () => {

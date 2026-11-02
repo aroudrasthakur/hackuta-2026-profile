@@ -20,9 +20,10 @@ import {
   SHOP_MAX_QUANTITY,
 } from "../../shared/admin/shopRules";
 import { nameLookups } from "./adminQueryHelpers";
+import { checkedInForParticipant } from "./checkedInLookup";
 import { isOwnParticipant } from "./participantQr";
 import { computeLedgerPoints, isParticipantEligible } from "./pointsLedger";
-import { participantBalance, purchaseReceipt, recordPurchase } from "./shopLedger";
+import { checkedInBalance, purchaseReceipt, recordPurchase } from "./shopLedger";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
 import { requireVolunteerCapability, sessionTokenArgs } from "./staffAuth";
 import { badgeHolderForScan } from "./volunteerScan";
@@ -33,14 +34,17 @@ export const MAX_CATALOG_ITEMS = 200;
 
 type ShopItemDoc = DocumentByName<DataModel, "shopItems">;
 type ParticipantDoc = DocumentByName<DataModel, "participants">;
+type QueryOrMutationCtx = QueryCtx | MutationCtx;
 
 function requireShopVolunteer(ctx: QueryCtx | MutationCtx, sessionToken: string) {
   return requireVolunteerCapability(ctx, sessionToken, "canRedeemShop");
 }
 
-/** Read-only balance for queries; mutations use `participantBalance`. */
-async function displayBalance(ctx: QueryCtx, participant: ParticipantDoc) {
-  return participant.points ?? await computeLedgerPoints(ctx, participant._id);
+/** Read-only balance for queries; mutations use `checkedInBalance`. */
+async function displayBalance(ctx: QueryOrMutationCtx, participant: ParticipantDoc) {
+  const checkedIn = await checkedInForParticipant(ctx, participant._id);
+  if (!checkedIn) return 0;
+  return checkedIn.points ?? await computeLedgerPoints(ctx, checkedIn._id);
 }
 
 async function catalogItem(ctx: QueryCtx, item: ShopItemDoc, now: number) {
@@ -108,7 +112,10 @@ export const previewShopPurchase = query({
     if (!participant || !await isParticipantEligible(ctx, participant)) {
       return { status: "participant_not_eligible" as const };
     }
-    if (await isOwnParticipant(ctx, volunteer, participant)) return { status: "self_purchase_denied" as const };
+    const previewHolder = await checkedInForParticipant(ctx, participantId);
+    if (await isOwnParticipant(ctx, volunteer, participant, previewHolder?._id)) {
+      return { status: "self_purchase_denied" as const };
+    }
     const item = await ctx.db.get(itemId);
     if (item?.status !== "active") return { status: "item_unavailable" as const };
     if (!isValidPurchaseQuantity(quantity)) return { status: "invalid_quantity" as const, maxQuantity: SHOP_MAX_QUANTITY };
@@ -162,21 +169,24 @@ export const purchaseShopItem = mutation({
     if (!isValidIdempotencyKey(idempotencyKey)) return { status: "invalid_request" as const };
     const found = await badgeHolderForScan(ctx, volunteer._id, now, qrCodeToken);
     if ("failure" in found) return found.failure;
-    const { participant } = found;
+    const { participant, checkedIn } = found;
 
     const existing = await ctx.db.query("shopRedemptions")
       .withIndex("by_idempotency_key", (q) => q.eq("idempotencyKey", idempotencyKey))
       .first();
     if (existing) {
-      const same = existing.participantId === participant._id && existing.itemId === itemId &&
-        existing.quantity === quantity && existing.redeemedBy === volunteer._id;
+      const same = existing.checkedInId === checkedIn._id
+        && existing.itemId === itemId
+        && existing.quantity === quantity && existing.redeemedBy === volunteer._id;
       return same
         ? { status: "duplicate" as const, receipt: purchaseReceipt(existing) }
         : { status: "invalid_request" as const };
     }
 
     if (!await isParticipantEligible(ctx, participant)) return { status: "participant_not_eligible" as const };
-    if (await isOwnParticipant(ctx, volunteer, participant)) return { status: "self_purchase_denied" as const };
+    if (await isOwnParticipant(ctx, volunteer, participant, checkedIn._id)) {
+      return { status: "self_purchase_denied" as const };
+    }
     const item = await ctx.db.get(itemId);
     if (item?.status !== "active") return { status: "item_unavailable" as const };
     if (!isValidPurchaseQuantity(quantity)) return { status: "invalid_quantity" as const, maxQuantity: SHOP_MAX_QUANTITY };
@@ -185,14 +195,14 @@ export const purchaseShopItem = mutation({
     if (price.unitPointsCost !== expectedUnitPointsCost) {
       return { status: "price_changed" as const, unitPointsCost: price.unitPointsCost, totalPointsCost: price.unitPointsCost * quantity };
     }
-    const points = await participantBalance(ctx, participant);
+    const points = await checkedInBalance(ctx, checkedIn);
     const totalPointsCost = price.unitPointsCost * quantity;
     if (points < totalPointsCost) {
       return { status: "insufficient_points" as const, points, totalPointsCost };
     }
 
     const receipt = await recordPurchase(ctx, {
-      actorAdminId: volunteer._id, participant, item, quantity, price, idempotencyKey, now,
+      actorAdminId: volunteer._id, participant, checkedIn, item, quantity, price, idempotencyKey, now,
     });
     return { status: "success" as const, receipt };
   },

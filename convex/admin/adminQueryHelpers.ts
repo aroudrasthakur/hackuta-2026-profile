@@ -21,13 +21,25 @@ export function nameLookups(ctx: QueryCtx | MutationCtx) {
       if (!events.has(eventId)) events.set(eventId, (await ctx.db.get(eventId))?.name ?? UNKNOWN_EVENT);
       return events.get(eventId)!;
     },
-    async participantName(participantId: GenericId<"participants">) {
+    async participantName(participantId: GenericId<"participants"> | undefined) {
+      if (!participantId) return UNNAMED_PARTICIPANT;
       if (!participants.has(participantId)) {
         const participant = await ctx.db.get(participantId);
         const application = participant ? await ctx.db.get(participant.applicationId) : null;
         participants.set(participantId, (application && formatApplicantFullName(application)) ?? UNNAMED_PARTICIPANT);
       }
       return participants.get(participantId)!;
+    },
+    async holderName(holder: {
+      participantId?: GenericId<"participants">;
+      checkedInId?: GenericId<"checkedIn">;
+    }) {
+      if (holder.participantId) return this.participantName(holder.participantId);
+      if (holder.checkedInId) {
+        const row = await ctx.db.get(holder.checkedInId);
+        return this.participantName(row?.participantId);
+      }
+      return UNNAMED_PARTICIPANT;
     },
   };
 }

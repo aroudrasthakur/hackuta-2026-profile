@@ -138,7 +138,7 @@ export const listMealRedemptions = query({
     const names = nameLookups(ctx);
     const page = await Promise.all(result.page.map(async (row) => ({
       redemptionId: row._id,
-      participantName: await names.participantName(row.participantId),
+      participantName: await names.holderName(row),
       scannedByName: await names.staffName(row.scannedBy),
       redeemedAt: row.redeemedAt,
     })));

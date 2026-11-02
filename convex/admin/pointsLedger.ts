@@ -1,5 +1,5 @@
 /**
- * Participant points ledger — **internal helpers only** (not Convex entry points).
+ * Checked-in attendee points ledger — **internal helpers only** (not Convex entry points).
  *
  * These functions trust their caller for authorization. They do **not** replace
  * `requireVolunteerAccess`, `requireVolunteerCapability`, or
@@ -14,11 +14,12 @@ import {
   assertPointBalance,
   normalizeAdjustmentReason,
 } from "../../shared/admin/volunteerRules";
+import { historyRefs, requireCheckedInForParticipant, type CheckedInDoc } from "./checkedInLookup";
 
 type ParticipantId = GenericId<"participants">;
+type CheckedInId = GenericId<"checkedIn">;
 type EventId = GenericId<"events">;
 type AdminId = GenericId<"admins">;
-type ParticipantDoc = DocumentByName<DataModel, "participants">;
 type EventDoc = DocumentByName<DataModel, "events">;
 
 /** Log actions whose `pointsDelta` counts toward the balance. Event awards count from their own table. */
@@ -81,11 +82,12 @@ export async function awardEventPoints(
     now: number;
   },
 ) {
-  const participant = await requireEligibleParticipant(ctx, args.participantId);
+  await requireEligibleParticipant(ctx, args.participantId);
+  const checkedIn = await requireCheckedInForParticipant(ctx, args.participantId);
   const event = await requireStoredEvent(ctx, args.eventId);
   const result = await applyEventAward(ctx, {
     actorAdminId: args.actorAdminId,
-    participant,
+    checkedIn,
     event,
     now: args.now,
   });
@@ -97,57 +99,55 @@ export async function awardEventPoints(
 }
 
 /**
- * Award core for a participant and event the caller has already loaded and
- * checked. **Not an auth boundary.** Returns `already_awarded` instead of
+ * Award core for a checked-in attendee and event the caller has already loaded
+ * and checked. **Not an auth boundary.** Returns `already_awarded` instead of
  * throwing so scan mutations keep their rate-limit rows.
  *
  * The amount always comes from the stored event. The award lookup and all
  * writes run in the caller's transaction: if two scans race, Convex retries
  * the loser, which then sees the first award and returns `already_awarded`.
- * The `by_participant_event` index does not enforce uniqueness by itself.
  */
 export async function applyEventAward(
   ctx: MutationCtx,
   args: {
     actorAdminId: AdminId;
-    participant: ParticipantDoc;
+    checkedIn: CheckedInDoc;
     event: EventDoc;
     now: number;
   },
 ) {
-  const { participant, event } = args;
+  const { checkedIn, event } = args;
   if (!Number.isSafeInteger(event.pointsAwarded) || event.pointsAwarded <= 0) {
     throw adminError("INVALID_EVENT");
   }
 
   const existing = await ctx.db
     .query("participantEventAwards")
-    .withIndex("by_participant_event", (q) =>
-      q.eq("participantId", participant._id).eq("eventId", event._id),
+    .withIndex("by_checkedIn_event", (q) =>
+      q.eq("checkedInId", checkedIn._id).eq("eventId", event._id),
     )
     .first();
   if (existing) {
     return { status: "already_awarded" as const };
   }
 
-  // Balance is optional until backfill; fall back to the ledger, not zero.
   const previousPoints = assertPointBalance(
-    participant.points ?? await computeLedgerPoints(ctx, participant._id),
+    checkedIn.points ?? await computeLedgerPoints(ctx, checkedIn._id),
   );
   const pointsAwarded = event.pointsAwarded;
   const newPoints = assertPointBalance(previousPoints + pointsAwarded);
 
   await ctx.db.insert("participantEventAwards", {
-    participantId: participant._id,
+    ...historyRefs(checkedIn._id),
     eventId: event._id,
     pointsAwarded,
     awardedBy: args.actorAdminId,
     awardedAt: args.now,
   });
-  await ctx.db.patch(participant._id, pointBalancePatch(previousPoints, newPoints, args.now));
+  await ctx.db.patch(checkedIn._id, pointBalancePatch(previousPoints, newPoints, args.now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
-    participantId: participant._id,
+    ...historyRefs(checkedIn._id),
     action: "point_scan",
     eventId: event._id,
     pointsDelta: pointsAwarded,
@@ -195,17 +195,18 @@ export async function adjustPoints(
   if (!participant) {
     throw adminError("PARTICIPANT_NOT_FOUND");
   }
+  const checkedIn = await requireCheckedInForParticipant(ctx, args.participantId);
 
   const delta = assertAdjustmentDelta(args.delta);
   const reason = normalizeAdjustmentReason(args.reason);
-  const previousPoints = assertPointBalance(participant.points ?? 0);
+  const previousPoints = assertPointBalance(checkedIn.points ?? 0);
   const newPoints = assertPointBalance(previousPoints + delta);
   const now = Date.now();
 
-  await ctx.db.patch(args.participantId, pointBalancePatch(previousPoints, newPoints, now));
+  await ctx.db.patch(checkedIn._id, pointBalancePatch(previousPoints, newPoints, now));
   await ctx.db.insert("volunteerActionLogs", {
     actorAdminId: args.actorAdminId,
-    participantId: args.participantId,
+    ...historyRefs(checkedIn._id),
     action: "admin_adjust",
     pointsDelta: delta,
     previousPoints,
@@ -221,14 +222,17 @@ export async function adjustPoints(
  * Awards plus signed `admin_adjust`, `shop_purchase`, and `shop_refund` deltas.
  * `point_scan` logs are not added again.
  */
-export async function computeLedgerPoints(ctx: QueryCtx | MutationCtx, participantId: ParticipantId) {
+export async function computeLedgerPoints(
+  ctx: QueryCtx | MutationCtx,
+  checkedInId: CheckedInId,
+) {
   const awards = await ctx.db
     .query("participantEventAwards")
-    .withIndex("by_participant_event", (q) => q.eq("participantId", participantId))
+    .withIndex("by_checkedIn_event", (q) => q.eq("checkedInId", checkedInId))
     .collect();
   const logs = await ctx.db
     .query("volunteerActionLogs")
-    .withIndex("by_participant", (q) => q.eq("participantId", participantId))
+    .withIndex("by_checkedIn", (q) => q.eq("checkedInId", checkedInId))
     .collect();
 
   let total = 0;
