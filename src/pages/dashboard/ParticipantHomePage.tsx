@@ -9,6 +9,7 @@ import type { ParticipantDashboard } from "../../convex/api";
 import { ImportantLinksGrid } from "../../components/participant/ImportantLinksGrid";
 import { REGISTER_URL } from "../../constants/site";
 import { statusBannerCopy, statusLabel } from "./dashboardUtils";
+import { usePointsLeaderboard } from "./usePointsLeaderboard";
 
 const HOME_TABS = [
   { to: "/dashboard", end: true, label: "Home", icon: NavHomeIcon },
@@ -18,8 +19,17 @@ const HOME_TABS = [
 
 export default function ParticipantHomePage() {
   const data = useOutletContext<ParticipantDashboard>();
+  const { loading: pointsLoading, data: pointsData } = usePointsLeaderboard();
   const status = statusLabel(data.reviewStatus);
   const submitted = data.application?.submitted ?? false;
+  const dietaryRows = data.submittedApplication?.sections
+    .flatMap((section) => section.rows)
+    .filter((row) => ["Dietary restrictions", "Allergy details", "Other dietary restrictions"].includes(row.label));
+  const dietaryRestrictions = dietaryRows
+    ?.filter((row) => row.label !== "Allergy details")
+    .map((row) => row.value)
+    .join(", ");
+  const allergyDetails = dietaryRows?.find((row) => row.label === "Allergy details")?.value;
 
   return (
     <section className="participant-home" aria-labelledby="participant-home-title">
@@ -27,6 +37,25 @@ export default function ParticipantHomePage() {
         id="participant-home-title"
         title={`Welcome back, ${data.profile.displayName}`}
         description="Your HackUTA hub for check-in, schedule, and important links."
+        actions={
+          <Link
+            to="/dashboard/leaderboard"
+            className="participant-home__points"
+            aria-label={
+              pointsLoading
+                ? "Loading your points balance"
+                : pointsData
+                  ? `Your points balance: ${pointsData.you.points} Points`
+                  : "Your points balance is unavailable"
+            }
+          >
+            {pointsLoading
+              ? "Loading points…"
+              : pointsData
+                ? `${pointsData.you.points.toLocaleString("en-US")} Points`
+                : "Points unavailable"}
+          </Link>
+        }
       />
 
       <div className="participant-portal__inner">
@@ -95,6 +124,28 @@ export default function ParticipantHomePage() {
             </button>
           </div>
         ) : null}
+
+        <section className="participant-schedule__panel" aria-labelledby="dietary-restrictions-heading">
+          <div className="participant-schedule__day-head">
+            <h2 id="dietary-restrictions-heading">Dietary Restrictions</h2>
+          </div>
+          {data.submittedApplication === undefined ? (
+            <p className="participant-home__dietary-empty">Dietary information is unavailable.</p>
+          ) : dietaryRows?.length ? (
+            <dl className="participant-home__dietary-list">
+              <div className="participant-home__dietary-row">
+                <dt>Dietary restrictions</dt>
+                <dd>{dietaryRestrictions || "None specified"}</dd>
+              </div>
+              <div className="participant-home__dietary-row">
+                <dt>Allergy details</dt>
+                <dd>{allergyDetails || "None specified"}</dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="participant-home__dietary-empty">None specified</p>
+          )}
+        </section>
 
         <div className="participant-schedule__panel participant-home__links-panel" aria-labelledby="links-heading">
           <div className="participant-schedule__day-head">

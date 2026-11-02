@@ -17,5 +17,4 @@ export const PARTICIPANT_IMPORTANT_LINKS: ParticipantImportantLink[] = [
   { id: "devpost", label: "Devpost" },
   { id: "discord", label: "Discord", href: DISCORD_URL, external: true },
   { id: "instagram", label: "Instagram", href: "https://www.instagram.com/hack.uta/", external: true },
-  { id: "linkedin", label: "LinkedIn", href: "https://www.linkedin.com/company/hackuta", external: true },
 ];

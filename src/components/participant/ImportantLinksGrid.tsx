@@ -44,13 +44,6 @@ function linkIcon(id: string) {
           <circle cx="17.2" cy="6.8" r="1" fill="currentColor" />
         </svg>
       );
-    case "linkedin":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.75" />
-          <path d="M8 10v7M8 7.5v.5M12 17v-4.2c0-1.2.9-2.3 2.1-2.3s1.9 1 1.9 2.3V17M12 12.8V17" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-        </svg>
-      );
     default:
       return null;
   }

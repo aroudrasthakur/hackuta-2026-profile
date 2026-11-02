@@ -44,6 +44,14 @@ export function useParticipantDashboard(): {
                 { label: "Last name", value: "Test" },
               ],
             },
+            {
+              title: "Event Preferences",
+              rows: [
+                { label: "Dietary restrictions", value: "Vegetarian, Halal" },
+                { label: "Other dietary restrictions", value: "No pork" },
+                { label: "Allergy details", value: "Peanuts" },
+              ],
+            },
           ],
           resume: { status: "none", url: null, filename: null },
         },

@@ -100,10 +100,19 @@ test.describe("participant portal", () => {
     await expect(page.getByRole("heading", { name: "Application status" })).toBeVisible();
     await expect(page.getByText("Accepted", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /View submission/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Your points balance: 90 Points" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dietary Restrictions" })).toBeVisible();
+    const dietaryRows = page.locator(".participant-home__dietary-row");
+    await expect(dietaryRows).toHaveCount(2);
+    await expect(dietaryRows.nth(0)).toContainText("Dietary restrictions");
+    await expect(dietaryRows.nth(0)).toContainText("Vegetarian, Halal, No pork");
+    await expect(dietaryRows.nth(1)).toContainText("Allergy details");
+    await expect(dietaryRows.nth(1)).toContainText("Peanuts");
     await expect(page.getByRole("heading", { name: "Important links" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /LinkedIn/ })).toHaveCount(0);
     await expect(page.getByRole("main")).not.toContainText(/notification/i);
     await expect(page.getByRole("list", { name: "Latest notification" })).toHaveCount(0);
-    await expect(page.locator(".participant-home .participant-schedule__panel")).toHaveCount(2);
+    await expect(page.locator(".participant-home .participant-schedule__panel")).toHaveCount(3);
     await expect(page.getByText("Devpost")).toBeVisible();
     await expect(page.getByText("Coming soon")).toBeVisible();
     await expect(page.getByRole("link", { name: /Instagram/ })).toHaveAttribute(
@@ -140,6 +149,8 @@ test.describe("participant portal on mobile", () => {
 
   test("uses short tab labels and shows the animated checked-in card", async ({ page }) => {
     await signInToDashboard(page);
+    await expect(page.getByRole("link", { name: /Your points balance:/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dietary Restrictions" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Board", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Alerts", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
