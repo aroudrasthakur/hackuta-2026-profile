@@ -1660,6 +1660,66 @@
     color: var(--color-ocean);
   }
 
+  .participant-home__points {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.625rem 1rem;
+    border: 1.5px solid var(--color-ink);
+    background: var(--color-ink);
+    color: var(--color-clay);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+      background 0.2s var(--ease-out),
+      color 0.2s var(--ease-out);
+  }
+
+  .participant-home__points:hover {
+    background: var(--color-night);
+    border-color: var(--color-night);
+  }
+
+  .participant-home__points:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+
+  .participant-home__dietary-list {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+  }
+
+  .participant-home__dietary-row {
+    display: grid;
+    grid-template-columns: minmax(9rem, 0.4fr) minmax(0, 1fr);
+    gap: 0.5rem 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+  }
+
+  .participant-home__dietary-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .participant-home__dietary-row dt {
+    font-weight: 600;
+    color: var(--color-night);
+  }
+
+  .participant-home__dietary-row dd,
+  .participant-home__dietary-empty {
+    margin: 0;
+    color: var(--color-ocean);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
   .participant-home__cta {
     display: inline-flex;
     align-items: center;
@@ -1691,6 +1751,21 @@
   .participant-home__cta:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  @media (max-width: 480px) {
+    .participant-home .participant-page-header__actions {
+      width: 100%;
+    }
+
+    .participant-home__dietary-row {
+      grid-template-columns: 1fr;
+      gap: 0.25rem;
+    }
+
+    .participant-home__points {
+      width: 100%;
+    }
   }
 
   .participant-schedule__day-head .participant-dashboard__badge {
