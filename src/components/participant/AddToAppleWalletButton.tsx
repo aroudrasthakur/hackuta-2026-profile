@@ -67,27 +67,8 @@ function buildMockPassResponse(checkedIn: boolean): AppleWalletPassResponse {
   };
 }
 
-function AppleWalletGlyph() {
-  return (
-    <svg
-      className="participant-wallet__icon"
-      width="28"
-      height="22"
-      viewBox="0 0 28 22"
-      fill="none"
-      aria-hidden="true"
-    >
-      <rect x="0.75" y="0.75" width="26.5" height="20.5" rx="3.75" fill="#1C1C1E" stroke="#3A3A3C" strokeWidth="1.2" />
-      <rect x="3" y="3" width="22" height="5" rx="1.5" fill="#305873" />
-      <rect x="3" y="6.2" width="22" height="5" rx="1.5" fill="#E5A93C" />
-      <rect x="3" y="9.4" width="22" height="5" rx="1.5" fill="#469B72" />
-      <path
-        d="M2.2 12.2H9.6C10.5 12.2 11.2 12.7 11.7 13.4C12.3 14.3 13.1 14.8 14 14.8C14.9 14.8 15.7 14.3 16.3 13.4C16.8 12.7 17.5 12.2 18.4 12.2H25.8V18.2C25.8 19.3 24.9 20.2 23.8 20.2H4.2C3.1 20.2 2.2 19.3 2.2 18.2V12.2Z"
-        fill="#EDEAE2"
-      />
-    </svg>
-  );
-}
+/** Official US/UK RGB badge from Apple’s Add to Apple Wallet artwork pack. */
+const APPLE_WALLET_BADGE_SRC = "/images/apple/US-UK_Add_to_Apple_Wallet_RGB_101421.svg";
 
 export function AddToAppleWalletButton() {
   const mockAuth = useMockAuth();
@@ -135,14 +116,19 @@ export function AddToAppleWalletButton() {
         aria-busy={loading}
         aria-label="Add to Apple Wallet"
       >
-        <AppleWalletGlyph />
-        <span className="participant-wallet__copy">
-          <span className="participant-wallet__kicker">
-            {loading ? "Preparing pass…" : "Add to"}
-          </span>
-          <span className="participant-wallet__label">Apple Wallet</span>
-        </span>
+        <img
+          className="participant-wallet__badge"
+          src={APPLE_WALLET_BADGE_SRC}
+          alt=""
+          width={177}
+          height={56}
+        />
       </button>
+      {loading ? (
+        <p className="participant-wallet__status" role="status">
+          Preparing pass…
+        </p>
+      ) : null}
       {errorMessage ? (
         <p className="participant-wallet__error" role="alert">
           {errorMessage}
