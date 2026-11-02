@@ -147,7 +147,7 @@ async function alreadyAssigned(ctx: MutationCtx, raw: string, badgeRaw: string) 
   if (scanned.kind !== "registration_replaced") return null;
   const badge = normalizeBadgeQr(badgeRaw);
   const participant: ParticipantDoc = scanned.participant;
-  if (badge === null || participant.badgeQrCodeToken !== badge) return null;
+  if (badge === null || scanned.checkedIn.badgeQrCodeToken !== badge) return null;
   return {
     status: "already_checked_in" as const,
     participant: { name: await participantName(ctx, participant), checkedInAt: participant.checkedInAt ?? null },
@@ -173,7 +173,7 @@ export const checkInWithBadge = mutation({
     const badge = await availableBadge(ctx, scan, badgeQrCodeToken);
     if ("result" in badge) return badge.result;
 
-    await assignBadge(ctx, {
+    const checkedInId = await assignBadge(ctx, {
       participant: holder.participant,
       badge: badge.badge,
       actorAdminId: scan.volunteer._id,
@@ -182,7 +182,7 @@ export const checkInWithBadge = mutation({
     });
     await ctx.db.insert("volunteerActionLogs", {
       actorAdminId: scan.volunteer._id,
-      participantId: holder.participant._id,
+      checkedInId,
       action: "check_in",
       createdAt: scan.now,
     });

@@ -82,20 +82,18 @@ export const awardEventPoints = mutation({
 
     const found = await badgeHolderForScan(ctx, volunteer._id, scan.now, qrCodeToken);
     if ("failure" in found) return found.failure;
-    const { participant } = found;
-    if (await isOwnParticipant(ctx, volunteer, participant)) {
+    const { participant, checkedIn } = found;
+    if (await isOwnParticipant(ctx, volunteer, participant, checkedIn._id)) {
       return deny(ctx, scan, "self_scan_denied");
     }
     if (!await isParticipantEligible(ctx, participant)) {
       return { status: "participant_not_eligible" as const };
     }
-    if (participant.checkedInAt === undefined) {
-      return { status: "participant_not_checked_in" as const };
-    }
 
     const award = await applyEventAward(ctx, {
       actorAdminId: volunteer._id,
       participant,
+      checkedIn,
       event,
       now: scan.now,
     });

@@ -109,7 +109,6 @@ export async function ensureParticipantForAcceptance(
     acceptedAt: args.acceptedAt,
     acceptedBy: args.acceptedBy,
     qrCodeToken,
-    points: 0,
     ...(foodRestriction !== undefined ? { foodRestriction } : {}),
     createdAt: now,
     updatedAt: now,

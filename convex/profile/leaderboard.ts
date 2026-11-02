@@ -1,12 +1,14 @@
 /**
  * Authenticated live top-10 points leaderboard. Ranks on the server; the
  * payload is only rank, display name, points, and whether a row is the caller.
+ * Only checked-in attendees appear.
  */
 import { v } from "convex/values";
 import type { GenericId } from "convex/values";
 import { query } from "../_generated/server";
 import { formatApplicantFullName, getAuthUser } from "../lib/applications";
 import { isParticipantEligible } from "../admin/pointsLedger";
+import { checkedInForAuthUser } from "../admin/checkedInLookup";
 import {
   compareRankable,
   isPositivePoints,
@@ -47,22 +49,22 @@ export const getMyPointsLeaderboard = query({
     if (!user) return null;
 
     const withPoints = await ctx.db
-      .query("participants")
+      .query("checkedIn")
       .withIndex("by_points", (q) => q.gt("points", 0))
       .order("desc")
       .collect();
 
     const ranked: RankedRow[] = [];
-    for (const participant of withPoints) {
-      const points = participant.points;
+    for (const attendee of withPoints) {
+      const points = attendee.points;
       if (!isPositivePoints(points)) continue;
-      if (!await isParticipantEligible(ctx, participant)) continue;
+      if (!await isParticipantEligible(ctx, attendee)) continue;
       ranked.push({
-        id: participant._id,
-        authUserId: participant.authUserId,
-        applicationId: participant.applicationId,
+        id: attendee._id,
+        authUserId: attendee.authUserId,
+        applicationId: attendee.applicationId,
         points,
-        pointsReachedAt: pointsReachedAtOf(participant),
+        pointsReachedAt: pointsReachedAtOf(attendee),
       });
     }
     ranked.sort(compareRankable);
@@ -74,10 +76,7 @@ export const getMyPointsLeaderboard = query({
       names.set(row.id, (application && formatApplicantFullName(application)) || FALLBACK_NAME);
     }
 
-    const mine = await ctx.db
-      .query("participants")
-      .withIndex("by_auth_user", (q) => q.eq("authUserId", user._id))
-      .unique();
+    const mine = await checkedInForAuthUser(ctx, user._id);
     const myPoints = mine?.points ?? 0;
     const myRank =
       mine && isPositivePoints(myPoints) && (await isParticipantEligible(ctx, mine))

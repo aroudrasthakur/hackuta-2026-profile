@@ -116,17 +116,30 @@ describe("participant dashboard query", () => {
         .unique();
       if (!review) throw new Error("Expected review row from seedApplicant");
       await ctx.db.patch(review._id, { status: "accepted", reviewedBy: staff.adminId, completedAt: Date.now() });
-      await ctx.db.insert("participants", {
+      const participantId = await ctx.db.insert("participants", {
         applicationId: applicant.applicationId,
         authUserId: applicant.userId,
         acceptedAt: 1,
         acceptedBy: staff.adminId,
+        qrCodeToken: "f".repeat(64),
+        checkedInAt: 2,
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      await ctx.db.insert("checkedIn", {
+        participantId,
+        applicationId: applicant.applicationId,
+        authUserId: applicant.userId,
+        acceptedAt: 1,
+        acceptedBy: staff.adminId,
+        checkedInAt: 2,
+        checkedInBy: staff.adminId,
         qrCodeToken: "HACKUTA-BADGE-0001",
-        badgeQrCodeToken: "HACKUTA-BADGE-0001",
         registrationQrCodeToken: "f".repeat(64),
+        badgeQrCodeToken: "HACKUTA-BADGE-0001",
         badgeAssignedAt: 2,
         badgeAssignedBy: staff.adminId,
-        checkedInAt: 2,
+        points: 0,
         createdAt: 1,
         updatedAt: 2,
       });

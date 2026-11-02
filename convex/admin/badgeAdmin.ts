@@ -4,13 +4,14 @@
  * can never move a completed assignment.
  * See [VOLUNTEER_AUTHORIZATION.md](./VOLUNTEER_AUTHORIZATION.md).
  *
- * Points, meals, awards, and purchases belong to the participant id, not the
+ * Points, meals, awards, and purchases belong to the checked-in id, not the
  * QR value, so they carry over to the new badge unchanged.
  */
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { adminError, type AdminErrorCode } from "../../shared/admin/errors";
 import { BADGE_REASON_MAX_LENGTH } from "../../shared/admin/qrValues";
+import { requireCheckedInForParticipant } from "./checkedInLookup";
 import { assignBadge, checkBadgeAvailable, type BadgeConflict } from "./participantQr";
 import { requireEligibleParticipant } from "./pointsLedger";
 import { requireAdminRole, sessionTokenArgs } from "./staffAuth";
@@ -50,19 +51,19 @@ export const assignParticipantBadge = mutation({
     const actor = await requireAdminRole(ctx, sessionToken);
     const normalizedReason = normalizeBadgeReason(reason);
     const participant = await requireEligibleParticipant(ctx, participantId);
-    if (participant.checkedInAt === undefined) throw adminError("PARTICIPANT_NOT_CHECKED_IN");
-    if ((participant.badgeAssignedAt ?? null) !== expectedBadgeAssignedAt) {
+    const checkedIn = await requireCheckedInForParticipant(ctx, participantId);
+    if ((checkedIn.badgeAssignedAt ?? null) !== expectedBadgeAssignedAt) {
       throw adminError("BADGE_ASSIGNMENT_CHANGED");
     }
     const checked = await checkBadgeAvailable(ctx, badgeQrCodeToken);
     if ("conflict" in checked) throw adminError(CONFLICT_ERRORS[checked.conflict]);
 
     const now = Date.now();
-    const replaced = participant.badgeQrCodeToken !== undefined;
+    const replaced = checkedIn.badgeQrCodeToken !== undefined;
     await assignBadge(ctx, { participant, badge: checked.badge, actorAdminId: actor._id, now, checkIn: false });
     await ctx.db.insert("volunteerActionLogs", {
       actorAdminId: actor._id,
-      participantId,
+      checkedInId: checkedIn._id,
       action: replaced ? "badge_replaced" : "badge_assigned",
       reason: normalizedReason,
       createdAt: now,

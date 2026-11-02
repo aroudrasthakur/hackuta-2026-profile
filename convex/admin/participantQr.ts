@@ -1,34 +1,26 @@
 /**
- * Participant QR identity. `participants.qrCodeToken` is the only scannable
- * value: the registration token until check-in assigns a badge, then the
- * badge. Every scan workflow resolves through this module so check-in, food,
- * points, shop, and admin badge changes treat each kind of code the same way.
- *
- * Lookups read indexes inside the caller's mutation. Convex serializes
- * conflicting transactions, so a badge check followed by a write cannot let
- * two participants end up with the same badge.
- *
- * Raw QR values are never returned, logged, or stored outside `participants`;
- * retired badges keep only a SHA-256 hash.
+ * QR identity across accepted and checked-in rows.
+ * Registration tokens live on `participants`. After door check-in, the
+ * scannable badge lives on `checkedIn`.
  */
-import type { DocumentByName } from "convex/server";
 import type { GenericId } from "convex/values";
-import type { DataModel, MutationCtx, QueryCtx } from "../lib/dataModel";
+import type { MutationCtx, QueryCtx } from "../lib/dataModel";
 import { formatApplicantFullName } from "../lib/applications";
 import { normalizeEmail } from "../lib/normalizeEmail";
 import { sha256Hex } from "../lib/sha256Hex";
 import { normalizeBadgeQr, normalizeRegistrationQr, scanLookupCandidates } from "../../shared/admin/qrValues";
+import {
+  checkedInForParticipant,
+  type CheckedInDoc,
+  type ParticipantDoc,
+} from "./checkedInLookup";
 
-export type ParticipantDoc = DocumentByName<DataModel, "participants">;
+export type { CheckedInDoc, ParticipantDoc };
 
 export type ScannedQr =
-  /** Active registration token: the participant has no badge yet. */
   | { kind: "registration"; participant: ParticipantDoc }
-  /** Active badge. */
-  | { kind: "badge"; participant: ParticipantDoc }
-  /** Registration token a badge replaced. Never scannable again. */
-  | { kind: "registration_replaced"; participant: ParticipantDoc }
-  /** Badge an admin took out of service. */
+  | { kind: "badge"; participant: ParticipantDoc; checkedIn: CheckedInDoc }
+  | { kind: "registration_replaced"; participant: ParticipantDoc; checkedIn: CheckedInDoc }
   | { kind: "badge_retired" }
   | { kind: "not_found" };
 
@@ -36,28 +28,30 @@ export function hashBadgeToken(value: string) {
   return sha256Hex(value);
 }
 
-/** Display name from the linked application. */
-export async function participantName(ctx: MutationCtx, participant: Pick<ParticipantDoc, "applicationId">) {
-  const application = await ctx.db.get(participant.applicationId);
+export async function participantName(
+  ctx: MutationCtx | QueryCtx,
+  holder: Pick<ParticipantDoc, "applicationId">,
+) {
+  const application = await ctx.db.get(holder.applicationId);
   return (application && formatApplicantFullName(application)) ?? "Participant";
 }
 
 type StaffIdentity = {
   email: string;
   participantId?: GenericId<"participants">;
+  checkedInId?: GenericId<"checkedIn">;
 };
 
-/**
- * True when the scanned participant is the staff member's own record, either by
- * a promotion link or by matching registration email. Blocks self-award, self
- * purchase, and self check-in for volunteers and administrators.
- */
 export async function isOwnParticipant(
   ctx: QueryCtx | MutationCtx,
   staff: StaffIdentity,
   participant: Pick<ParticipantDoc, "_id" | "applicationId">,
+  checkedInId?: GenericId<"checkedIn">,
 ) {
   if (staff.participantId === participant._id) {
+    return true;
+  }
+  if (checkedInId && staff.checkedInId === checkedInId) {
     return true;
   }
   const application = await ctx.db.get(participant.applicationId);
@@ -67,28 +61,50 @@ export async function isOwnParticipant(
   return normalizeEmail(application.email) === normalizeEmail(staff.email);
 }
 
-/** Classifies one scanned value. Malformed input is `not_found` and is never looked up. */
 export async function resolveScannedQr(ctx: MutationCtx, raw: string): Promise<ScannedQr> {
   const candidates = scanLookupCandidates(raw);
   for (const value of candidates) {
-    const participant = await ctx.db.query("participants")
+    const participant = await ctx.db
+      .query("participants")
       .withIndex("by_qr_token", (q) => q.eq("qrCodeToken", value))
       .first();
     if (participant) {
-      return participant.badgeQrCodeToken === undefined
-        ? { kind: "registration", participant }
-        : { kind: "badge", participant };
+      const checkedIn = await checkedInForParticipant(ctx, participant._id);
+      if (checkedIn) {
+        if (checkedIn.qrCodeToken === value || checkedIn.badgeQrCodeToken === value) {
+          return { kind: "badge", participant, checkedIn };
+        }
+        return { kind: "registration_replaced", participant, checkedIn };
+      }
+      return { kind: "registration", participant };
     }
   }
   for (const value of candidates) {
-    const participant = await ctx.db.query("participants")
+    const checkedIn = await ctx.db
+      .query("checkedIn")
+      .withIndex("by_qr_token", (q) => q.eq("qrCodeToken", value))
+      .first();
+    if (checkedIn) {
+      const participant = await ctx.db.get(checkedIn.participantId);
+      if (!participant) return { kind: "not_found" };
+      return { kind: "badge", participant, checkedIn };
+    }
+  }
+  for (const value of candidates) {
+    const checkedIn = await ctx.db
+      .query("checkedIn")
       .withIndex("by_registration_qr_token", (q) => q.eq("registrationQrCodeToken", value))
       .first();
-    if (participant) return { kind: "registration_replaced", participant };
+    if (checkedIn) {
+      const participant = await ctx.db.get(checkedIn.participantId);
+      if (!participant) return { kind: "not_found" };
+      return { kind: "registration_replaced", participant, checkedIn };
+    }
   }
   for (const value of candidates) {
     const tokenHash = await hashBadgeToken(value);
-    const retired = await ctx.db.query("retiredBadgeTokens")
+    const retired = await ctx.db
+      .query("retiredBadgeTokens")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
       .first();
     if (retired) return { kind: "badge_retired" };
@@ -103,25 +119,22 @@ export type PostCheckInFailure =
   | "registration_qr_replaced"
   | "badge_retired";
 
-/**
- * Participant behind an assigned badge, for food, points, and shop scans.
- * A registration QR never resolves here, before or after check-in.
- * `countsAsFailure` marks unknown or dead codes for the scan failure limit.
- */
 export async function resolveBadgeHolder(ctx: MutationCtx, raw: string): Promise<
-  | { participant: ParticipantDoc }
+  | { participant: ParticipantDoc; checkedIn: CheckedInDoc }
   | { failure: PostCheckInFailure; countsAsFailure: boolean }
 > {
   const scanned = await resolveScannedQr(ctx, raw);
   switch (scanned.kind) {
     case "badge":
-      return { participant: scanned.participant };
+      return scanned.checkedIn.badgeQrCodeToken === undefined
+        ? { failure: "badge_not_assigned", countsAsFailure: false }
+        : { participant: scanned.participant, checkedIn: scanned.checkedIn };
     case "registration":
-      return scanned.participant.checkedInAt === undefined
-        ? { failure: "participant_not_checked_in", countsAsFailure: false }
-        : { failure: "badge_not_assigned", countsAsFailure: false };
+      return { failure: "participant_not_checked_in", countsAsFailure: false };
     case "registration_replaced":
-      return { failure: "registration_qr_replaced", countsAsFailure: true };
+      return scanned.checkedIn.badgeQrCodeToken === undefined
+        ? { failure: "badge_not_assigned", countsAsFailure: false }
+        : { failure: "registration_qr_replaced", countsAsFailure: true };
     case "badge_retired":
       return { failure: "badge_retired", countsAsFailure: true };
     case "not_found":
@@ -131,12 +144,6 @@ export async function resolveBadgeHolder(ctx: MutationCtx, raw: string): Promise
 
 export type BadgeConflict = "badge_invalid" | "badge_is_registration" | "badge_in_use" | "badge_retired";
 
-/**
- * Checks a badge value before it is assigned. Returns the exact value to
- * store, or why it cannot be used: malformed, any participant's current or
- * past registration token, assigned to anyone (including this participant),
- * or retired.
- */
 export async function checkBadgeAvailable(ctx: MutationCtx, raw: string): Promise<
   { badge: string } | { conflict: BadgeConflict }
 > {
@@ -148,12 +155,11 @@ export async function checkBadgeAvailable(ctx: MutationCtx, raw: string): Promis
   }
   if (scanned.kind === "badge") return { conflict: "badge_in_use" };
   if (scanned.kind === "badge_retired") return { conflict: "badge_retired" };
-  const assigned = await ctx.db.query("participants")
+  const assigned = await ctx.db
+    .query("checkedIn")
     .withIndex("by_badge_qr_token", (q) => q.eq("badgeQrCodeToken", badge))
     .first();
   if (assigned) return { conflict: "badge_in_use" };
-  // A badge that reads as a registration token after normalizing (for example,
-  // the same hex in capitals) is still a registration code.
   const registration = normalizeRegistrationQr(badge);
   if (registration !== null && registration !== badge) {
     const asRegistration = await resolveScannedQr(ctx, registration);
@@ -164,12 +170,6 @@ export async function checkBadgeAvailable(ctx: MutationCtx, raw: string): Promis
   return { badge };
 }
 
-/**
- * Makes `badge` the participant's only scannable value. The registration
- * token is kept once, on the first assignment; a replaced badge is retired by
- * hash so it can never be scanned or assigned again. Callers must have passed
- * `checkBadgeAvailable` in the same transaction.
- */
 export async function assignBadge(ctx: MutationCtx, args: {
   participant: ParticipantDoc;
   badge: string;
@@ -178,22 +178,56 @@ export async function assignBadge(ctx: MutationCtx, args: {
   checkIn: boolean;
 }) {
   const { participant, badge, actorAdminId, now, checkIn } = args;
-  const previousBadge = participant.badgeQrCodeToken;
-  if (previousBadge !== undefined) {
+  const existing = await checkedInForParticipant(ctx, participant._id);
+  const previousBadge = existing?.badgeQrCodeToken;
+  if (existing && previousBadge !== undefined) {
     await ctx.db.insert("retiredBadgeTokens", {
       tokenHash: await hashBadgeToken(previousBadge),
-      participantId: participant._id,
+      checkedInId: existing._id,
       retiredBy: actorAdminId,
       retiredAt: now,
     });
   }
-  await ctx.db.patch(participant._id, {
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      qrCodeToken: badge,
+      badgeQrCodeToken: badge,
+      badgeAssignedAt: now,
+      badgeAssignedBy: actorAdminId,
+      updatedAt: now,
+    });
+    if (checkIn && participant.checkedInAt === undefined) {
+      await ctx.db.patch(participant._id, { checkedInAt: now, updatedAt: now });
+    } else {
+      await ctx.db.patch(participant._id, { updatedAt: now });
+    }
+    return existing._id;
+  }
+
+  if (!checkIn && participant.checkedInAt === undefined) {
+    throw new Error("checkedIn row required before assigning a badge without check-in.");
+  }
+
+  const checkedInAt = participant.checkedInAt ?? now;
+  const checkedInId = await ctx.db.insert("checkedIn", {
+    participantId: participant._id,
+    applicationId: participant.applicationId,
+    authUserId: participant.authUserId,
+    acceptedAt: participant.acceptedAt,
+    acceptedBy: participant.acceptedBy,
+    ...(participant.foodRestriction !== undefined ? { foodRestriction: participant.foodRestriction } : {}),
+    checkedInAt,
+    checkedInBy: actorAdminId,
     qrCodeToken: badge,
+    registrationQrCodeToken: participant.qrCodeToken,
     badgeQrCodeToken: badge,
-    ...(previousBadge === undefined ? { registrationQrCodeToken: participant.qrCodeToken } : {}),
     badgeAssignedAt: now,
     badgeAssignedBy: actorAdminId,
-    ...(checkIn ? { checkedInAt: now } : {}),
+    points: 0,
+    createdAt: now,
     updatedAt: now,
   });
+  await ctx.db.patch(participant._id, { checkedInAt, updatedAt: now });
+  return checkedInId;
 }

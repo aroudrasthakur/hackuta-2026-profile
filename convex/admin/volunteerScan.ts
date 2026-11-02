@@ -20,10 +20,12 @@ import { v } from "convex/values";
 import type { GenericId } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import type { MutationCtx } from "../lib/dataModel";
+import { historyRefs } from "./checkedInLookup";
 import {
   isOwnParticipant,
   participantName,
   resolveBadgeHolder,
+  type CheckedInDoc,
   type ParticipantDoc,
   type PostCheckInFailure,
 } from "./participantQr";
@@ -48,9 +50,12 @@ export async function badgeHolderForScan(
   volunteerId: AdminDoc["_id"],
   now: number,
   raw: string,
-): Promise<{ participant: ParticipantDoc } | { failure: { status: PostCheckInFailure } }> {
+): Promise<
+  | { participant: ParticipantDoc; checkedIn: CheckedInDoc }
+  | { failure: { status: PostCheckInFailure } }
+> {
   const found = await resolveBadgeHolder(ctx, raw);
-  if ("participant" in found) return { participant: found.participant };
+  if ("participant" in found) return { participant: found.participant, checkedIn: found.checkedIn };
   if (found.countsAsFailure) await recordVolunteerScanFailure(ctx, volunteerId, now);
   return { failure: { status: found.failure } };
 }
@@ -161,30 +166,30 @@ async function prepareMealScan(ctx: MutationCtx, volunteer: AdminDoc, args: Meal
   if (!args.mealPeriodId) return { status: "meal_not_active" as const };
   const found = await badgeHolderForScan(ctx, volunteer._id, now, args.qrCodeToken);
   if ("failure" in found) return { status: found.failure.status };
-  const { participant } = found;
+  const { participant, checkedIn } = found;
   if (!await isParticipantEligible(ctx, participant)) return { status: "participant_ineligible" as const };
   const meal = await ctx.db.get(args.mealPeriodId);
   if (!meal?.active) return { status: "meal_not_active" as const };
   if (now < meal.startsAt) return { status: "meal_not_started" as const };
   if (now >= meal.endsAt) return { status: "meal_ended" as const };
   const redemption = await ctx.db.query("mealRedemptions")
-    .withIndex("by_participant_meal", (q) => q.eq("participantId", participant._id).eq("mealPeriodId", meal._id))
+    .withIndex("by_checkedIn_meal", (q) => q.eq("checkedInId", checkedIn._id).eq("mealPeriodId", meal._id))
     .first();
-  return { participant, meal, redemption, now };
+  return { participant, checkedIn, meal, redemption, now };
 }
 
 /** Internal implementation shared with the legacy preview entry point. */
 async function previewMeal(ctx: MutationCtx, volunteer: AdminDoc, args: MealScanArgs) {
   const target = await prepareMealScan(ctx, volunteer, args);
   if (target.status !== undefined) return { status: target.status };
-  const { participant, meal, redemption } = target;
+  const { participant, checkedIn, meal, redemption } = target;
   return {
     status: "ok" as const, purpose: "food_check_in" as const,
     meal: { mealPeriodId: meal._id, name: meal.name },
     participant: {
       name: await participantName(ctx, participant),
       alreadyRedeemed: redemption !== null, redeemedAt: redemption?.redeemedAt ?? null,
-      dietaryInfo: participant.foodRestriction ?? null,
+      dietaryInfo: checkedIn.foodRestriction ?? participant.foodRestriction ?? null,
     },
   };
 }
@@ -193,11 +198,12 @@ async function previewMeal(ctx: MutationCtx, volunteer: AdminDoc, args: MealScan
 export async function redeemMealForVolunteer(ctx: MutationCtx, volunteer: AdminDoc, args: MealScanArgs) {
   const target = await prepareMealScan(ctx, volunteer, args);
   if (target.status !== undefined) return { status: target.status };
-  const { participant, meal, redemption, now } = target;
+  const { participant, checkedIn, meal, redemption, now } = target;
   const selectedMeal = { mealPeriodId: meal._id, name: meal.name };
   if (redemption) return { status: "already_redeemed" as const, redeemedAt: redemption.redeemedAt, meal: selectedMeal };
   await ctx.db.insert("mealRedemptions", {
-    participantId: participant._id, mealPeriodId: meal._id, scannedBy: volunteer._id, redeemedAt: now,
+    ...historyRefs(participant._id, checkedIn._id),
+    mealPeriodId: meal._id, scannedBy: volunteer._id, redeemedAt: now,
     countedInServedCount: true,
   });
   await ctx.db.patch(meal._id, {
@@ -206,7 +212,9 @@ export async function redeemMealForVolunteer(ctx: MutationCtx, volunteer: AdminD
     ...(meal.servedCount === undefined ? { servedCountBackfillCursor: null } : {}),
   });
   await ctx.db.insert("volunteerActionLogs", {
-    actorAdminId: volunteer._id, participantId: participant._id, mealPeriodId: meal._id,
+    actorAdminId: volunteer._id,
+    ...historyRefs(participant._id, checkedIn._id),
+    mealPeriodId: meal._id,
     action: "food_check_in", createdAt: now,
   });
   return { status: "success" as const, redeemedAt: now, meal: selectedMeal };
@@ -246,12 +254,12 @@ async function resolveQr(
 
   const found = await badgeHolderForScan(ctx, volunteer._id, now, args.qrCodeToken);
   if ("failure" in found) return found.failure;
-  const { participant } = found;
+  const { participant, checkedIn } = found;
   if (!await isParticipantEligible(ctx, participant)) {
     return { status: "participant_not_eligible" as const };
   }
 
-  if (await isOwnParticipant(ctx, volunteer, participant)) {
+  if (await isOwnParticipant(ctx, volunteer, participant, checkedIn._id)) {
     return { status: event ? "self_scan_denied" as const : "self_purchase_denied" as const };
   }
 
@@ -260,8 +268,8 @@ async function resolveQr(
     const eventId = event._id;
     const award = await ctx.db
       .query("participantEventAwards")
-      .withIndex("by_participant_event", (q) =>
-        q.eq("participantId", participant._id).eq("eventId", eventId),
+      .withIndex("by_checkedIn_event", (q) =>
+        q.eq("checkedInId", checkedIn._id).eq("eventId", eventId),
       )
       .first();
     return {
@@ -278,7 +286,7 @@ async function resolveQr(
     participant: {
       participantId: participant._id,
       name,
-      points: participant.points ?? await computeLedgerPoints(ctx, participant._id),
+      points: checkedIn.points ?? await computeLedgerPoints(ctx, checkedIn._id, participant._id),
     },
   };
 }

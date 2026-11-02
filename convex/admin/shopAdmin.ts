@@ -16,6 +16,7 @@ import {
 } from "../../shared/admin/shopRules";
 import { buildStaffConfigDetails } from "../../shared/admin/volunteerRules";
 import { nameLookups } from "./adminQueryHelpers";
+import { participantIdOfHolder } from "./checkedInLookup";
 import { shopItemStatus } from "./fields";
 import { recordRefund } from "./shopLedger";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
@@ -180,8 +181,11 @@ export const listShopRedemptions = query({
     await requireAdminRole(ctx, sessionToken);
     const term = normalizeSearch(search);
     const table = ctx.db.query("shopRedemptions");
-    const indexed = participantId
-      ? table.withIndex("by_participant_redeemedAt", (q) => q.eq("participantId", participantId))
+    const attendee = participantId
+      ? await ctx.db.query("checkedIn").withIndex("by_participant", (q) => q.eq("participantId", participantId)).unique()
+      : null;
+    const indexed = attendee
+      ? table.withIndex("by_checkedIn_redeemedAt", (q) => q.eq("checkedInId", attendee._id))
       : itemId
         ? table.withIndex("by_item_redeemedAt", (q) => q.eq("itemId", itemId))
         : volunteerAdminId
@@ -195,7 +199,7 @@ export const listShopRedemptions = query({
     for (const row of result.page) {
       if (itemId && row.itemId !== itemId) continue;
       if (volunteerAdminId && row.redeemedBy !== volunteerAdminId) continue;
-      const participantName = await names.participantName(row.participantId);
+      const participantName = await names.holderName(row);
       const volunteerName = await names.staffName(row.redeemedBy);
       if (term && ![participantName, row.itemName, volunteerName].some((name) => name.toLowerCase().includes(term))) {
         continue;
@@ -209,7 +213,7 @@ export const listShopRedemptions = query({
       }
       page.push({
         redemptionId: row._id,
-        participant: { participantId: row.participantId, name: participantName },
+        participant: { participantId: await participantIdOfHolder(ctx, row), name: participantName },
         item: { itemId: row.itemId, name: row.itemName },
         quantity: row.quantity,
         unitPointsCost: row.unitPointsCost,
