@@ -1960,6 +1960,13 @@
   }
 
   /* Application submission */
+  .participant-application {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+  }
+
   .participant-application--empty {
     display: flex;
     flex-direction: column;
@@ -1969,12 +1976,12 @@
   }
 
   .participant-application__empty {
-    margin: 0 0 1rem;
+    margin: 0;
     color: var(--color-mist);
   }
 
   .participant-application__head {
-    margin-bottom: 1.25rem;
+    margin-bottom: 0;
   }
 
   .participant-application__back {
@@ -1985,7 +1992,7 @@
   }
 
   .participant-application__section {
-    margin-bottom: 1.25rem;
+    margin: 0;
     border-radius: 1rem;
     border: 1px solid rgb(26 58 82 / 0.1);
     background: #fff8ef;
@@ -1994,7 +2001,7 @@
 
   .participant-application__section-title {
     margin: 0;
-    padding: 1rem 1.15rem;
+    padding: 1.35rem 1.15rem 1.2rem;
     font-family: var(--font-display);
     font-size: 1.3125rem;
     font-weight: 400;
@@ -2011,7 +2018,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
     gap: 1rem;
-    padding: 0.85rem 1.15rem;
+    padding: 1.25rem 1.15rem;
     border-bottom: 1px solid rgb(26 58 82 / 0.1);
   }
 
@@ -2032,7 +2039,7 @@
   }
 
   .participant-submission-resume {
-    margin-top: 1rem;
+    margin-top: 0;
     padding: 1.15rem;
     border-radius: 1rem;
     border: 1px solid rgb(26 58 82 / 0.1);
