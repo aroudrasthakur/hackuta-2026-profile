@@ -11,6 +11,7 @@ import {
 import type { ApplicationDoc, MutationCtx } from "./lib/dataModel";
 import { deleteStorageIfExists } from "./lib/draftResume";
 import { assertRegistrationOpen, getHackathonName } from "./lib/eventConfig";
+import { isConfirmationEmailEnabled } from "./lib/mailConfig";
 import { requireVerifiedAuthUser } from "./lib/auth";
 import {
   applicationFormWasSubmitted,
@@ -156,13 +157,15 @@ async function upsertRegistration(
     await deleteStorageIfExists(ctx, previousResume);
   }
 
-  await ctx.scheduler.runAfter(0, sendApplicationConfirmationEmailRef, {
-    email: verifiedEmail,
-    firstName: data.firstName,
-    lastName: data.lastName,
-    submittedAt,
-    hackathonName: await getHackathonName(ctx),
-  });
+  if (await isConfirmationEmailEnabled(ctx)) {
+    await ctx.scheduler.runAfter(0, sendApplicationConfirmationEmailRef, {
+      email: verifiedEmail,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      submittedAt,
+      hackathonName: await getHackathonName(ctx),
+    });
+  }
 
   return {
     registrationId: draftApplication._id,

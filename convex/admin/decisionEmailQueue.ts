@@ -3,6 +3,7 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import type { GenericId } from "convex/values";
 import { adminError } from "../../shared/admin/errors";
 import { getHackathonName } from "../lib/eventConfig";
+import { isDecisionEmailEnabled } from "../lib/mailConfig";
 import type { MutationCtx, QueryCtx } from "../lib/dataModel";
 import { applyReleasedApplicationDecision, type ReviewDecision } from "./decisionFinalize";
 import { requireAdminRole, sessionTokenArgs } from "./staffAuth";
@@ -142,6 +143,9 @@ export const claimDecisionEmails = internalMutation({
   },
   handler: async (ctx, { sessionToken, itemIds }) => {
     await requireAdminRole(ctx, sessionToken);
+    if (!(await isDecisionEmailEnabled(ctx))) {
+      throw adminError("DECISION_EMAIL_PAUSED");
+    }
     const now = Date.now();
     const sending = await ctx.db
       .query("decisionEmailQueue")

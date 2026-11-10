@@ -12,7 +12,7 @@ HackUTA email service client and templates for registration auth and confirmatio
 | [templates.ts](templates.ts) | HTML/text bodies for OTP, password reset, and confirmation mail |
 | [sendOtpEmail.ts](sendOtpEmail.ts) | sendOtpEmail action — sign-up verification (from [auth.ts](../auth.ts)) |
 | [sendPasswordResetEmail.ts](sendPasswordResetEmail.ts) | sendPasswordResetEmail action — password reset (from [auth.ts](../auth.ts)) |
-| [sendApplicationConfirmationEmail.ts](sendApplicationConfirmationEmail.ts) | Post-submit confirmation (from [registrations.ts](../registrations.ts)) |
+| [sendApplicationConfirmationEmail.ts](sendApplicationConfirmationEmail.ts) | Post-submit confirmation (from [registrations.ts](../registrations.ts) when `mailConfig.confirmationEmail` is on) |
 | [checkEmailStatus.ts](checkEmailStatus.ts) | Internal operator action — email service delivery lookup |
 
 ## Delivery

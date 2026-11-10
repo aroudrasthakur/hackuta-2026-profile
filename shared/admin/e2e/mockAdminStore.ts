@@ -171,6 +171,7 @@ const decisionQueue = new Map<string, {
 }>();
 export type DecisionQueueScenario = "mixed" | "sending" | "empty" | "loading" | "error" | "ready" | "long-content";
 let decisionQueueScenario: DecisionQueueScenario = "ready";
+let mailConfig = { confirmationEmail: true, decisionEmail: true };
 let nextLogId = 100;
 const participantsByToken = new Map<string, ScanParticipantRecord>();
 /** Badges retired from roster participants by an admin replacement. */
@@ -273,6 +274,7 @@ function resetStore() {
   logs.length = 0;
   decisionQueue.clear();
   decisionQueueScenario = "ready";
+  mailConfig = { confirmationEmail: true, decisionEmail: true };
   nextLogId = 100;
   participantsByToken.clear();
   retiredRosterBadges.clear();
@@ -505,6 +507,14 @@ export function configureE2eDecisionQueue(scenario: DecisionQueueScenario) {
       decisionQueue.set(E2E_APPLICATION_IDS.accepted, { decision: "accepted", status: "sent", queuedAt: now - 3000 });
     }
   }
+  bump();
+}
+
+export function configureE2eMailConfig(next: { confirmationEmail?: boolean; decisionEmail?: boolean }) {
+  mailConfig = {
+    confirmationEmail: typeof next.confirmationEmail === "boolean" ? next.confirmationEmail : mailConfig.confirmationEmail,
+    decisionEmail: typeof next.decisionEmail === "boolean" ? next.decisionEmail : mailConfig.decisionEmail,
+  };
   bump();
 }
 
@@ -1025,6 +1035,10 @@ export function e2eMockRunQuery(path: string, args: Record<string, unknown>) {
         sent: rows.filter((row) => row.status === "sent"),
       };
     }
+    case "admin/mailConfig:getMailConfig": {
+      requireAdmin(sessionToken);
+      return { ...mailConfig };
+    }
     case "admin/applicationReviewLogs:listApplicationReviewLogs": {
       requireAdmin(sessionToken);
       const applicationId = String(args.applicationId ?? "");
@@ -1208,6 +1222,13 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       ) {
         throw adminError("REVIEW_CLAIMED");
       }
+      if (!mailConfig.decisionEmail) {
+        review.status = decision;
+        review.reviewedBy = admin.adminId;
+        review.lastActiveAt = now;
+        bump();
+        return { queued: false, applied: true };
+      }
       const email = applications.get(applicationId)?.email.trim();
       if (!email) throw adminError("DECISION_EMAIL_MISSING");
       const open = decisionQueue.get(applicationId);
@@ -1218,6 +1239,15 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
       decisionQueue.set(applicationId, { decision, status: "queued", queuedAt: now });
       bump();
       return { queued: true, duplicate: false };
+    }
+    case "admin/mailConfig:setMailConfig": {
+      requireAdmin(sessionToken);
+      mailConfig = {
+        confirmationEmail: typeof args.confirmationEmail === "boolean" ? args.confirmationEmail : mailConfig.confirmationEmail,
+        decisionEmail: typeof args.decisionEmail === "boolean" ? args.decisionEmail : mailConfig.decisionEmail,
+      };
+      bump();
+      return { ...mailConfig };
     }
     case "admin/decisionEmailQueue:setDecisionEmailHold": {
       requireAdmin(sessionToken);
@@ -1426,6 +1456,7 @@ export async function e2eMockRunMutation(path: string, args: Record<string, unkn
     }
     case "admin/decisionEmailRelease:releaseDecisionEmails": {
       requireAdmin(sessionToken);
+      if (!mailConfig.decisionEmail) throw adminError("DECISION_EMAIL_PAUSED");
       const requested = Array.isArray(args.itemIds) ? args.itemIds.map(String) : null;
       const ids = requested ?? [...decisionQueue.entries()].filter(([, row]) => row.status === "queued").map(([id]) => id);
       if (requested?.some((id) => decisionQueue.get(id)?.status !== "queued") || ids.length === 0) {

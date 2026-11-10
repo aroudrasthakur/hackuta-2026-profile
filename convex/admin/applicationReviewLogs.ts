@@ -76,10 +76,16 @@ export const setApplicationDecision = mutation({
     applicationId: v.id("applications"),
     decision: applicationReviewLogDecisionAction,
   },
-  returns: v.object({
-    queued: v.literal(true),
-    duplicate: v.boolean(),
-  }),
+  returns: v.union(
+    v.object({
+      queued: v.literal(true),
+      duplicate: v.boolean(),
+    }),
+    v.object({
+      queued: v.literal(false),
+      applied: v.literal(true),
+    }),
+  ),
   handler: async (ctx, { sessionToken, applicationId, decision }) => {
     const admin = await requireAdminRole(ctx, sessionToken);
     const application = await ctx.db.get(applicationId);
