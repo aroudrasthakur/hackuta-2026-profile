@@ -32,11 +32,9 @@ Flat directory — no subfolders.
 
 | File | Covers |
 | --- | --- |
-| [tests/unit/security.test.ts](../tests/unit/security.test.ts) | vercel.json CSP / Permissions / Referrer byte-for-byte match |
-| [tests/unit/csp.test.ts](../tests/unit/csp.test.ts) | CSP structure (directives, Convex, Trusted Types, workers) |
-| [tests/register.spec.ts](../tests/register.spec.ts) | E2E header parity before resume upload under CSP |
+| [tests/unit/security.test.ts](../tests/unit/security.test.ts) | Convex + Trusted Types in CSP; vercel.json CSP / Permissions / Referrer byte-for-byte match |
 
-Run: `npm run test:unit -- tests/unit/security.test.ts tests/unit/csp.test.ts`
+Run: `npm run test:unit -- tests/unit/security.test.ts`
 
 ## CSP allowlist (high level)
 

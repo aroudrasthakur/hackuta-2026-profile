@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "prebuild": "node scripts/prepare-pdf-assets.mjs && node scripts/ensure-convex-server-stub.mjs && node scripts/verify-production-env.mjs",
