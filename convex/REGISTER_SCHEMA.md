@@ -27,6 +27,7 @@ These paths are **not** part of the register-owned lock. Profile-owned schedule 
 | [`../src/`](../src/) | Admin dashboard UI |
 | [`../scripts/`](../scripts/) | Admin tooling (except frozen register snapshots under `register-schema-lock/`) |
 | [`../shared/admin/`](../shared/admin/) | **Future admin-only shared code** — not register-owned |
+| [`../shared/profile/`](../shared/profile/) | **Profile-owned shared constants** — not register-owned |
 | [`README.md`](README.md), [`REGISTER_SCHEMA.md`](REGISTER_SCHEMA.md) | Documentation |
 | Any `**/README.md` under `convex/` or `shared/` | Directory docs (admin-maintained; not hash-locked) |
 | `convex/_generated/` | Local Convex codegen (gitignored) |
