@@ -827,12 +827,7 @@
     flex-direction: column;
     align-items: center;
     gap: 1rem;
-    max-width: 28rem;
-  }
-
-  .participant-scan__disclosure-link {
-    color: var(--color-ocean);
-    font-weight: 600;
+    max-width: 32rem;
   }
 
   .participant-scan__disclosure-check {

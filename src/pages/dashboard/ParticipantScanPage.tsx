@@ -6,7 +6,7 @@ import { DownloadQrImageButton } from "../../components/participant/DownloadQrIm
 import { acceptMyMediaDisclosureRef, type ParticipantDashboard } from "../../convex/api";
 import { getConvexClient } from "../../convex/client";
 import { useMockAuth } from "../../hooks/useMockAuth";
-import { MEDIA_DISCLOSURE_URL } from "../../../shared/profile/mediaDisclosure";
+import { MEDIA_DISCLOSURE_CHECKBOX_LABEL } from "../../../shared/profile/mediaDisclosure";
 import { formatCheckInLong } from "./dashboardUtils";
 
 function BadgeIcon() {
@@ -109,23 +109,15 @@ function MediaDisclosureForm() {
         Media disclosure
       </h1>
       <p className="participant-page-lead participant-scan__lead">
-        Before we can show your check-in QR, read the media disclosure and confirm that you accept it.
+        Before we can show your check-in QR, confirm the authorization below.
       </p>
-      <a
-        className="participant-scan__disclosure-link"
-        href={MEDIA_DISCLOSURE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Read the media disclosure
-      </a>
       <label className="participant-scan__disclosure-check">
         <input
           type="checkbox"
           checked={checked}
           onChange={(event) => setChecked(event.target.checked)}
         />
-        <span>I have read and accept the media disclosure</span>
+        <span>{MEDIA_DISCLOSURE_CHECKBOX_LABEL}</span>
       </label>
       <button
         type="submit"
