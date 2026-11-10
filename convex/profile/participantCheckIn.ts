@@ -11,18 +11,28 @@ export function isParticipantCheckedIn<T extends { checkedInAt?: number }>(
 /**
  * Participant fields the portal may see. Built field by field so no other row
  * field (including any badge token) can reach the client. The registration
- * token is returned only before check-in; the physical badge replaces it after.
+ * token is returned only after media disclosure and before check-in; the
+ * physical badge replaces it after.
  */
-export function participantPortalView(participant: {
-  acceptedAt: number;
-  qrCodeToken: string;
-  checkedInAt?: number;
-}) {
+export function participantPortalView(
+  participant: {
+    acceptedAt: number;
+    qrCodeToken: string;
+    checkedInAt?: number;
+  },
+  mediaDisclosureAccepted: boolean,
+) {
   if (isParticipantCheckedIn(participant)) {
     return {
       status: "checked_in" as const,
       acceptedAt: participant.acceptedAt,
       checkedInAt: participant.checkedInAt,
+    };
+  }
+  if (!mediaDisclosureAccepted) {
+    return {
+      status: "awaiting_media_disclosure" as const,
+      acceptedAt: participant.acceptedAt,
     };
   }
   return {

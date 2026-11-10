@@ -54,7 +54,7 @@ async function seedAcceptedParticipant(
       reviewedBy: staff.adminId,
       completedAt: Date.now(),
     });
-    return ctx.db.insert("participants", {
+    const participantId = await ctx.db.insert("participants", {
       applicationId: applicant.applicationId,
       authUserId: applicant.userId,
       acceptedAt: 1,
@@ -63,6 +63,11 @@ async function seedAcceptedParticipant(
       createdAt: 1,
       updatedAt: 1,
     });
+    await ctx.db.insert("participantMediaDisclosures", {
+      participantId,
+      acceptedAt: 1,
+    });
+    return participantId;
   });
 
   return {

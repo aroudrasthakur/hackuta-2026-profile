@@ -687,6 +687,7 @@ export const generateMyAppleWalletPass = action({
       };
     }
 
+    // `media_disclosure_required` and any other non-ok lookup map like not_eligible.
     if (lookup.status !== "ok") {
       return {
         ok: false,

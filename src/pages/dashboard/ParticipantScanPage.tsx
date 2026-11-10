@@ -1,9 +1,12 @@
-import { useRef } from "react";
+import { useState, useRef } from "react";
 import QRCode from "react-qr-code";
 import { Link, useOutletContext } from "react-router-dom";
 import { AddToAppleWalletButton } from "../../components/participant/AddToAppleWalletButton";
 import { DownloadQrImageButton } from "../../components/participant/DownloadQrImageButton";
-import type { ParticipantDashboard } from "../../convex/api";
+import { acceptMyMediaDisclosureRef, type ParticipantDashboard } from "../../convex/api";
+import { getConvexClient } from "../../convex/client";
+import { useMockAuth } from "../../hooks/useMockAuth";
+import { MEDIA_DISCLOSURE_URL } from "../../../shared/profile/mediaDisclosure";
 import { formatCheckInLong } from "./dashboardUtils";
 
 function BadgeIcon() {
@@ -58,6 +61,84 @@ function CheckedInConfirmation({ checkedInAt }: { checkedInAt: number }) {
   );
 }
 
+function MediaDisclosureForm() {
+  const mockAuth = useMockAuth();
+  const [checked, setChecked] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleConfirm() {
+    if (!checked || submitting) return;
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      if (mockAuth.enabled) {
+        mockAuth.acceptMediaDisclosure();
+        return;
+      }
+      const client = getConvexClient();
+      if (!client) {
+        setErrorMessage("We could not record your acceptance. Please try again.");
+        return;
+      }
+      const result = await client.mutation(acceptMyMediaDisclosureRef, {});
+      if (!result.ok) {
+        setErrorMessage(
+          result.code === "unauthenticated"
+            ? "Sign in again to confirm the media disclosure."
+            : "Your check-in QR is not available yet.",
+        );
+      }
+    } catch {
+      setErrorMessage("We could not record your acceptance. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form
+      className="participant-scan__disclosure"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void handleConfirm();
+      }}
+    >
+      <span className="participant-dashboard__badge participant-dashboard__badge--pending">Not checked in yet</span>
+      <h1 id="participant-scan-title" className="participant-page-title participant-scan__title">
+        Media disclosure
+      </h1>
+      <p className="participant-page-lead participant-scan__lead">
+        Before we can show your check-in QR, read the media disclosure and confirm that you accept it.
+      </p>
+      <a
+        className="participant-scan__disclosure-link"
+        href={MEDIA_DISCLOSURE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Read the media disclosure
+      </a>
+      <label className="participant-scan__disclosure-check">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => setChecked(event.target.checked)}
+        />
+        <span>I have read and accept the media disclosure</span>
+      </label>
+      <button
+        type="submit"
+        className="participant-dashboard__cta"
+        disabled={!checked || submitting}
+      >
+        Confirm acceptance
+      </button>
+      {errorMessage ? <p className="participant-scan__disclosure-error" role="alert">{errorMessage}</p> : null}
+    </form>
+  );
+}
+
 export default function ParticipantScanPage() {
   const data = useOutletContext<ParticipantDashboard>();
   const participant = data.participant;
@@ -71,9 +152,17 @@ export default function ParticipantScanPage() {
     );
   }
 
+  if (participant?.status === "awaiting_media_disclosure") {
+    return (
+      <section className="participant-scan participant-scan--fullpage" aria-labelledby="participant-scan-title">
+        <MediaDisclosureForm />
+      </section>
+    );
+  }
+
   return (
     <section className="participant-scan participant-scan--fullpage" aria-labelledby="participant-scan-title">
-      {participant ? (
+      {participant?.status === "awaiting_check_in" ? (
         <>
           <span className="participant-dashboard__badge participant-dashboard__badge--pending">Not checked in yet</span>
           <h1 id="participant-scan-title" className="participant-page-title participant-scan__title">

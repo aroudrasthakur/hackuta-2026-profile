@@ -9,6 +9,7 @@ import {
   applicantVisibleReviewStatus,
   openDecisionEmailForApplication,
 } from "./openDecisionEmail";
+import { getParticipantMediaDisclosure, hasAcceptedMediaDisclosure } from "./mediaDisclosure";
 import { participantPortalView } from "./participantCheckIn";
 import { buildSubmittedApplicationPayload, normalizeApplicantEmail } from "./submissionPayload";
 
@@ -59,6 +60,9 @@ export const getMyParticipantDashboard = query({
       : null;
     const reviewStatus = applicantVisibleReviewStatus(review, pendingDecisionEmail);
     const visibleParticipant = applicantVisibleParticipant(participant, pendingDecisionEmail);
+    const mediaDisclosure = visibleParticipant
+      ? await getParticipantMediaDisclosure(ctx, visibleParticipant._id)
+      : null;
     const verifiedEmail = normalizeApplicantEmail(user.email);
     const submittedApplication =
       application && submitted
@@ -79,11 +83,14 @@ export const getMyParticipantDashboard = query({
         : null,
       reviewStatus,
       participant: visibleParticipant
-        ? participantPortalView({
-          acceptedAt: visibleParticipant.acceptedAt,
-          qrCodeToken: visibleParticipant.qrCodeToken,
-          checkedInAt: attendee?.checkedInAt ?? visibleParticipant.checkedInAt,
-        })
+        ? participantPortalView(
+          {
+            acceptedAt: visibleParticipant.acceptedAt,
+            qrCodeToken: visibleParticipant.qrCodeToken,
+            checkedInAt: attendee?.checkedInAt ?? visibleParticipant.checkedInAt,
+          },
+          hasAcceptedMediaDisclosure(mediaDisclosure),
+        )
         : null,
       hackathon: {
         name: hackathonName,

@@ -172,6 +172,15 @@ export default defineSchema({
     .index("by_qr_token", ["qrCodeToken"]),
 
   /**
+   * One-time media-disclosure acceptance. Profile-owned. Presence of a row is
+   * the only gate: door check-in rejects a registration QR until this exists.
+   */
+  participantMediaDisclosures: defineTable({
+    participantId: v.id("participants"),
+    acceptedAt: v.number(),
+  }).index("by_participant", ["participantId"]),
+
+  /**
    * On-site attendee created at door check-in. Owns badge QR, points, and
    * post-check-in scan identity. One row per checked-in participant.
    */

@@ -15,7 +15,15 @@ function scenarioState(
   email: string | null,
 ): Omit<
   MockAuthContextValue,
-  "enabled" | "participantCheckedIn" | "setScenario" | "requestOtp" | "verifyOtp" | "signInWithEmail" | "signOut"
+  | "enabled"
+  | "participantCheckedIn"
+  | "mediaDisclosureAccepted"
+  | "setScenario"
+  | "acceptMediaDisclosure"
+  | "requestOtp"
+  | "verifyOtp"
+  | "signInWithEmail"
+  | "signOut"
 > {
   switch (scenario) {
     case "signedOut":
@@ -55,12 +63,15 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [participantCheckedIn, setParticipantCheckedIn] = useState(false);
+  const [mediaDisclosureAccepted, setMediaDisclosureAccepted] = useState(false);
 
   const setScenario = useCallback((next: MockAuthScenario) => {
     setScenarioState(next);
     if (next === "signedOut") {
       setPendingEmail(null);
       setVerifiedEmail(null);
+      setMediaDisclosureAccepted(false);
+      setParticipantCheckedIn(false);
     }
   }, []);
 
@@ -86,19 +97,25 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     setScenarioState("signedInReturning");
   }, []);
 
+  const acceptMediaDisclosure = useCallback(() => {
+    setMediaDisclosureAccepted(true);
+  }, []);
+
   const signOut = useCallback(() => {
     setScenarioState("signedOut");
     setPendingEmail(null);
     setVerifiedEmail(null);
+    setMediaDisclosureAccepted(false);
+    setParticipantCheckedIn(false);
   }, []);
 
   useEffect(() => {
     if (!enabled) return;
-    window.__hackutaMockAuth = { setScenario, setParticipantCheckedIn };
+    window.__hackutaMockAuth = { setScenario, setParticipantCheckedIn, acceptMediaDisclosure };
     return () => {
       delete window.__hackutaMockAuth;
     };
-  }, [enabled, setScenario]);
+  }, [acceptMediaDisclosure, enabled, setScenario]);
 
   const value = useMemo<MockAuthContextValue>(() => {
     if (!enabled) return defaultMockAuthValue;
@@ -109,7 +126,9 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     return {
       enabled: true,
       participantCheckedIn,
+      mediaDisclosureAccepted,
       setScenario,
+      acceptMediaDisclosure,
       requestOtp,
       verifyOtp,
       signInWithEmail,
@@ -117,7 +136,9 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
       ...base,
     };
   }, [
+    acceptMediaDisclosure,
     enabled,
+    mediaDisclosureAccepted,
     participantCheckedIn,
     pendingEmail,
     requestOtp,

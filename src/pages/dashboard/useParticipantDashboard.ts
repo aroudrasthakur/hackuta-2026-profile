@@ -25,7 +25,9 @@ export function useParticipantDashboard(): {
         reviewStatus: "accepted",
         participant: mockAuth.participantCheckedIn
           ? { status: "checked_in", acceptedAt: MOCK_NOW, checkedInAt: MOCK_NOW + 86_400_000 }
-          : { status: "awaiting_check_in", acceptedAt: MOCK_NOW, qrCodeToken: "a".repeat(64) },
+          : mockAuth.mediaDisclosureAccepted
+            ? { status: "awaiting_check_in", acceptedAt: MOCK_NOW, qrCodeToken: "a".repeat(64) }
+            : { status: "awaiting_media_disclosure", acceptedAt: MOCK_NOW },
         hackathon: {
           name: "HackUTA 2026",
           startsAt: MOCK_NOW + 86_400_000,

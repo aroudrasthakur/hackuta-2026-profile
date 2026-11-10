@@ -11,6 +11,8 @@ export type HackutaMockAuthWindow = {
   setScenario: (scenario: MockAuthScenario) => void;
   /** Simulates a volunteer check-in scan arriving through Convex. */
   setParticipantCheckedIn: (checkedIn: boolean) => void;
+  /** Simulates Confirm acceptance on the Check-in tab. */
+  acceptMediaDisclosure: () => void;
 };
 
 declare global {

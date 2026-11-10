@@ -21,8 +21,16 @@ describe("isParticipantCheckedIn", () => {
 });
 
 describe("participantPortalView", () => {
-  it("returns only the registration token before check-in", () => {
-    expect(participantPortalView(row)).toEqual({
+  it("omits the registration token until media disclosure is accepted", () => {
+    expect(participantPortalView(row, false)).toEqual({
+      status: "awaiting_media_disclosure",
+      acceptedAt: 10,
+    });
+    expect(JSON.stringify(participantPortalView(row, false))).not.toMatch(/a{64}|b{64}/);
+  });
+
+  it("returns only the registration token after disclosure and before check-in", () => {
+    expect(participantPortalView(row, true)).toEqual({
       status: "awaiting_check_in",
       acceptedAt: 10,
       qrCodeToken: "a".repeat(64),
@@ -30,7 +38,7 @@ describe("participantPortalView", () => {
   });
 
   it("returns no token of any kind after check-in", () => {
-    const view = participantPortalView({ ...row, checkedInAt: 20 });
+    const view = participantPortalView({ ...row, checkedInAt: 20 }, true);
     expect(view).toEqual({ status: "checked_in", acceptedAt: 10, checkedInAt: 20 });
     expect(JSON.stringify(view)).not.toMatch(/a{64}|b{64}/);
   });
