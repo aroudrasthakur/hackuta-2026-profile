@@ -17,7 +17,9 @@ function decisionBody(decision: DecisionKind, hackathonName: string) {
       `${hackathonName} is a free, in-person, 24-hour hackathon on ${EVENT_WHEN} at ${EVENT_WHERE}. Meals, snacks, workspace, and swag are provided. Please bring a laptop, charger, and a government-issued photo ID or UTA ID for check-in. All project work must be done during the event.`,
       "We will email logistics, the schedule, and travel notes as the weekend gets closer. If you are looking for team members, you can post in the team-formation channel on our discord:",
       DISCORD_URL,
-      `If your plans change and you can no longer attend, contact us at ${CONTACT_EMAIL} so we can offer your spot to someone on the waitlist.`,
+      "Before you arrive, please read the guide below for the event schedule, check-in location, what to bring, and instructions for getting your parking permit and finding your way around.",
+      "Important Day-Of Information: https://docs.hackuta.com/HackUTA%202026%20Hacker%20Instructions.pdf",
+      "Check-in is Saturday, November 14, from 9–11 AM at SWSH. Please bring a government-issued ID or UTA ID and your phone. Attendance at check-in and the Sunday judging period is required.",
       "We look forward to building with you. Stay tuned for next steps as we get closer to the event.",
     );
   }
