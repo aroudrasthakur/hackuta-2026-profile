@@ -3,6 +3,7 @@ import type { DocumentByName } from "convex/server";
 import { formatApplicantFullName } from "../lib/applications";
 import type { ApplicationDoc, DataModel, MutationCtx } from "../lib/dataModel";
 import { adminError } from "../../shared/admin/errors";
+import { isDecisionEmailEnabled } from "../lib/mailConfig";
 import { applyAcceptedApplicationDecision } from "./acceptanceDecision";
 import { isActiveReviewClaimHeldByOther, isFinalReviewStatus } from "./reviewClaim";
 import { decisionPatch } from "./reviewState";
@@ -56,14 +57,19 @@ export async function enqueueApplicationDecision(
     throw adminError("REVIEW_CLAIMED");
   }
 
-  const email = applicantEmail(args.application);
-  if (!email) {
-    throw adminError("DECISION_EMAIL_MISSING");
-  }
-
   const open = await openQueueRows(ctx, args.application._id);
   if (open.some((row) => row.status === "sending")) {
     throw adminError("DECISION_EMAIL_SEND_IN_PROGRESS");
+  }
+
+  if (!(await isDecisionEmailEnabled(ctx))) {
+    await applyReleasedApplicationDecision(ctx, args);
+    return { queued: false as const, applied: true as const };
+  }
+
+  const email = applicantEmail(args.application);
+  if (!email) {
+    throw adminError("DECISION_EMAIL_MISSING");
   }
 
   const existing = open[0];

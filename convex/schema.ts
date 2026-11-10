@@ -42,6 +42,13 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
 
+  mailConfig: defineTable({
+    key: v.literal("current"),
+    confirmationEmail: v.boolean(),
+    decisionEmail: v.boolean(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
   applications: defineTable(applicationRecord)
     .index("by_auth_user", ["authUserId"])
     .index("by_email", ["email"])

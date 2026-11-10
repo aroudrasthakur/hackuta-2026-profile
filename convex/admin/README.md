@@ -22,6 +22,7 @@ Organizer-only queries, mutations, and internal actions. **Admin-owned** — saf
 | [participantCreation.ts](participantCreation.ts) | Idempotent participant lookup/insert (`applicationId` + `authUserId`) |
 | [acceptanceDecision.ts](acceptanceDecision.ts) | Atomic accept → review update + audit log + participant row |
 | [applicationReviewLogs.ts](applicationReviewLogs.ts) | Review activity, confirmed decisions, and admin-only history (requires `sessionToken`) |
+| [mailConfig.ts](mailConfig.ts) | Admin toggles for confirmation and decision outbound email |
 | [decisionFinalize.ts](decisionFinalize.ts) | Idempotent final decision: review patch, audit log, decision email schedule |
 | [decisionEmailTemplates.ts](decisionEmailTemplates.ts) | Plain-text copy for acceptance, rejection, and waitlist emails |
 | [decisionEmailService.ts](decisionEmailService.ts) | Decision mail via register-locked `sendMailMessage` (same email service HTTP client) |

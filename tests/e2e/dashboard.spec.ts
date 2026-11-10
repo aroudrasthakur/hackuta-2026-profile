@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { test, expect, devices, type Page } from "@playwright/test";
 import jsQR from "jsqr";
+import { MEDIA_DISCLOSURE_CHECKBOX_LABEL } from "../../shared/profile/mediaDisclosure";
 
 const MOCK_QR_TOKEN = "a".repeat(64);
 
@@ -24,7 +25,7 @@ async function acceptMediaDisclosure(page: Page) {
   await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);
   const confirm = page.getByRole("button", { name: "Confirm acceptance" });
   await expect(confirm).toBeDisabled();
-  await page.getByRole("checkbox", { name: "I have read and accept the media disclosure" }).check();
+  await page.getByRole("checkbox", { name: MEDIA_DISCLOSURE_CHECKBOX_LABEL }).check();
   await confirm.click();
   await expect(page.getByRole("heading", { name: "Check-in QR" })).toBeVisible();
 }
@@ -69,7 +70,8 @@ test.describe("participant portal", () => {
     await expect(page.getByRole("link", { name: "HackUTA home", exact: true })).toBeVisible();
     await openCheckIn(page);
     await expect(page.getByRole("heading", { name: "Media disclosure" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Read the media disclosure" })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: MEDIA_DISCLOSURE_CHECKBOX_LABEL })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Read the media disclosure" })).toHaveCount(0);
     await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);

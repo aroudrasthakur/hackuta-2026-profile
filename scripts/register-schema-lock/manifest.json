@@ -19,7 +19,7 @@
   "profileTables": [
     "schedule"
   ],
-  "registerSchemaLockedHash": "6615388d7df3c575ac3d83654896914cf3601cd1f7d59bbd7b0a58927db53c45",
+  "registerSchemaLockedHash": "39e5db7109d6c4b4ce02f8dd5216b4f4498b44018bc0d1311cd350b732f7dd03",
   "files": {
     "convex/applicant.ts": "42f8c4b422180cf62e8ab52abe2f0dfc5ba4b35f7a0b8898420ea7a33f01c0d3",
     "convex/applicationFields.ts": "4c3594b2614376ae2b44f65e5026c4c69d7c6716a9c2d8fdd1c1b7a5e9eb3f6f",
@@ -29,7 +29,7 @@
     "convex/crons.ts": "92212f9da8b6cf5329a2bab115b96262169d3d73fede90f7b1e3734e1b65fa72",
     "convex/email/checkEmailStatus.ts": "ecf0163b3c87c7b3d2b6394752468f72c4cef2d96f7cd98206ccbafc7447250d",
     "convex/email/emailService.ts": "e5f850231193ee2893583327c319d64ebe42e5cfd15473f368ccf7fcd3f4d789",
-    "convex/email/sendApplicationConfirmationEmail.ts": "1b0cc3d46575364a4eb9519dba76fa18937478bab761a2495cda75fd9051cb31",
+    "convex/email/sendApplicationConfirmationEmail.ts": "41b70696e7c519104056841fc926f142f598a3d635d10397ce72821911689260",
     "convex/email/sendOtpEmail.ts": "cfb02c6a7c3429afc3e8d5eeaae8bb5d60bff32d24d3c61a3abbf97eedeeac59",
     "convex/email/sendPasswordResetEmail.ts": "b0426f7ba3720749e92d61f64582ca6e9959a3b059d0499cb4305590f04015d9",
     "convex/email/templates.ts": "1234e767dedd82d49f5d113893eef7e1d9be50213345b74b4ca5083eb3658b1a",
@@ -47,6 +47,7 @@
     "convex/lib/eventConfig.ts": "c150ee0ca43b5fdf99b2a83cf888e2be0d85f393cadd19878a2ed18bf412b904",
     "convex/lib/hackutaPassword.ts": "b3cc94e9308bbd231db384ef6b502ff346e5152be859a2d9022bb4791a08e2a5",
     "convex/lib/invalidateAuthSessions.ts": "e82a30dabda89939056893ac7947f1fce87b67406a28f1331cbf2743797618d2",
+    "convex/lib/mailConfig.ts": "c8d17656ae2f654a5ef7d199920672a0ee4a259ac8358f860528b29841942487",
     "convex/lib/normalizeEmail.ts": "bfc646c6098d15aa178139aacb3382834d764f284d693e124d8b21c91c37a2d4",
     "convex/lib/otpSendStatus.ts": "3e887a6ef69624d2051f198ad9d178c630abb7625ca2c1a00b63150a540c5213",
     "convex/lib/rateLimitBuckets.ts": "007b0c0906b6d99e1ac8e492d87e6cd23042fe20d90d250bc28b95267e4d5c62",
@@ -56,7 +57,7 @@
     "convex/migrations.ts": "fc2d894467f8ab23b675d5144bea81e83e3a9eac3d155c1af208eb9ad44c895f",
     "convex/passwordReset.ts": "43f113ad52a6d530229184dfdf2b834412a4e2775d477f856539dabe96f95b73",
     "convex/rateLimits.ts": "9d7be3040a6c4303f7ba2cbbba4be1e1ae8d9bb3727a64161e61a77cf52137b8",
-    "convex/registrations.ts": "d3c7acd1ee56fecb7a9199d410e40da34c27c8671381705936299e0c87f96a04",
+    "convex/registrations.ts": "e83af113a56799fceaf526887353a431c1eb296543696d29a03936ff4a19e230",
     "convex/resumeUploads.ts": "68d670dd67a15a28585320cbc5287ad66a9d6bc72d5628c8c9a115abd7080a67",
     "convex/resumeUploadSecurity.ts": "11b4940be117b300d7030016deb33e0e638d8f56f47d97397711084742d750a4",
     "shared/auth/errorMessages.ts": "99bca9a483b7871ea7437ab91fa8ab5cd2a3e9d7333c175016043bab43a843e0",

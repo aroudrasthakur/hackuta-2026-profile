@@ -43,6 +43,7 @@ File: [`convex/schema.ts`](schema.ts)
 | `...authTables` | Register | **No** — must match register reference |
 | `users` | Register | **No** |
 | `eventConfig` | Register | **No** |
+| `mailConfig` | Register | **No** — singleton outbound confirmation and decision email flags |
 | `applications` | Register | **No** |
 | `applicationReviews` | Admin | **Yes** — only register-origin table you may change |
 | `applicationSubmissionLogs` | Register | **No** |
@@ -160,6 +161,7 @@ Do **not** edit. Source of truth: matching path under `hackuta-2026-register/con
 | [`lib/draftResume.ts`](lib/draftResume.ts) | Draft resume metadata |
 | [`lib/emailDeliveries.ts`](lib/emailDeliveries.ts) | Email delivery kind validator |
 | [`lib/eventConfig.ts`](lib/eventConfig.ts) | Timeline merge helpers |
+| [`lib/mailConfig.ts`](lib/mailConfig.ts) | Outbound confirmation/decision email flags |
 | [`lib/hackutaPassword.ts`](lib/hackutaPassword.ts) | HackUTA password + OTP providers |
 | [`lib/invalidateAuthSessions.ts`](lib/invalidateAuthSessions.ts) | Bulk session invalidation |
 | [`lib/normalizeEmail.ts`](lib/normalizeEmail.ts) | Re-export of shared email normalization |

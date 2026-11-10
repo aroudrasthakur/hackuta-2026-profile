@@ -12,6 +12,7 @@ Shared logic imported by top-level Convex modules. Not exported to the client di
 | [draftPatch.ts](draftPatch.ts) | Applies autosave patches to application rows |
 | [emailDeliveries.ts](emailDeliveries.ts) | Email kind validator shared by the schema and email tracking |
 | [eventConfig.ts](eventConfig.ts) | Hackathon name seed/read |
+| [mailConfig.ts](mailConfig.ts) | Outbound confirmation/decision email flags |
 | [hackutaPassword.ts](hackutaPassword.ts) | Custom Password provider with reset reuse check |
 | [assertPasswordNotReused.ts](assertPasswordNotReused.ts) | Blocks password reset when new password matches current hash |
 | [invalidateAuthSessions.ts](invalidateAuthSessions.ts) | Deletes all authSessions and authRefreshTokens for a user |

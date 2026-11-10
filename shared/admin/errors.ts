@@ -35,6 +35,8 @@ export const ADMIN_ERROR_MESSAGES = {
   DECISION_EMAIL_QUEUE_EMPTY: "There are no queued decision emails to send.",
   DECISION_EMAIL_SEND_IN_PROGRESS:
     "Decision emails are already being sent. Wait for that release to finish.",
+  DECISION_EMAIL_PAUSED:
+    "Decision emails are paused. Turn them back on from Decision emails before sending.",
   INVALID_POINTS: "That point change isn't allowed.",
   INVALID_EVENT: "Check the event name, points, and schedule, then try again.",
   INVALID_MEAL: "Enter a meal name (up to 100 characters), a description up to 1000 characters, and an end time after the start time.",

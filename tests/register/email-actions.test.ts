@@ -145,6 +145,77 @@ describe("tracked email actions", () => {
     ]);
   });
 
+  it("does not send a confirmation when confirmationEmail is paused", async () => {
+    const t = createTest();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("mailConfig", {
+        key: "current",
+        confirmationEmail: false,
+        decisionEmail: true,
+        updatedAt: Date.now(),
+      });
+    });
+    await t.action(sendApplicationConfirmationEmail, {
+      email: "ada@example.com",
+      firstName: "Ada",
+      lastName: "Lovelace",
+      submittedAt: Date.parse("2026-09-21T22:06:00.000Z"),
+      hackathonName: "HackUTA 2026",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await listDeliveries(t)).toEqual([]);
+  });
+
+  it("still sends a confirmation when the stored confirmationEmail flag is true", async () => {
+    const t = createTest();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("mailConfig", {
+        key: "current",
+        confirmationEmail: true,
+        decisionEmail: false,
+        updatedAt: Date.now(),
+      });
+    });
+    await t.action(sendApplicationConfirmationEmail, {
+      email: "ada@example.com",
+      firstName: "Ada",
+      lastName: "Lovelace",
+      submittedAt: Date.parse("2026-09-21T22:06:00.000Z"),
+      hackathonName: "HackUTA 2026",
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(await listDeliveries(t)).toEqual([
+      expect.objectContaining({ kind: "application_confirmation" }),
+    ]);
+  });
+
+  it("still sends OTP and password-reset mail when confirmation email is paused", async () => {
+    const t = createTest();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("mailConfig", {
+        key: "current",
+        confirmationEmail: false,
+        decisionEmail: false,
+        updatedAt: Date.now(),
+      });
+    });
+    await t.action(sendOtpEmail, {
+      email: "applicant@example.com",
+      code: "123456",
+      expiresAt: expiresAt(),
+    });
+    await t.action(sendPasswordResetEmail, {
+      email: "reset@example.com",
+      code: "654321",
+      expiresAt: expiresAt(),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await listDeliveries(t)).toEqual([
+      expect.objectContaining({ kind: "otp" }),
+      expect.objectContaining({ kind: "password_reset" }),
+    ]);
+  });
+
   it("records nothing when the service rejects the email", async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }),
