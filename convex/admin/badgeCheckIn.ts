@@ -91,6 +91,13 @@ async function registrationHolder(ctx: MutationCtx, scan: Scan, raw: string) {
       },
     };
   }
+  const disclosure = await ctx.db
+    .query("participantMediaDisclosures")
+    .withIndex("by_participant", (q) => q.eq("participantId", participant._id))
+    .unique();
+  if (!disclosure) {
+    return { result: { status: "media_disclosure_required" as const } };
+  }
   return { participant };
 }
 
@@ -113,8 +120,8 @@ function okPreview(name: string, foodRestriction?: string) {
  * Step 1. Identifies the participant behind a registration QR. Statuses:
  * `ok` (with name and dietary snapshot), `already_checked_in` and
  * `registration_qr_used` (with name and time), `qr_not_found`,
- * `participant_not_eligible`, `not_authorized`, and `rate_limited`. Changes
- * no participant.
+ * `participant_not_eligible`, `media_disclosure_required`, `not_authorized`,
+ * and `rate_limited`. Changes no participant.
  */
 export const resolveRegistrationForCheckIn = mutation({
   args: registrationArgs,

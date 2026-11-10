@@ -32,7 +32,7 @@ async function seedAcceptedParticipant(t: ConvexTestInstance, email: string, qrC
       reviewedBy: staff.adminId,
       completedAt: Date.now(),
     });
-    await ctx.db.insert("participants", {
+    const participantId = await ctx.db.insert("participants", {
       applicationId: applicant.applicationId,
       authUserId: applicant.userId,
       acceptedAt: 1,
@@ -40,6 +40,10 @@ async function seedAcceptedParticipant(t: ConvexTestInstance, email: string, qrC
       qrCodeToken,
       createdAt: 1,
       updatedAt: 1,
+    });
+    await ctx.db.insert("participantMediaDisclosures", {
+      participantId,
+      acceptedAt: 1,
     });
   });
   return t.withIdentity({ subject: applicant.userId, email });

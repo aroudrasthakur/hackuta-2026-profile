@@ -57,7 +57,7 @@ describe("participant dashboard query", () => {
           completedAt: Date.now(),
         });
       }
-      await ctx.db.insert("participants", {
+      const acceptedParticipantId = await ctx.db.insert("participants", {
         applicationId: accepted.applicationId,
         authUserId: accepted.userId,
         acceptedAt: 1,
@@ -66,7 +66,7 @@ describe("participant dashboard query", () => {
         createdAt: 1,
         updatedAt: 1,
       });
-      await ctx.db.insert("participants", {
+      const otherParticipantId = await ctx.db.insert("participants", {
         applicationId: other.applicationId,
         authUserId: other.userId,
         acceptedAt: 1,
@@ -74,6 +74,14 @@ describe("participant dashboard query", () => {
         qrCodeToken: "c".repeat(64),
         createdAt: 1,
         updatedAt: 1,
+      });
+      await ctx.db.insert("participantMediaDisclosures", {
+        participantId: acceptedParticipantId,
+        acceptedAt: 1,
+      });
+      await ctx.db.insert("participantMediaDisclosures", {
+        participantId: otherParticipantId,
+        acceptedAt: 1,
       });
     });
 

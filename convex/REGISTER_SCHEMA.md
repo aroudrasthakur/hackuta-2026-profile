@@ -64,6 +64,7 @@ File: [`convex/schema.ts`](schema.ts)
 | `shopRedemptions` | Admin | **Yes** — completed purchases with the price charged and any refund |
 | `shopFlashSales`, `shopFlashSaleItems` | Admin | **Yes** — timed promotions and their item prices |
 | `schedule` | Profile | **Yes** — participant activity schedule; separate from point-award `events` |
+| `participantMediaDisclosures` | Profile | **Yes** — one-time media-disclosure acceptance (`participantId`, `acceptedAt`); gates the check-in QR |
 
 All register-owned blocks must remain identical to [`schema.reference.ts`](../scripts/register-schema-lock/schema.reference.ts) aside from `applicationReviews`, admin-owned tables, and profile-owned tables listed above.
 
@@ -85,6 +86,15 @@ All register-owned blocks must remain identical to [`schema.reference.ts`](../sc
 | `updatedAt` | `number` | Last update time |
 
 `points` stays optional until `admin/pointsBackfill:backfillParticipantPoints` is deployed from hackuta-2026-profile and run until `isDone`. A later schema change can make `points` required only after that backfill finishes. Deploying `points` as required while any participant row omits it fails the Convex push.
+
+### `participantMediaDisclosures` columns
+
+One row per participant. Presence of the row is the only “accepted” check; URL and version live in code constants, not on the row.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `participantId` | `Id<"participants">` | Unique index `by_participant` |
+| `acceptedAt` | `number` | Server `Date.now()` at first accept; never overwritten |
 
 ### `admins` volunteer columns
 

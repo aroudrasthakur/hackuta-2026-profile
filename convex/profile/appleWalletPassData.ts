@@ -12,6 +12,7 @@ import {
   applicantVisibleReviewStatus,
   openDecisionEmailForApplication,
 } from "./openDecisionEmail";
+import { getParticipantMediaDisclosure, hasAcceptedMediaDisclosure } from "./mediaDisclosure";
 import { isParticipantCheckedIn } from "./participantCheckIn";
 
 export type AppleWalletPassDataInput = {
@@ -27,6 +28,7 @@ export type AppleWalletPassDataInput = {
 export type AppleWalletPassLookupResult =
   | { status: "unauthenticated" }
   | { status: "not_eligible" }
+  | { status: "media_disclosure_required" }
   | { status: "already_checked_in" }
   | { status: "ok"; passInput: AppleWalletPassDataInput };
 
@@ -39,8 +41,9 @@ export function formatAppleWalletSerialNumber(participantId: string) {
  * Loads the signed-in participant's pre-check-in registration QR and event metadata
  * for server-side Apple Wallet pass generation.
  *
- * Rejects unauthenticated users, unaccepted/masked applications, and checked-in
- * participants (whose registration QR has been replaced by a physical badge).
+ * Rejects unauthenticated users, unaccepted/masked applications, participants
+ * who have not accepted the media disclosure, and checked-in participants
+ * (whose registration QR has been replaced by a physical badge).
  */
 export const getMyAppleWalletPassInput = internalQuery({
   args: {},
@@ -81,6 +84,11 @@ export const getMyAppleWalletPassInput = internalQuery({
 
     if (attendee || isParticipantCheckedIn(visibleParticipant)) {
       return { status: "already_checked_in" };
+    }
+
+    const mediaDisclosure = await getParticipantMediaDisclosure(ctx, visibleParticipant._id);
+    if (!hasAcceptedMediaDisclosure(mediaDisclosure)) {
+      return { status: "media_disclosure_required" };
     }
 
     const qrCodeToken = normalizeRegistrationQr(visibleParticipant.qrCodeToken);

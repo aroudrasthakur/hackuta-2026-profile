@@ -94,8 +94,9 @@ export type ParticipantDashboard = {
     | "waitlisted"
     | "withdrawn"
     | null;
-  /** Registration QR token only before check-in; after check-in the physical badge is the pass. */
+  /** Registration QR token only after media disclosure and before check-in; after check-in the physical badge is the pass. */
   participant:
+    | { status: "awaiting_media_disclosure"; acceptedAt: number }
     | { status: "awaiting_check_in"; acceptedAt: number; qrCodeToken: string }
     | { status: "checked_in"; acceptedAt: number; checkedInAt: number }
     | null;
@@ -187,3 +188,13 @@ export const generateMyAppleWalletPassRef = makeFunctionReference<
   Record<string, never>,
   AppleWalletPassResponse
 >("profile/appleWalletPass:generateMyAppleWalletPass");
+
+export type AcceptMediaDisclosureResult =
+  | { ok: true; acceptedAt: number }
+  | { ok: false; code: "unauthenticated" | "not_eligible" };
+
+export const acceptMyMediaDisclosureRef = makeFunctionReference<
+  "mutation",
+  Record<string, never>,
+  AcceptMediaDisclosureResult
+>("profile/mediaDisclosure:acceptMyMediaDisclosure");

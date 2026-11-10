@@ -17,6 +17,23 @@ async function openCheckIn(page: Page) {
   await expect(page).toHaveURL(/\/dashboard\/scan$/);
 }
 
+async function acceptMediaDisclosure(page: Page) {
+  await expect(page.getByRole("heading", { name: "Media disclosure" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);
+  const confirm = page.getByRole("button", { name: "Confirm acceptance" });
+  await expect(confirm).toBeDisabled();
+  await page.getByRole("checkbox", { name: "I have read and accept the media disclosure" }).check();
+  await confirm.click();
+  await expect(page.getByRole("heading", { name: "Check-in QR" })).toBeVisible();
+}
+
+async function openCheckInReady(page: Page) {
+  await openCheckIn(page);
+  await acceptMediaDisclosure(page);
+}
+
 /** Simulates a volunteer scan landing through the live Convex subscription. */
 async function completeCheckIn(page: Page) {
   await page.evaluate(() => window.__hackutaMockAuth?.setParticipantCheckedIn(true));
@@ -51,6 +68,12 @@ test.describe("participant portal", () => {
     await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
     await expect(page.getByRole("link", { name: "HackUTA home", exact: true })).toBeVisible();
     await openCheckIn(page);
+    await expect(page.getByRole("heading", { name: "Media disclosure" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Read the media disclosure" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);
+    await acceptMediaDisclosure(page);
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toBeVisible();
     await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toBeVisible();
@@ -59,7 +82,7 @@ test.describe("participant portal", () => {
 
   test("downloads a .pkpass file when Add to Apple Wallet is clicked before check-in", async ({ page }) => {
     await signInToDashboard(page);
-    await openCheckIn(page);
+    await openCheckInReady(page);
     const walletButton = page.getByRole("button", { name: "Add to Apple Wallet" });
     await expect(walletButton).toBeVisible();
 
@@ -71,7 +94,7 @@ test.describe("participant portal", () => {
 
   test("downloads a PNG of the check-in QR before check-in", async ({ page }) => {
     await signInToDashboard(page);
-    await openCheckIn(page);
+    await openCheckInReady(page);
     const downloadButton = page.getByRole("button", { name: "Download QR image" });
     await expect(downloadButton).toBeVisible();
 
@@ -93,7 +116,7 @@ test.describe("participant portal", () => {
 
   test("rendered QR decodes to the participant's registration token", async ({ page }) => {
     await signInToDashboard(page);
-    await openCheckIn(page);
+    await openCheckInReady(page);
     const frame = page.locator(".participant-scan__frame");
     await expect(frame).toBeVisible();
     const pixels = await decodePngInPage(page, await frame.screenshot());
@@ -103,7 +126,7 @@ test.describe("participant portal", () => {
 
   test("switches live to the checked-in state and removes the QR", async ({ page }) => {
     await signInToDashboard(page);
-    await openCheckIn(page);
+    await openCheckInReady(page);
     await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toBeVisible();
 
     await completeCheckIn(page);
@@ -180,7 +203,7 @@ test.describe("participant portal on mobile", () => {
     await expect(page.getByRole("link", { name: "Alerts", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await openCheckIn(page);
+    await openCheckInReady(page);
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toBeVisible();
 
     await completeCheckIn(page);

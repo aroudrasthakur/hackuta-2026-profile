@@ -8,7 +8,9 @@ export type MockAuthContextValue = {
   verifiedEmail: string | null;
   hasSubmittedRegistration: boolean;
   participantCheckedIn: boolean;
+  mediaDisclosureAccepted: boolean;
   setScenario: (scenario: MockAuthScenario) => void;
+  acceptMediaDisclosure: () => void;
   requestOtp: (email: string) => void;
   verifyOtp: (code: string) => boolean;
   signInWithEmail: (email: string) => void;
@@ -22,7 +24,9 @@ export const defaultMockAuthValue: MockAuthContextValue = {
   verifiedEmail: null,
   hasSubmittedRegistration: false,
   participantCheckedIn: false,
+  mediaDisclosureAccepted: false,
   setScenario: () => undefined,
+  acceptMediaDisclosure: () => undefined,
   requestOtp: () => undefined,
   verifyOtp: () => false,
   signInWithEmail: () => undefined,

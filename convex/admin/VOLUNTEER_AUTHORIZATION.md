@@ -84,7 +84,7 @@ Door check-in takes two scans, a government-ID check on the desk (name and dieta
 
 Each call runs `requireVolunteerAccess` (throws), the throttle (`rate_limited`), one attempt row, then `canCheckIn` (`not_authorized`). Every check is repeated by `checkInWithBadge`; the previews are never proof of anything.
 
-- Registration results: `qr_not_found` (unknown, malformed, or a retired badge), `registration_qr_used` (this registration already received a badge), `already_checked_in` (a badge was scanned, or a legacy check-in), `participant_not_eligible`, `self_scan_denied` (the volunteer or administrator is scanning their own registration, including an unlinked staff account whose email matches the application).
+- Registration results: `qr_not_found` (unknown, malformed, or a retired badge), `registration_qr_used` (this registration already received a badge), `already_checked_in` (a badge was scanned, or a legacy check-in), `participant_not_eligible`, `media_disclosure_required` (no media-disclosure row yet; send them to the Check-in tab in the participant portal), `self_scan_denied` (the volunteer or administrator is scanning their own registration, including an unlinked staff account whose email matches the application).
 - Badge results: `badge_invalid`, `badge_is_registration` (any participant's registration token, current or replaced), `badge_in_use`, `badge_retired`.
 - Retrying a confirmation that already succeeded with the same badge returns `already_checked_in` and writes nothing. A failed check writes nothing to the participant, so a rejected badge never leaves a partial check-in.
 - Two desks assigning one badge at once: Convex serializes the transactions and the second sees the first holder (`badge_in_use`).
