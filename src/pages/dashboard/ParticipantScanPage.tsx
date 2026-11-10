@@ -1,7 +1,6 @@
 import { useState, useRef } from "react";
 import QRCode from "react-qr-code";
 import { Link, useOutletContext } from "react-router-dom";
-import { AddToAppleWalletButton } from "../../components/participant/AddToAppleWalletButton";
 import { DownloadQrImageButton } from "../../components/participant/DownloadQrImageButton";
 import { acceptMyMediaDisclosureRef, type ParticipantDashboard } from "../../convex/api";
 import { getConvexClient } from "../../convex/client";
@@ -173,7 +172,6 @@ export default function ParticipantScanPage() {
             />
           </div>
           <div className="participant-scan__actions">
-            <AddToAppleWalletButton />
             <DownloadQrImageButton
               sourceRef={qrFrameRef}
               details={{

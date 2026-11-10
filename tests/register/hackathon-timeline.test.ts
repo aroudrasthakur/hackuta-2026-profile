@@ -41,10 +41,13 @@ describe("buildHackathonTimeline", () => {
 
   it("uses a confirmed decision date when organizers publish one", () => {
     const decisionsReleasedAt = Date.parse("2026-11-10T09:00:00-06:00");
-    const timeline = buildHackathonTimeline({
-      ...baseHackathon,
-      decisionsReleasedAt,
-    });
+    const timeline = buildHackathonTimeline(
+      {
+        ...baseHackathon,
+        decisionsReleasedAt,
+      },
+      Date.parse("2026-11-10T08:00:00-06:00"),
+    );
 
     expect(timeline.find((event) => event.id === "decisions-out")).toMatchObject({
       timestamp: decisionsReleasedAt,
