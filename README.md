@@ -62,6 +62,32 @@ For issue #103, complete the [notification removal release checks](#issue-103-re
 2. `npm run convex:deploy` (runs both schema locks first)
 3. Deploy the admin and profile frontends. The register Vercel app stays as it is.
 
+### Frontend (Vercel)
+
+Do not run Convex deploy from Vercel. The frontend is a Vite SPA (`npm run build` → `dist/`).
+
+| Setting | Value |
+| --- | --- |
+| Framework | Vite (or Other) |
+| Build command | `npm run build` |
+| Output directory | `dist` |
+| Node.js | **22** (`engines.node` is `22.x`) |
+| Domain | `profile.hackuta.com` (app is served at domain root; no `basename`) |
+
+Set in the Vercel project (Production + Preview). Use the **production** Convex URLs, not `standing-manatee-425` from `.env.example`.
+
+| Variable | Production value |
+| --- | --- |
+| `VITE_CONVEX_URL` | `https://<prod-deployment>.convex.cloud` |
+| `VITE_CONVEX_SITE_URL` | optional; `https://<prod-deployment>.convex.site` |
+| `VITE_LANDING_URL` | `https://hackuta.com` |
+| `VITE_REGISTER_URL` | `https://register.hackuta.com` |
+| `VITE_USE_MOCK_API` | unset or `false` |
+| `VITE_E2E_MOCK` | unset |
+| `VITE_DEV_AUTH_BYPASS` | unset |
+
+`prebuild` fails if mock or bypass flags are true on Vercel production or preview. SPA deep links (`/sign-in`, `/dashboard/*`) require [vercel.json](vercel.json) rewrites; CSP and Trusted Types are deployed from that file plus [public/trusted-types.js](public/trusted-types.js).
+
 ### Issue #103 release checks
 
 The synchronized backend combines admin branch `refactor/103-remove-notification-backend`, reviewed at `e9709da17d238e9aa7040d40d3071084e72d4c1c` ([#104](https://github.com/aroudrasthakur/hackuta-2026-admin/pull/104), [#105](https://github.com/aroudrasthakur/hackuta-2026-admin/pull/105), [#107](https://github.com/aroudrasthakur/hackuta-2026-admin/pull/107)), with admin `main` at `302ed67` ([#106](https://github.com/aroudrasthakur/hackuta-2026-admin/pull/106)). This preserves the `checkedIn` table migration already integrated by profile [#16](https://github.com/aroudrasthakur/hackuta-2026-profile/pull/16). The admin stack must also retain that migration when integrated. After the admin stack reaches `main`, refresh and verify the admin lock again before release.
