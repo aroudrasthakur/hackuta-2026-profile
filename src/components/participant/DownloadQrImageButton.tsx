@@ -56,7 +56,7 @@ export function DownloadQrImageButton({
   }
 
   return (
-    <div className="participant-wallet">
+    <div className="participant-qr-download">
       <button
         type="button"
         className="participant-qr-download__button"
@@ -72,12 +72,12 @@ export function DownloadQrImageButton({
         </span>
       </button>
       {loading ? (
-        <p className="participant-wallet__status" role="status">
+        <p className="participant-qr-download__status" role="status">
           Preparing image…
         </p>
       ) : null}
       {errorMessage ? (
-        <p className="participant-wallet__error" role="alert">
+        <p className="participant-qr-download__error" role="alert">
           {errorMessage}
         </p>
       ) : null}

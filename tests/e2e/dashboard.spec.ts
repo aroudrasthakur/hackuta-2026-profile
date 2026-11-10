@@ -21,7 +21,6 @@ async function openCheckIn(page: Page) {
 async function acceptMediaDisclosure(page: Page) {
   await expect(page.getByRole("heading", { name: "Media disclosure" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);
   const confirm = page.getByRole("button", { name: "Confirm acceptance" });
   await expect(confirm).toBeDisabled();
@@ -73,25 +72,11 @@ test.describe("participant portal", () => {
     await expect(page.getByRole("checkbox", { name: MEDIA_DISCLOSURE_CHECKBOX_LABEL })).toBeVisible();
     await expect(page.getByRole("link", { name: "Read the media disclosure" })).toHaveCount(0);
     await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);
     await acceptMediaDisclosure(page);
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toBeVisible();
     await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Download QR image" })).toBeVisible();
-  });
-
-  test("downloads a .pkpass file when Add to Apple Wallet is clicked before check-in", async ({ page }) => {
-    await signInToDashboard(page);
-    await openCheckInReady(page);
-    const walletButton = page.getByRole("button", { name: "Add to Apple Wallet" });
-    await expect(walletButton).toBeVisible();
-
-    const downloadPromise = page.waitForEvent("download");
-    await walletButton.click();
-    const download = await downloadPromise;
-    expect(download.suggestedFilename()).toBe("hackuta-2026-checkin.pkpass");
   });
 
   test("downloads a PNG of the check-in QR before check-in", async ({ page }) => {
@@ -137,7 +122,6 @@ test.describe("participant portal", () => {
     await expect(page.getByText(/^Checked in \w{3}, \w{3} \d{1,2} · \d{1,2}:\d{2} [AP]M$/)).toBeVisible();
     await expect(page.getByText("Keep your badge with you.")).toBeVisible();
     await expect(page.getByRole("img", { name: "Participant check-in QR code" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);
     await expect(page.locator(".participant-scan__frame")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toHaveCount(0);
@@ -214,7 +198,6 @@ test.describe("participant portal on mobile", () => {
     await expect(page.getByText(/^Checked in \w{3}, \w{3} \d{1,2} · \d{1,2}:\d{2} [AP]M$/)).toBeVisible();
     await expect(page.getByText("Keep your badge with you.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Check-in QR" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Add to Apple Wallet" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Download QR image" })).toHaveCount(0);
     await expect(page.locator(".participant-scan__frame")).toHaveCount(0);
   });

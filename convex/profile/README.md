@@ -16,8 +16,6 @@ npm run convex:push-dev
 | [`mediaDisclosure.ts`](mediaDisclosure.ts) | `acceptMyMediaDisclosure` — one-time server-stamped acceptance; the QR token is withheld until this row exists |
 | [`schedule.ts`](schedule.ts) | `listPublicSchedule` — public reactive schedule of active participant activities, ordered by start time (landing + profile) |
 | [`scheduleMigration.ts`](scheduleMigration.ts) | `migrateLegacyWeekendSchedule` — idempotent internal seed for any legacy activity data |
-| [`appleWalletPass.ts`](appleWalletPass.ts) | `generateMyAppleWalletPass` — signs and serves a pre-check-in `.pkpass` bundle for Apple Wallet using the participant's existing registration QR token |
-| [`appleWalletPassData.ts`](appleWalletPassData.ts) | Internal query and storage cleanup helpers for Apple Wallet pass generation |
 | [`leaderboard.ts`](leaderboard.ts) | `getMyPointsLeaderboard` — live top 10 by points (rank, name, points, `isYou` only) |
 | [`seedTestProfile.ts`](seedTestProfile.ts) | Dev-only internal seed for a signed-in accepted participant (`seedTestAcceptedParticipant`) |
 | [`seedTestVolunteer.ts`](seedTestVolunteer.ts) | Dev-only internal seed for an admin-app volunteer with scan access (`seedTestVolunteer`) |

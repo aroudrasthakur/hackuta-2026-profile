@@ -1,11 +1,9 @@
 import { makeFunctionReference } from "convex/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   acceptMyMediaDisclosureRef,
-  generateMyAppleWalletPassRef,
   getMyParticipantDashboardRef,
 } from "../../src/convex/api";
-import { getRuntimeTestAppleWalletCredentials } from "../helpers/appleWalletTestCerts";
 import { createConvexTest, type ConvexTestInstance } from "../helpers/convexTestContext";
 import { seedApplicant, seedStaff } from "../helpers/reviewTestKit";
 import { insertStaffSession } from "../helpers/staffTestFixtures";
@@ -183,33 +181,5 @@ describe("media disclosure gate", () => {
         badgeQrCodeToken: BADGE,
       }),
     ).toEqual({ status: "media_disclosure_required" });
-  });
-});
-
-describe("Apple Wallet media disclosure gate", () => {
-  beforeEach(() => {
-    const creds = getRuntimeTestAppleWalletCredentials();
-    vi.stubEnv("APPLE_PASS_TYPE_IDENTIFIER", creds.passTypeIdentifier);
-    vi.stubEnv("APPLE_TEAM_IDENTIFIER", creds.teamIdentifier);
-    vi.stubEnv("APPLE_PASS_SIGNER_CERT_PEM", creds.signerCertPem);
-    vi.stubEnv("APPLE_PASS_SIGNER_KEY_PEM", creds.signerKeyPem);
-    vi.stubEnv("APPLE_WWDR_CERT_PEM", creds.wwdrCertPem);
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("maps a missing disclosure row like not_eligible and never includes the token", async () => {
-    const t = createConvexTest();
-    const { asParticipant } = await seedAcceptedParticipant(t, "wallet@example.com");
-
-    const result = await asParticipant.action(generateMyAppleWalletPassRef, {});
-    expect(result).toEqual({
-      ok: false,
-      code: "not_eligible",
-      message: "Your check-in pass is not available for Apple Wallet.",
-    });
-    expect(JSON.stringify(result)).not.toContain(TOKEN);
   });
 });
