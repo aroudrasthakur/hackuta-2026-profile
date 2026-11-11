@@ -7,6 +7,7 @@ import {
 describe("applicantVisibleReviewStatus", () => {
   it("passes through status when no email is pending", () => {
     expect(applicantVisibleReviewStatus({ status: "accepted" }, null)).toBe("accepted");
+    expect(applicantVisibleReviewStatus(null, null)).toBeNull();
   });
 
   it("hides a queued acceptance while review is still in progress", () => {
@@ -29,6 +30,16 @@ describe("applicantVisibleReviewStatus", () => {
       applicantVisibleReviewStatus({ status: "rejected", completedAt: 1 }, { decision: "rejected" }),
     ).toBe("under_review");
   });
+
+  it("does not infer a queued decision when the review row is missing", () => {
+    expect(applicantVisibleReviewStatus(null, { decision: "accepted" })).toBeNull();
+  });
+
+  it("keeps an unreviewed row unreviewed while that status is still queued", () => {
+    expect(
+      applicantVisibleReviewStatus({ status: "unreviewed" }, { decision: "unreviewed" }),
+    ).toBe("unreviewed");
+  });
 });
 
 describe("applicantVisibleParticipant", () => {
@@ -39,5 +50,10 @@ describe("applicantVisibleParticipant", () => {
   it("returns participant when no acceptance email is pending", () => {
     const row = { qrCodeToken: "x" };
     expect(applicantVisibleParticipant(row, null)).toBe(row);
+    expect(applicantVisibleParticipant(row, { decision: "rejected" })).toBe(row);
+  });
+
+  it("returns null when there is no participant row", () => {
+    expect(applicantVisibleParticipant(null, { decision: "accepted" })).toBeNull();
   });
 });
