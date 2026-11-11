@@ -13,7 +13,7 @@
   "convex/admin/decisionEmailQueue.ts": "e9c560c9e1db5bd454cc6cc1e21c0a4c028802e1fa481f93b464c6cc7d1eef20",
   "convex/admin/decisionEmailRelease.ts": "40d7a21a02314e6cc3490159f5036789dc76bcc07f3b36cd654a3937c043615d",
   "convex/admin/decisionEmailService.ts": "dcb4fabddd7ce7f094ce0b6487f1db9c7c34c854f26a3380f95dd95b97a6a5ca",
-  "convex/admin/decisionEmailTemplates.ts": "880b5bbf243434a5e979daec6c58b1bf4156329fcb0f1041238ed5dfcb2654cd",
+  "convex/admin/decisionEmailTemplates.ts": "710187e59c9f1242cc6023d7fff6638ae193ed2cbe758d8c0129d02c8b1b508d",
   "convex/admin/decisionFinalize.ts": "1f24de275496a5c95c67f81079b6fe7402dfe64330a4405af1ef867bbcfcaa84",
   "convex/admin/events.ts": "9233a52a9c13ab5b361a1c7ced006f9cefeab53e37a9706402f7eb1078a95755",
   "convex/admin/fields.ts": "7aa0d17a5c1ef2bff0d115946dcf948d1424d570f89e4cfa3726e204d91ee27b",

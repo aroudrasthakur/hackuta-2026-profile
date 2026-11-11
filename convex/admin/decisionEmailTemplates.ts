@@ -14,13 +14,14 @@ function decisionBody(decision: DecisionKind, hackathonName: string) {
   if (decision === "accepted") {
     return paragraphs(
       `Congratulations. Your application to ${hackathonName} has been accepted, and we would like you to join us.`,
-      `${hackathonName} is a free, in-person, 24-hour hackathon on ${EVENT_WHEN} at ${EVENT_WHERE}. Meals, snacks, workspace, and swag are provided. Please bring a laptop, charger, and a government-issued photo ID or UTA ID for check-in. All project work must be done during the event.`,
-      "We will email logistics, the schedule, and travel notes as the weekend gets closer. If you are looking for team members, you can post in the team-formation channel on our discord:",
-      DISCORD_URL,
+      `${hackathonName} is a free, in-person, 24-hour hackathon on ${EVENT_WHEN} at ${EVENT_WHERE}. Meals, snacks, workspace, and swag are provided.`,
       "Before you arrive, please read the guide below for the event schedule, check-in location, what to bring, and instructions for getting your parking permit and finding your way around.",
-      "Important Day-Of Information: https://docs.hackuta.com/HackUTA%202026%20Hacker%20Instructions.pdf",
+      "IMPORTANT Day-Of Information: https://docs.hackuta.com/HackUTA%202026%20Hacker%20Instructions.pdf",
       "Check-in is Saturday, November 14, from 9–11 AM at SWSH. Please bring a government-issued ID or UTA ID and your phone. Attendance at check-in and the Sunday judging period is required.",
-      "We look forward to building with you. Stay tuned for next steps as we get closer to the event.",
+      "For check-in, please bring a government-issued photo ID or UTA ID. Also make sure you are logged-in to our portal at https://hacker.hackuta.com, there you will find your QR code to complete the check-in process.",
+      "Make sure to join our discord which will be our primary way to communicate with you: https://discord.gg/2bVsYS3SgS",
+      "If you are looking for team members, we encourage you to post in the discord.",
+      "We look forward to seeing what you build,",
     );
   }
 
