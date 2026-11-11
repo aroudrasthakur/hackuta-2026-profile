@@ -32,8 +32,13 @@ export default defineConfig({
     coverage: {
       provider: "istanbul",
       include: ["convex/profile/**/*.ts"],
-      exclude: ["src/main.tsx", "src/vite-env.d.ts", "convex/profile/seedTestProfile.ts",
-      "convex/profile/seedTestVolunteer.ts"],
+      exclude: [
+        "src/main.tsx",
+        "src/vite-env.d.ts",
+        "convex/profile/seedTestProfile.ts",
+        "convex/profile/seedTestPendingApplications.ts",
+        "convex/profile/seedTestVolunteer.ts",
+      ],
       reporter: ["text", "text-summary", "json-summary", "html"],
       thresholds: {
         lines: 70,

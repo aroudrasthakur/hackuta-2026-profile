@@ -254,21 +254,6 @@ async function seedOnePendingApplication(
     }
   }
 
-  const existingLog = await ctx.db
-    .query("applicationSubmissionLogs")
-    .withIndex("by_application", (q) => q.eq("applicationId", application._id))
-    .first();
-  if (!existingLog) {
-    const { _id, _creationTime, ...fields } = application;
-    void _creationTime;
-    await ctx.db.insert("applicationSubmissionLogs", {
-      ...fields,
-      status: "submitted",
-      updatedAt: application.submittedAt ?? now,
-      applicationId: _id,
-    });
-  }
-
   return {
     email,
     skipped: false as const,
