@@ -80,7 +80,7 @@ Door check-in takes two scans, a government-ID check on the desk (name and dieta
 | --- | --- | --- |
 | `resolveRegistrationForCheckIn` | `registrationQrCodeToken` | Rate-limit rows only. Returns the participant's name and dietary snapshot |
 | `resolveBadgeForCheckIn` | `registrationQrCodeToken`, `badgeQrCodeToken` | Rate-limit rows only. Rechecks the registration, then the badge |
-| `checkInWithBadge` | same | In one transaction: badge fields, `qrCodeToken` → badge, `registrationQrCodeToken` ← old token, `checkedInAt`, `updatedAt`, one `check_in` log |
+| `checkInWithBadge` | same | In one transaction: badge fields, `qrCodeToken` → badge, `registrationQrCodeToken` ← old token, `checkedInAt`, `updatedAt`, starting balance **75** points on `checkedIn`, and one `check_in` log with `pointsDelta` **75** |
 
 Each call runs `requireVolunteerAccess` (throws), the throttle (`rate_limited`), one attempt row, then `canCheckIn` (`not_authorized`). Every check is repeated by `checkInWithBadge`; the previews are never proof of anything.
 

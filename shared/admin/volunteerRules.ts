@@ -5,6 +5,8 @@ export const ADJUSTMENT_REASON_MAX_LENGTH = 200;
 export const EVENT_NAME_MAX_LENGTH = 120;
 export const EVENT_DESCRIPTION_MAX_LENGTH = 2_000;
 export const EVENT_POINTS_MAX = 100_000;
+/** Door check-in starting balance on `checkedIn.points`. */
+export const CHECK_IN_STARTING_POINTS = 75;
 
 const STAFF_CONFIG_KEYS = [
   "changedFields",

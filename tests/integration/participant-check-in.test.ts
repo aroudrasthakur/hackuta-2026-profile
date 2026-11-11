@@ -4,6 +4,7 @@ import { getMyParticipantDashboardRef, getMyPointsLeaderboardRef } from "../../s
 import { createConvexTest, type ConvexTestInstance } from "../helpers/convexTestContext";
 import { seedApplicant, seedStaff } from "../helpers/reviewTestKit";
 import { insertStaffSession } from "../helpers/staffTestFixtures";
+import { CHECK_IN_STARTING_POINTS } from "../../shared/admin/volunteerRules";
 
 /** The same mutation and args a volunteer's phone sends after scanning registration and badge QRs. */
 const checkInWithBadgeRef = makeFunctionReference<
@@ -109,9 +110,14 @@ describe("participant dashboard after volunteer check-in", () => {
     expect(JSON.stringify(dashboard)).not.toMatch(new RegExp(`${TOKEN_A}|${BADGE_A}`));
 
     const shop = await asParticipant.query(listShopRef, {});
-    expect(shop?.points).toBe(0);
+    expect(shop?.points).toBe(CHECK_IN_STARTING_POINTS);
     const board = await asParticipant.query(getMyPointsLeaderboardRef, {});
-    expect(board).toEqual({ entries: [], you: { rank: null, points: 0 } });
+    expect(board).toEqual({
+      entries: [
+        { rank: 1, name: "Taylor Student", points: CHECK_IN_STARTING_POINTS, isYou: true },
+      ],
+      you: { rank: 1, points: CHECK_IN_STARTING_POINTS },
+    });
     expect(await t.run(async (ctx) => {
       const participant = await ctx.db.query("participants").first();
       const attendee = await ctx.db.query("checkedIn")
@@ -126,7 +132,7 @@ describe("participant dashboard after volunteer check-in", () => {
     })).toEqual({
       participantCheckedInAt: result.checkedInAt,
       attendeeCheckedInAt: result.checkedInAt,
-      attendeePoints: 0,
+      attendeePoints: CHECK_IN_STARTING_POINTS,
       attendeeBadge: BADGE_A,
     });
   });

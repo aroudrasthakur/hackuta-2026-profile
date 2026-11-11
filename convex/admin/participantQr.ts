@@ -9,6 +9,7 @@ import { formatApplicantFullName } from "../lib/applications";
 import { normalizeEmail } from "../lib/normalizeEmail";
 import { sha256Hex } from "../lib/sha256Hex";
 import { normalizeBadgeQr, normalizeRegistrationQr, scanLookupCandidates } from "../../shared/admin/qrValues";
+import { CHECK_IN_STARTING_POINTS } from "../../shared/admin/volunteerRules";
 import {
   checkedInForParticipant,
   type CheckedInDoc,
@@ -224,7 +225,8 @@ export async function assignBadge(ctx: MutationCtx, args: {
     badgeQrCodeToken: badge,
     badgeAssignedAt: now,
     badgeAssignedBy: actorAdminId,
-    points: 0,
+    points: checkIn ? CHECK_IN_STARTING_POINTS : 0,
+    ...(checkIn ? { pointsReachedAt: now } : {}),
     createdAt: now,
     updatedAt: now,
   });

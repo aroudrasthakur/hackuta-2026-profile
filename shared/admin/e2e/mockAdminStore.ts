@@ -1,5 +1,10 @@
 import { ADMIN_ERROR_MESSAGES, adminError } from "../errors.ts";
-import { assertEventPoints, normalizeEventInput, type EventScheduleInput } from "../volunteerRules.ts";
+import {
+  assertEventPoints,
+  CHECK_IN_STARTING_POINTS,
+  normalizeEventInput,
+  type EventScheduleInput,
+} from "../volunteerRules.ts";
 import { normalizeBadgeQr, scanLookupCandidates } from "../qrValues.ts";
 import {
   mockMealsMutation, mockMealsQuery, resetMockMeals, mockActiveMeals,
@@ -703,7 +708,13 @@ function mockCheckIn(staff: StaffRecord, args: Record<string, unknown>, stage: "
   const now = Date.now();
   participant.badgeToken = checked.badge;
   participant.checkedInAt = now;
-  logVolunteerAction({ actorAdminId: staff.adminId, action: "check_in", participantName: participant.name });
+  participant.points = CHECK_IN_STARTING_POINTS;
+  logVolunteerAction({
+    actorAdminId: staff.adminId,
+    action: "check_in",
+    participantName: participant.name,
+    pointsDelta: CHECK_IN_STARTING_POINTS,
+  });
   bump();
   return { status: "success", checkedInAt: now };
 }

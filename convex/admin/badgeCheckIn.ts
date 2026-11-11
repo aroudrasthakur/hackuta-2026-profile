@@ -6,7 +6,8 @@
  * `resolveRegistrationForCheckIn` and `resolveBadgeForCheckIn` are previews
  * and write only rate-limit rows. `checkInWithBadge` re-runs every check and,
  * in one transaction, assigns the badge, retires the registration QR, sets
- * the check-in and badge timestamps, and writes a `check_in` log. A rejected
+ * the check-in and badge timestamps, seeds **75** starting points, and writes
+ * a `check_in` ledger log. A rejected
  * badge leaves the participant unchanged.
  *
  * Like the other scan mutations, session failures throw before any write and
@@ -25,6 +26,7 @@ import {
   type BadgeConflict,
   type ParticipantDoc,
 } from "./participantQr";
+import { CHECK_IN_STARTING_POINTS } from "../../shared/admin/volunteerRules";
 import { isParticipantEligible } from "./pointsLedger";
 import { hasVolunteerCapability, requireVolunteerAccess, sessionTokenArgs } from "./staffAuth";
 import {
@@ -201,6 +203,9 @@ export const checkInWithBadge = mutation({
       actorAdminId: scan.volunteer._id,
       checkedInId,
       action: "check_in",
+      pointsDelta: CHECK_IN_STARTING_POINTS,
+      previousPoints: 0,
+      newPoints: CHECK_IN_STARTING_POINTS,
       createdAt: scan.now,
     });
     return { status: "success" as const, checkedInAt: scan.now };
