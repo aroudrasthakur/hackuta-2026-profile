@@ -202,7 +202,9 @@ export const MIN_GRADUATION_YEAR = CURRENT_YEAR;
 export const MAX_GRADUATION_YEAR = CURRENT_YEAR + 10;
 
 export const MLH_PRIVACY_POLICY_URL = "https://github.com/MLH/mlh-policies/blob/main/privacy-policy.md";
-export const MLH_CODE_OF_CONDUCT_URL = "https://static.mlh.io/docs/mlh-code-of-conduct.pdf";
+export const MLH_CODE_OF_CONDUCT_URL = "https://github.com/MLH/mlh-policies/blob/main/code-of-conduct.md";
+export const MLH_CONTEST_TERMS_URL = "https://github.com/MLH/mlh-policies/blob/main/contest-terms.md";
+export const DEV_URL = "https://dev.to/";
 
 export const SPONSOR_SHARING_CONSENT_TEXT =
   "I authorize HackUTA to share my resume and application information with HackUTA's sponsors for recruiting purposes. Sponsors may choose to contact me about internships and full-time position opportunities. (optional)";

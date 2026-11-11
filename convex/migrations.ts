@@ -38,6 +38,57 @@ export const stripLegacyUserImageAndPoints = internalMutation({
   },
 });
 
+/** Legacy on-site fields that lived on `participants` before the `checkedIn` split. */
+const LEGACY_PARTICIPANT_FIELDS = [
+  "points",
+  "pointsReachedAt",
+  "badgeQrCodeToken",
+  "badgeAssignedAt",
+  "badgeAssignedBy",
+  "foodCheckedInAt",
+  "registrationQrCodeToken",
+] as const;
+
+type LegacyParticipantField = (typeof LEGACY_PARTICIPANT_FIELDS)[number];
+
+/**
+ * One-time prod cleanup before deploying the slim `participants` schema.
+ * Keeps acceptance roster fields only; does not create `checkedIn` rows.
+ * Run on production after a deploy whose schema still allows these legacy fields.
+ */
+export const stripLegacyParticipantFields = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let updated = 0;
+    let skipped = 0;
+
+    for await (const participant of ctx.db.query("participants")) {
+      const row = participant as typeof participant & Partial<Record<LegacyParticipantField, unknown>>;
+      const hasLegacy = LEGACY_PARTICIPANT_FIELDS.some((key) => key in row);
+      if (!hasLegacy) {
+        skipped += 1;
+        continue;
+      }
+
+      const replacement = {
+        applicationId: row.applicationId,
+        authUserId: row.authUserId,
+        acceptedAt: row.acceptedAt,
+        acceptedBy: row.acceptedBy,
+        qrCodeToken: row.qrCodeToken,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        ...(row.foodRestriction !== undefined ? { foodRestriction: row.foodRestriction } : {}),
+        ...(row.checkedInAt !== undefined ? { checkedInAt: row.checkedInAt } : {}),
+      };
+      await ctx.db.replace(participant._id, replacement);
+      updated += 1;
+    }
+
+    return { ok: true as const, updated, skipped };
+  },
+});
+
 /** One-time copy from legacy `profiles` rows into `applications`, then delete the source rows. */
 export const migrateProfilesToApplications = internalMutation({
   args: {},

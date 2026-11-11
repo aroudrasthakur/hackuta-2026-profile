@@ -7,6 +7,10 @@
     "admins",
     "applicationReviewLogs",
     "participants",
+    "checkedIn",
+    "retiredBadgeTokens",
+    "mealPeriods",
+    "mealRedemptions",
     "events",
     "volunteerEventAccess",
     "participantEventAwards",
@@ -14,10 +18,15 @@
     "staffConfigLogs",
     "adminAuthAccounts",
     "adminSessions",
-    "decisionEmailQueue"
+    "decisionEmailQueue",
+    "shopItems",
+    "shopRedemptions",
+    "shopFlashSales",
+    "shopFlashSaleItems"
   ],
   "profileTables": [
-    "schedule"
+    "schedule",
+    "participantMediaDisclosures"
   ],
   "registerSchemaLockedHash": "39e5db7109d6c4b4ce02f8dd5216b4f4498b44018bc0d1311cd350b732f7dd03",
   "files": {
@@ -54,7 +63,7 @@
     "convex/lib/resumeUpload.ts": "50293eb58a7fe9f64322f8e03dd3037bf65a04e0451bddf79f73a5923e73c4a4",
     "convex/lib/sha256Hex.ts": "e6bf3fb7299ab7515ce35fbff11e4b1a7d608653cd0660f55e1250ac7e7e6268",
     "convex/maintenance.ts": "7dd11850d3993c43bf6cb4ae90c49f229079ea5b26fa2573d40a7133c95c6fbb",
-    "convex/migrations.ts": "fc2d894467f8ab23b675d5144bea81e83e3a9eac3d155c1af208eb9ad44c895f",
+    "convex/migrations.ts": "7743f9d402cfd63c89156ef9c9c50527745acde11d2ab5912c9a1c63fbcdb597",
     "convex/passwordReset.ts": "43f113ad52a6d530229184dfdf2b834412a4e2775d477f856539dabe96f95b73",
     "convex/rateLimits.ts": "9d7be3040a6c4303f7ba2cbbba4be1e1ae8d9bb3727a64161e61a77cf52137b8",
     "convex/registrations.ts": "e83af113a56799fceaf526887353a431c1eb296543696d29a03936ff4a19e230",
@@ -72,7 +81,7 @@
     "shared/registration/allergyMigration.ts": "e687e790c575478e06a0894161222e8c346ef9f316a4ad987fe2b1a517e45f8b",
     "shared/registration/applicantFields.ts": "d50be22528107b86cd4d570019ffd5c27db991be9beeb7838d49caedcaf6bc5c",
     "shared/registration/consentTimestamps.ts": "eec7ade1354c740467e56ee68942cbd328852d664f1b9661ca3982d39239fc9f",
-    "shared/registration/constants.ts": "b0267ad5dcf4ebbdd7338422a283d9424700d5e70bb2cda091167e7f98054040",
+    "shared/registration/constants.ts": "b71473ffbdae5e4ba00d42a5e9695df9fe3e7be6b03cf428f3a8fd6900fa4c9e",
     "shared/registration/countries.ts": "5a0a3b75aa036822813d43ce65eeb7705e3fdd0e628d0a41ee35e7ac76a5d701",
     "shared/registration/data/schools.csv": "dc3b627d4f46a991d3872339ad5fdc2fffc24634015bca9ec35035430776c5f7",
     "shared/registration/dietaryMigration.ts": "1a9835d6096c564931d6134071662cbd7539862a7a890112657275ad49341351",

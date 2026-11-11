@@ -2,37 +2,17 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ADMIN_EDITABLE_TABLES,
+  PROFILE_EDITABLE_TABLES,
+  REFERENCE_EDITABLE_TABLES,
+} from "./register-schema-lock/editable-tables.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const lockDir = join(root, "scripts", "register-schema-lock");
 const manifestPath = join(lockDir, "manifest.json");
 const schemaReferencePath = join(lockDir, "schema.reference.ts");
 const adminSchemaPath = join(root, "convex", "schema.ts");
-
-const ADMIN_EDITABLE_TABLES = [
-  "applicationReviews",
-  "admins",
-  "applicationReviewLogs",
-  "participants",
-  "checkedIn",
-  "retiredBadgeTokens",
-  "mealPeriods",
-  "mealRedemptions",
-  "events",
-  "volunteerEventAccess",
-  "participantEventAwards",
-  "volunteerActionLogs",
-  "staffConfigLogs",
-  "adminAuthAccounts",
-  "adminSessions",
-  "decisionEmailQueue",
-  "shopItems",
-  "shopRedemptions",
-  "shopFlashSales",
-  "shopFlashSaleItems",
-];
-const REFERENCE_EDITABLE_TABLES = ["applicationReviews"];
-const PROFILE_EDITABLE_TABLES = ["schedule", "participantMediaDisclosures"];
 
 function sha256(content) {
   return createHash("sha256").update(content).digest("hex");

@@ -11,6 +11,10 @@ import {
 } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ADMIN_EDITABLE_TABLES,
+  PROFILE_EDITABLE_TABLES,
+} from "./register-schema-lock/editable-tables.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const registerRoot = join(root, "..", "hackuta-2026-register");
@@ -18,21 +22,6 @@ const lockDir = join(root, "scripts", "register-schema-lock");
 
 const LOCKED_CONVEX_IGNORE = new Set(["schema.ts"]);
 const LOCKED_CONVEX_DIR_IGNORE = new Set(["admin", "_generated"]);
-const EDITABLE_TABLES = [
-  "applicationReviews",
-  "admins",
-  "applicationReviewLogs",
-  "participants",
-  "events",
-  "volunteerEventAccess",
-  "participantEventAwards",
-  "volunteerActionLogs",
-  "staffConfigLogs",
-  "adminAuthAccounts",
-  "adminSessions",
-  "decisionEmailQueue",
-];
-const PROFILE_TABLES = ["schedule"];
 
 function sha256(content) {
   return createHash("sha256").update(content).digest("hex");
@@ -206,7 +195,10 @@ function main() {
   const adminSchema = readText(join(root, "convex", "schema.ts"));
   const registerSchemaLockedHash = sha256(
     normalizeSchemaForHash(
-      stripTablesForHash(adminSchema, [...EDITABLE_TABLES, ...PROFILE_TABLES]),
+      stripTablesForHash(adminSchema, [
+        ...ADMIN_EDITABLE_TABLES,
+        ...PROFILE_EDITABLE_TABLES,
+      ]),
     ),
   );
 
@@ -214,8 +206,8 @@ function main() {
     source: "hackuta-2026-register",
     referenceSchema: "scripts/register-schema-lock/schema.reference.ts",
     registerSchemaPath: "convex/schema.ts",
-    editableTables: EDITABLE_TABLES,
-    profileTables: PROFILE_TABLES,
+    editableTables: ADMIN_EDITABLE_TABLES,
+    profileTables: PROFILE_EDITABLE_TABLES,
     registerSchemaLockedHash,
     files: manifestFiles,
   };
