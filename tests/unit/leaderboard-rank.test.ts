@@ -31,6 +31,8 @@ describe("leaderboard ranking", () => {
   it("uses a stable id when points and timestamps match", () => {
     const ranked = [row("m", 12, 5), row("k", 12, 5)].sort(compareRankable);
     expect(ranked.map((item) => item.id)).toEqual(["k", "m"]);
+    expect(compareRankable(row("z", 12, 5), row("a", 12, 5))).toBe(1);
+    expect(compareRankable(row("same", 12, 5), row("same", 12, 5))).toBe(0);
   });
 
   it("returns a 1-based rank or null", () => {
@@ -42,12 +44,21 @@ describe("leaderboard ranking", () => {
   it("excludes zero and missing points from ranking", () => {
     expect(isPositivePoints(0)).toBe(false);
     expect(isPositivePoints(undefined)).toBe(false);
+    expect(isPositivePoints(-3)).toBe(false);
+    expect(isPositivePoints(1.5)).toBe(false);
     expect(isPositivePoints(15)).toBe(true);
   });
 
   it("falls back to updatedAt when pointsReachedAt is missing", () => {
     expect(pointsReachedAtOf({ updatedAt: 9, acceptedAt: 1 })).toBe(9);
     expect(pointsReachedAtOf({ pointsReachedAt: 4, updatedAt: 9, acceptedAt: 1 })).toBe(4);
+    expect(
+      pointsReachedAtOf({
+        pointsReachedAt: undefined,
+        updatedAt: undefined as unknown as number,
+        acceptedAt: 3,
+      }),
+    ).toBe(3);
   });
 });
 

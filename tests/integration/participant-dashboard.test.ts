@@ -364,4 +364,198 @@ describe("participant dashboard query", () => {
     expect(dashboard?.reviewStatus).toBe("under_review");
     expect(dashboard?.participant).toBeNull();
   });
+
+  it("returns null from the submission query when unsigned, unsubmitted, or missing", async () => {
+    const t = createConvexTest();
+    expect(await t.query(getMySubmittedApplicationRef, {})).toBeNull();
+
+    const draft = await seedApplicant(t, {
+      email: "draft@example.com",
+      submitted: false,
+      fields: { firstName: "Draft", lastName: "Only" },
+    });
+    const asDraft = t.withIdentity({ subject: draft.userId, email: "draft@example.com" });
+    expect(await asDraft.query(getMySubmittedApplicationRef, {})).toBeNull();
+    expect((await asDraft.query(getMyParticipantDashboardRef, {}))?.submittedApplication).toBeNull();
+
+    const userId = await t.run((ctx) => ctx.db.insert("users", { email: "empty@example.com" }));
+    const asEmpty = t.withIdentity({ subject: userId, email: "empty@example.com" });
+    expect(await asEmpty.query(getMySubmittedApplicationRef, {})).toBeNull();
+  });
+
+  it("falls back through display name sources and reports missing school/submit timestamps", async () => {
+    const t = createConvexTest();
+    const named = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "named@example.com",
+        name: "Session Name",
+      });
+      await ctx.db.insert("applications", {
+        authUserId: userId,
+        email: "named@example.com",
+        firstName: "  ",
+        lastName: "",
+        school: "   ",
+        createdAt: 1,
+        formSubmitted: true,
+      });
+      return userId;
+    });
+    const namedDashboard = await t
+      .withIdentity({ subject: named, email: "named@example.com" })
+      .query(getMyParticipantDashboardRef, {});
+    expect(namedDashboard?.profile.displayName).toBe("Session Name");
+    expect(namedDashboard?.application).toMatchObject({
+      submitted: true,
+      submittedAt: null,
+      school: null,
+    });
+
+    const emailed = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", { email: "email-only@example.com" });
+      await ctx.db.insert("applications", {
+        authUserId: userId,
+        email: "email-only@example.com",
+        createdAt: 1,
+        formSubmitted: true,
+        submittedAt: 9,
+      });
+      return userId;
+    });
+    const emailedDashboard = await t
+      .withIdentity({ subject: emailed, email: "email-only@example.com" })
+      .query(getMyParticipantDashboardRef, {});
+    expect(emailedDashboard?.profile.displayName).toBe("email-only@example.com");
+
+    const anonymousId = await t.run((ctx) => ctx.db.insert("users", {}));
+    const anonymousDashboard = await t
+      .withIdentity({ subject: anonymousId })
+      .query(getMyParticipantDashboardRef, {});
+    expect(anonymousDashboard?.profile.displayName).toBe("Participant");
+    expect(anonymousDashboard?.hackathon.startsAt).toBeNull();
+  });
+
+  it("prefers the newest draft when no submitted application exists for an email", async () => {
+    const t = createConvexTest();
+    const email = "drafts-only@example.com";
+    const { currentUserId } = await t.run(async (ctx) => {
+      const legacyUserId = await ctx.db.insert("users", { email, name: "Legacy" });
+      await ctx.db.insert("applications", {
+        authUserId: legacyUserId,
+        email,
+        firstName: "Older",
+        lastName: "Draft",
+        createdAt: 1,
+        applicantUpdatedAt: 2,
+      });
+      await ctx.db.insert("applications", {
+        authUserId: legacyUserId,
+        email,
+        firstName: "Newer",
+        lastName: "Draft",
+        createdAt: 3,
+        applicantUpdatedAt: 8,
+      });
+      const currentUserId = await ctx.db.insert("users", { email, name: "Current" });
+      return { currentUserId };
+    });
+
+    const dashboard = await t
+      .withIdentity({ subject: currentUserId, email })
+      .query(getMyParticipantDashboardRef, {});
+    expect(dashboard?.application?.submitted).toBe(false);
+    expect(dashboard?.profile.displayName).toBe("Newer Draft");
+  });
+
+  it("ignores a dangling participant link when the application row is gone", async () => {
+    const t = createConvexTest();
+    const sessionUserId = await t.run(async (ctx) => {
+      const applicationId = await ctx.db.insert("applications", {
+        authUserId: await ctx.db.insert("users", { email: "gone@example.com" }),
+        email: "gone@example.com",
+        createdAt: 1,
+        formSubmitted: true,
+        submittedAt: 2,
+      });
+      const sessionUserId = await ctx.db.insert("users", { email: "orphan@example.com" });
+      const staff = await ctx.db.insert("admins", {
+        email: "staff-orphan@example.com",
+        name: "Staff",
+        role: "admin",
+        active: true,
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.insert("participants", {
+        applicationId,
+        authUserId: sessionUserId,
+        acceptedAt: 1,
+        acceptedBy: staff,
+        qrCodeToken: "1".repeat(64),
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.delete(applicationId);
+      return sessionUserId;
+    });
+
+    const dashboard = await t
+      .withIdentity({ subject: sessionUserId, email: "orphan@example.com" })
+      .query(getMyParticipantDashboardRef, {});
+    expect(dashboard?.application).toBeNull();
+    expect(dashboard?.submittedApplication).toBeNull();
+  });
+
+  it("reports resume availability, missing blobs, and filenames on the submission payload", async () => {
+    const t = createConvexTest();
+    const none = await seedApplicant(t, {
+      email: "resume-none@example.com",
+      submitted: true,
+      fields: { firstName: "No", lastName: "File" },
+    });
+    const missing = await seedApplicant(t, {
+      email: "resume-missing@example.com",
+      submitted: true,
+      fields: { firstName: "Lost", lastName: "File" },
+    });
+    const live = await seedApplicant(t, {
+      email: "resume-live@example.com",
+      submitted: true,
+      fields: { firstName: "Live", lastName: "File" },
+    });
+    await t.run(async (ctx) => {
+      const goneId = await ctx.storage.store(new Blob(["pdf"], { type: "application/pdf" }));
+      await ctx.db.patch(missing.applicationId, {
+        resumeStorageId: goneId,
+        resumeFilename: "gone.pdf",
+      });
+      await ctx.storage.delete(goneId);
+      const liveId = await ctx.storage.store(new Blob(["pdf"], { type: "application/pdf" }));
+      await ctx.db.patch(live.applicationId, {
+        resumeStorageId: liveId,
+        resumeFilename: "live.pdf",
+      });
+    });
+
+    const nonePayload = await t
+      .withIdentity({ subject: none.userId, email: "resume-none@example.com" })
+      .query(getMySubmittedApplicationRef, {});
+    expect(nonePayload?.resume).toEqual({ status: "none", url: null, filename: null });
+
+    const missingPayload = await t
+      .withIdentity({ subject: missing.userId, email: "resume-missing@example.com" })
+      .query(getMySubmittedApplicationRef, {});
+    expect(missingPayload?.resume).toEqual({
+      status: "missing",
+      url: null,
+      filename: "gone.pdf",
+    });
+
+    const livePayload = await t
+      .withIdentity({ subject: live.userId, email: "resume-live@example.com" })
+      .query(getMySubmittedApplicationRef, {});
+    expect(livePayload?.resume.status).toBe("available");
+    expect(livePayload?.resume.filename).toBe("live.pdf");
+    expect(livePayload?.resume.url).toEqual(expect.any(String));
+  });
 });

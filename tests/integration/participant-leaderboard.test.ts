@@ -266,6 +266,25 @@ describe("points leaderboard query", () => {
     });
   });
 
+  it("falls back to Participant when the application has no display name", async () => {
+    const t = createConvexTest();
+    const viewer = await seedScoredParticipant(t, {
+      email: "anon-board@example.com",
+      firstName: "  ",
+      lastName: "",
+      points: 18,
+      pointsReachedAt: 4,
+    });
+
+    const board = await t
+      .withIdentity({ subject: viewer.userId, email: "anon-board@example.com" })
+      .query(getMyPointsLeaderboardRef, {});
+
+    expect(board?.entries).toEqual([
+      { rank: 1, name: "Participant", points: 18, isYou: true },
+    ]);
+  });
+
   it("does not change pointsReachedAt when an admin sets the same balance", async () => {
     const t = createConvexTest();
     const viewer = await seedScoredParticipant(t, {
