@@ -136,15 +136,13 @@ function ScheduleContent() {
                           {formatScheduleTime(entry.startsAt)} – {formatScheduleTime(entry.endsAt)}
                         </time>
                         <div className="participant-schedule__slot-details">
-                          <div className="participant-schedule__slot-heading">
-                            <h3>{entry.title}</h3>
-                            <span className="participant-schedule__category">{entry.category}</span>
-                          </div>
-                          {entry.location ? (
-                            <p className="participant-schedule__location">{entry.location}</p>
-                          ) : null}
+                          <h3>{entry.title}</h3>
+                          <span className="participant-schedule__category">{entry.category}</span>
                           {entry.description ? <p>{entry.description}</p> : null}
                         </div>
+                        {entry.location ? (
+                          <p className="participant-schedule__location">{entry.location}</p>
+                        ) : null}
                       </li>
                     ))
                   )}
