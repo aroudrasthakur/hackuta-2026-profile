@@ -411,6 +411,7 @@ export default defineSchema({
     name: v.string(),
     description: v.string(),
     pointsCost: v.number(),
+    purchaseCooldownMinutes: v.optional(v.number()),
     status: shopItemStatus,
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -445,6 +446,7 @@ export default defineSchema({
     })),
   })
     .index("by_idempotency_key", ["idempotencyKey"])
+    .index("by_checkedIn_item_redeemedAt", ["checkedInId", "itemId", "redeemedAt"])
     .index("by_checkedIn_redeemedAt", ["checkedInId", "redeemedAt"])
     .index("by_item_redeemedAt", ["itemId", "redeemedAt"])
     .index("by_volunteer_redeemedAt", ["redeemedBy", "redeemedAt"])

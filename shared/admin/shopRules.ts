@@ -15,6 +15,7 @@ export type ShopItemInput = {
   name: string;
   description: string;
   pointsCost: number;
+  purchaseCooldownMinutes?: number;
 };
 
 export type FlashSaleInput = {
@@ -57,7 +58,14 @@ export function normalizeShopItemInput(input: ShopItemInput) {
   if (name === null || description === null) {
     throw adminError("INVALID_SHOP_ITEM");
   }
-  return { name, description, pointsCost: assertPointsCost(input.pointsCost) };
+  const cooldown = input.purchaseCooldownMinutes;
+  if (cooldown !== undefined && (!Number.isFinite(cooldown) || cooldown <= 0 || !Number.isFinite(cooldown * 60_000))) {
+    throw adminError("INVALID_SHOP_ITEM");
+  }
+  return {
+    name, description, pointsCost: assertPointsCost(input.pointsCost),
+    ...(cooldown === undefined ? {} : { purchaseCooldownMinutes: cooldown }),
+  };
 }
 
 /** Trims a required audit reason for refunds. */

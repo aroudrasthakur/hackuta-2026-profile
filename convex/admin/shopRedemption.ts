@@ -24,6 +24,7 @@ import { checkedInForParticipant } from "./checkedInLookup";
 import { isOwnParticipant } from "./participantQr";
 import { computeLedgerPoints, isParticipantEligible } from "./pointsLedger";
 import { checkedInBalance, purchaseReceipt, recordPurchase } from "./shopLedger";
+import { activePurchaseCooldown } from "./shopCooldown";
 import { effectivePrice, nextPriceChangeAt } from "./shopPricing";
 import { requireVolunteerCapability, sessionTokenArgs } from "./staffAuth";
 import { badgeHolderForScan } from "./volunteerScan";
@@ -120,7 +121,10 @@ export const previewShopPurchase = query({
     if (item?.status !== "active") return { status: "item_unavailable" as const };
     if (!isValidPurchaseQuantity(quantity)) return { status: "invalid_quantity" as const, maxQuantity: SHOP_MAX_QUANTITY };
 
-    const price = await effectivePrice(ctx, item, Date.now());
+    const now = Date.now();
+    const cooldown = await activePurchaseCooldown(ctx, previewHolder?._id, item, now);
+    if (cooldown) return cooldown;
+    const price = await effectivePrice(ctx, item, now);
     const points = await displayBalance(ctx, participant);
     const totalPointsCost = price.unitPointsCost * quantity;
     return {
@@ -191,6 +195,8 @@ export const purchaseShopItem = mutation({
     if (item?.status !== "active") return { status: "item_unavailable" as const };
     if (!isValidPurchaseQuantity(quantity)) return { status: "invalid_quantity" as const, maxQuantity: SHOP_MAX_QUANTITY };
 
+    const cooldown = await activePurchaseCooldown(ctx, checkedIn._id, item, now);
+    if (cooldown) return cooldown;
     const price = await effectivePrice(ctx, item, now);
     if (price.unitPointsCost !== expectedUnitPointsCost) {
       return { status: "price_changed" as const, unitPointsCost: price.unitPointsCost, totalPointsCost: price.unitPointsCost * quantity };

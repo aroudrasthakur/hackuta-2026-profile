@@ -33,8 +33,24 @@ Organizer-only queries, mutations, and internal actions. **Admin-owned** — saf
 | [shopAdmin.ts](shopAdmin.ts) | Admin-only shop items, purchase history, refunds, and volunteer shop access |
 | [shopFlashSales.ts](shopFlashSales.ts) | Admin-only timed flash sales |
 | [shopRedemption.ts](shopRedemption.ts) | Volunteer shop catalog, purchase preview, and the purchase mutation (`canRedeemShop`) |
+| [shopCooldown.ts](shopCooldown.ts) | Per-item cooldown checks against non-refunded purchase history |
 | [shopLedger.ts](shopLedger.ts), [shopPricing.ts](shopPricing.ts) | Internal points, refund, and pricing helpers (not auth boundaries) |
 | [participantShop.ts](participantShop.ts) | Participant shop and own purchase history for the profile portal |
+
+## Shop purchase cooldowns
+
+`shopItems.purchaseCooldownMinutes` is optional and must be a finite positive
+number. Admin item create/edit accepts minutes; omitting the field on edit
+disables the cooldown. Existing items remain unrestricted unless configured.
+Preview and confirmation both use the latest non-refunded redemption for the
+checked-in participant and item, including purchases made before the setting was
+enabled. Settings changes apply immediately to future attempts.
+
+An active cooldown returns `purchase_cooldown_active`, `itemName`, `availableAt`,
+and `remainingMs`. Confirmation checks it inside the same serializable transaction
+as the purchase, before any points or history writes. Idempotent retries still
+return the original receipt. Quantity rules and refunds are unchanged.
+Sync the schema, index, and admin modules into profile before deploying there.
 
 ## Meal management
 

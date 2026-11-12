@@ -32,6 +32,7 @@ const itemFieldArgs = {
   name: v.string(),
   description: v.string(),
   pointsCost: v.number(),
+  purchaseCooldownMinutes: v.optional(v.number()),
 };
 
 function normalizeSearch(search: string | undefined) {
@@ -54,6 +55,7 @@ export async function shopItemAdminView(ctx: QueryCtx | MutationCtx, item: ShopI
     name: item.name,
     description: item.description,
     pointsCost: item.pointsCost,
+    purchaseCooldownMinutes: item.purchaseCooldownMinutes,
     effectivePointsCost: price.unitPointsCost,
     flashSaleId: price.flashSaleId,
     saleEndsAt: price.saleEndsAt,
@@ -79,6 +81,7 @@ export const createShopItem = mutation({
       name: input.name,
       description: input.description,
       pointsCost: input.pointsCost,
+      ...(input.purchaseCooldownMinutes === undefined ? {} : { purchaseCooldownMinutes: input.purchaseCooldownMinutes }),
       status: active === false ? "inactive" : "active",
       createdAt: now,
       updatedAt: now,
@@ -102,6 +105,7 @@ export const updateShopItem = mutation({
       name: input.name,
       description: input.description,
       pointsCost: input.pointsCost,
+      purchaseCooldownMinutes: input.purchaseCooldownMinutes,
     };
     const changedFields = (Object.keys(next) as Array<keyof typeof next>)
       .filter((key) => next[key] !== item[key]);
