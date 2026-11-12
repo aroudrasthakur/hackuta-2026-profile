@@ -18,7 +18,8 @@ Defined in [main.tsx](../main.tsx).
 | --- | --- |
 | Loading | Loading screen |
 | Not authenticated | /sign-in |
-| Authenticated | /dashboard |
+| Authenticated, no submitted application | /sign-in |
+| Authenticated and submitted | /dashboard |
 
 Uses [useApplicantRouting](../hooks/useApplicantRouting.ts) for session + routing query.
 

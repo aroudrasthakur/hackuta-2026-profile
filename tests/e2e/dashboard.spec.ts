@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { test, expect, devices, type Page } from "@playwright/test";
 import jsQR from "jsqr";
+import {
+  PORTAL_APPLICATION_REQUIRED_LINK_LABEL,
+  PORTAL_APPLICATION_REQUIRED_MESSAGE,
+} from "../../src/constants/authMessages";
 import { MEDIA_DISCLOSURE_CHECKBOX_LABEL } from "../../shared/profile/mediaDisclosure";
 
 const MOCK_QR_TOKEN = "a".repeat(64);
@@ -56,10 +60,36 @@ async function decodePngInPage(page: Page, png: Buffer) {
   }, png.toString("base64"));
 }
 
+async function waitForMockAuth(page: Page) {
+  await expect.poll(async () => page.evaluate(() => Boolean(window.__hackutaMockAuth))).toBe(true);
+}
+
 test.describe("participant portal", () => {
   test("redirects signed-out users to sign-in", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/sign-in$/);
+    await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  });
+
+  test("keeps account-only sessions on sign-in with an application-required message", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+    await waitForMockAuth(page);
+    await page.evaluate(() => window.__hackutaMockAuth?.setScenario("signedInNew"));
+    await expect(page).toHaveURL(/\/sign-in$/);
+    await expect(page.getByText(PORTAL_APPLICATION_REQUIRED_MESSAGE)).toBeVisible();
+    await expect(page.getByRole("link", { name: PORTAL_APPLICATION_REQUIRED_LINK_LABEL })).toBeVisible();
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/sign-in$/);
+    await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  });
+
+  test("sends submitted applicants from sign-in to the dashboard", async ({ page }) => {
+    await page.goto("/sign-in");
+    await waitForMockAuth(page);
+    await page.evaluate(() => window.__hackutaMockAuth?.setScenario("signedInReturning"));
+    await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
   });
 

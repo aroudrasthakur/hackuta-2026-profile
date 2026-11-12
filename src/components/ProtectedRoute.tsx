@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
+import { PORTAL_APPLICATION_REQUIRED_LOCATION_STATE } from "../constants/authMessages";
 import { useApplicantRouting } from "../hooks/useApplicantRouting";
 
 type ProtectedRouteProps = {
@@ -27,6 +28,16 @@ export function ProtectedRoute({
 
   if (requireAuth && !routing.isAuthenticated) {
     return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />;
+  }
+
+  if (requireAuth && !routing.hasSubmittedRegistration) {
+    return (
+      <Navigate
+        to="/sign-in"
+        replace
+        state={{ ...PORTAL_APPLICATION_REQUIRED_LOCATION_STATE, from: location.pathname }}
+      />
+    );
   }
 
   if (requireNoSubmittedRegistration && routing.hasSubmittedRegistration) {
