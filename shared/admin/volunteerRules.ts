@@ -62,6 +62,7 @@ const CHANGED_FIELD_NAMES = new Set([
   "role",
   "participantId",
   "pointsCost",
+  "purchaseCooldownMinutes",
   "status",
   "title",
   "message",

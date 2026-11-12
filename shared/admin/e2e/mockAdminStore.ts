@@ -194,6 +194,7 @@ type ShopItemRecord = {
   name: string;
   description: string;
   pointsCost: number;
+  purchaseCooldownMinutes?: number;
   status: "active" | "inactive" | "archived";
   createdAt: number;
   updatedAt: number;
@@ -1605,6 +1606,18 @@ function validateSale(args: Record<string, unknown>, now: number, ignoreId?: str
 
 const NOT_SHOP = Symbol("not shop");
 
+function mockPurchaseCooldown(item: ShopItemRecord, participantToken: string, now: number) {
+  if (item.purchaseCooldownMinutes === undefined) return null;
+  const latest = shopRedemptions.filter((row) => row.itemId === item.itemId
+    && row.participantToken === participantToken && row.refund === null)
+    .sort((a, b) => b.redeemedAt - a.redeemedAt)[0];
+  if (!latest) return null;
+  const availableAt = latest.redeemedAt + item.purchaseCooldownMinutes * 60_000;
+  return availableAt > now
+    ? { status: "purchase_cooldown_active", itemName: item.name, availableAt, remainingMs: availableAt - now }
+    : null;
+}
+
 function runShopQuery(path: string, args: Record<string, unknown>, sessionToken: string) {
   const now = Date.now();
   switch (path) {
@@ -1615,6 +1628,7 @@ function runShopQuery(path: string, args: Record<string, unknown>, sessionToken:
         return {
           itemId: item.itemId, name: item.name, description: item.description,
           pointsCost: item.pointsCost, effectivePointsCost: price.unitPointsCost, flashSaleId: price.flashSaleId, saleEndsAt: price.saleEndsAt,
+          purchaseCooldownMinutes: item.purchaseCooldownMinutes,
           status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt,
         };
       });
@@ -1673,6 +1687,8 @@ function runShopQuery(path: string, args: Record<string, unknown>, sessionToken:
       if (item?.status !== "active") return { status: "item_unavailable" };
       const quantity = Number(args.quantity);
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > SHOP_MAX_QUANTITY) return { status: "invalid_quantity", maxQuantity: SHOP_MAX_QUANTITY };
+      const cooldown = mockPurchaseCooldown(item, participant.registrationToken, now);
+      if (cooldown) return cooldown;
       const price = shopPrice(item, now);
       const totalPointsCost = price.unitPointsCost * quantity;
       return {
@@ -1695,6 +1711,7 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       if (!name || !Number.isSafeInteger(pointsCost) || pointsCost <= 0) throw adminError("INVALID_SHOP_ITEM");
       const item: ShopItemRecord = {
         itemId: shopId("item"), name, description: String(args.description ?? "").trim(), pointsCost,
+        ...(args.purchaseCooldownMinutes === undefined ? {} : { purchaseCooldownMinutes: Number(args.purchaseCooldownMinutes) }),
         status: args.active === false ? "inactive" : "active", createdAt: now, updatedAt: now,
       };
       shopItems.set(item.itemId, item);
@@ -1709,6 +1726,7 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       if (!name || !Number.isSafeInteger(pointsCost) || pointsCost <= 0) throw adminError("INVALID_SHOP_ITEM");
       Object.assign(item, {
         name, description: String(args.description ?? "").trim(), pointsCost,
+        purchaseCooldownMinutes: args.purchaseCooldownMinutes,
         updatedAt: now,
       });
       bump();
@@ -1786,6 +1804,8 @@ function runShopMutation(path: string, args: Record<string, unknown>, sessionTok
       const item = shopItems.get(String(args.itemId ?? ""));
       if (item?.status !== "active") return { status: "item_unavailable" };
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > SHOP_MAX_QUANTITY) return { status: "invalid_quantity", maxQuantity: SHOP_MAX_QUANTITY };
+      const cooldown = mockPurchaseCooldown(item, token, now);
+      if (cooldown) return cooldown;
       const price = shopPrice(item, now);
       if (price.unitPointsCost !== args.expectedUnitPointsCost) {
         return { status: "price_changed", unitPointsCost: price.unitPointsCost, totalPointsCost: price.unitPointsCost * quantity };
