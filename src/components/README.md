@@ -12,7 +12,7 @@ Shared React UI for the participant portal (sign-in + dashboard): auth shell, ro
 | [OdysseyButton.tsx](OdysseyButton.tsx) | Primary CTA: internal Link, external anchor, or button |
 | [OtpCodeInput.tsx](OtpCodeInput.tsx) | Six-digit OTP input (sign-up verify and forgot-password verify steps) |
 | [PageShell.tsx](PageShell.tsx) | Register/profile content frame with logo header and clay background |
-| [ProtectedRoute.tsx](ProtectedRoute.tsx) | Auth guard and redirect when registration already submitted |
+| [ProtectedRoute.tsx](ProtectedRoute.tsx) | Auth guard: `/dashboard` requires a submitted application |
 | [SignInAtmosphere.tsx](SignInAtmosphere.tsx) | WebGL dithering shader layer for storm backdrop (lazy-loaded) |
 | [SignInShell.tsx](SignInShell.tsx) | Sign-in page layout: storm backdrop, logo, title, form slot |
 | [SignInStormBackdrop.tsx](SignInStormBackdrop.tsx) | Animated storm sky, rain, lightning; wraps SignInAtmosphere |

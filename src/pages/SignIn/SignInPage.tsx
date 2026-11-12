@@ -1,7 +1,7 @@
-import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
   PASSWORD_REQUIREMENTS_MESSAGE,
   validatePasswordConfirmation,
@@ -25,9 +25,15 @@ import { isValidEmailSyntax, normalizeEmail } from "../../../shared/lib/normaliz
 import { OtpCodeInput } from "../../components/OtpCodeInput";
 import { SignInPasswordInput } from "../../components/SignInPasswordInput";
 import { SignInShell } from "../../components/SignInShell";
+import {
+  isPortalApplicationRequiredState,
+  PORTAL_APPLICATION_REQUIRED_LINK_LABEL,
+  PORTAL_APPLICATION_REQUIRED_LOCATION_STATE,
+  PORTAL_APPLICATION_REQUIRED_MESSAGE,
+} from "../../constants/authMessages";
+import { REGISTER_URL } from "../../constants/site";
 import { useMockAuth } from "../../hooks/useMockAuth";
 import {
-  ensureApplicantApplicationRef,
   getOtpSendCooldownRef,
   invalidateSessionsAfterPasswordResetRef,
 } from "../../convex/api";
@@ -45,29 +51,25 @@ type ConvexPasswordSignIn = (
   formData: FormData,
 ) => Promise<{ signingIn: boolean }>;
 
-type EnsureApplicationMutation = (args: Record<string, never>) => Promise<unknown>;
-type FetchAccessToken = (args: { forceRefreshToken: boolean }) => Promise<string | null>;
-
 type ConvexSignOut = () => Promise<void>;
 
 function SignInPageContent({
   convexSignIn,
   convexSignOut,
-  ensureApplication,
-  fetchAccessToken,
   invalidateSessionsAfterReset,
 }: {
   convexSignIn: ConvexPasswordSignIn | null;
   convexSignOut?: ConvexSignOut | null;
-  ensureApplication: EnsureApplicationMutation | null;
-  fetchAccessToken?: FetchAccessToken | null;
   invalidateSessionsAfterReset?: (() => Promise<void>) | null;
 }) {
+  const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useSessionAuth();
+  const { isAuthenticated, isLoading, signOut } = useSessionAuth();
   const mockAuth = useMockAuth();
   const routing = useApplicantRouting();
   const client = getConvexClient();
+  const bounceInFlight = useRef(false);
+  const applicationRequired = isPortalApplicationRequiredState(location.state);
 
   const [view, setView] = useState<SignInView>("auth");
   const [mode, setMode] = useState<AuthMode>("signIn");
@@ -91,40 +93,36 @@ function SignInPageContent({
     return () => window.clearTimeout(timer);
   }, [cooldownExpiresAt, cooldownTick]);
 
-  const routeAfterSignIn = useCallback(async () => {
-    if (mockAuth.enabled) {
-      navigate("/dashboard", { replace: true });
-      return;
-    }
-
-    if (client && ensureApplication && fetchAccessToken) {
-      const token = await fetchAccessToken({ forceRefreshToken: true });
-      if (token) {
-        await ensureApplication({}).catch(() => undefined);
-      }
-    }
-
-    navigate("/dashboard", { replace: true });
-  }, [client, ensureApplication, fetchAccessToken, mockAuth, navigate]);
-
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !routing.isLoading && routing.isAuthenticated) {
-      void routeAfterSignIn();
-    }
-  }, [isAuthenticated, isLoading, routeAfterSignIn, routing.isAuthenticated, routing.isLoading]);
+    if (isLoading || routing.isLoading) return;
+    if (!isAuthenticated || !routing.isAuthenticated) return;
+    if (routing.hasSubmittedRegistration) return;
+    if (bounceInFlight.current) return;
+
+    bounceInFlight.current = true;
+    navigate("/sign-in", { replace: true, state: PORTAL_APPLICATION_REQUIRED_LOCATION_STATE });
+    void signOut().finally(() => {
+      bounceInFlight.current = false;
+    });
+  }, [
+    isAuthenticated,
+    isLoading,
+    navigate,
+    routing.hasSubmittedRegistration,
+    routing.isAuthenticated,
+    routing.isLoading,
+    signOut,
+  ]);
 
   if (
     view === "auth" &&
     !isLoading &&
+    !routing.isLoading &&
     isAuthenticated &&
-    routing.isAuthenticated
+    routing.isAuthenticated &&
+    routing.hasSubmittedRegistration
   ) {
-    return (
-      <Navigate
-        to="/dashboard"
-        replace
-      />
-    );
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (view === "forgotPassword") {
@@ -198,7 +196,6 @@ function SignInPageContent({
           setCooldownExpiresAt(startCooldownExpiry(OTP_RESEND_COOLDOWN_SECONDS));
         } else {
           mockAuth.signInWithEmail(normalized);
-          await routeAfterSignIn();
         }
         return;
       }
@@ -214,7 +211,6 @@ function SignInPageContent({
 
       const result = await convexSignIn("password", formData);
       if (result.signingIn) {
-        await routeAfterSignIn();
         return;
       }
 
@@ -250,7 +246,6 @@ function SignInPageContent({
           setError(OTP_INVALID_MESSAGE);
           return;
         }
-        await routeAfterSignIn();
         return;
       }
 
@@ -268,8 +263,6 @@ function SignInPageContent({
         setError(OTP_INVALID_MESSAGE);
         return;
       }
-
-      await routeAfterSignIn();
     } catch {
       setError(OTP_INVALID_MESSAGE);
     } finally {
@@ -408,6 +401,15 @@ function SignInPageContent({
             </p>
           ) : null}
 
+          {applicationRequired ? (
+            <p className="sign-in-message sign-in-message--info" role="status" aria-live="polite">
+              {PORTAL_APPLICATION_REQUIRED_MESSAGE}{" "}
+              <a className="sign-in-link" href={REGISTER_URL}>
+                {PORTAL_APPLICATION_REQUIRED_LINK_LABEL}
+              </a>
+            </p>
+          ) : null}
+
           {error ? (
             <p className="sign-in-message sign-in-message--error" role="alert" aria-live="polite">
               {error}
@@ -488,8 +490,6 @@ function SignInPageContent({
 
 function SignInPageWithConvex() {
   const { signIn, signOut } = useAuthActions();
-  const { fetchAccessToken } = useConvexAuth();
-  const ensureApplication = useMutation(ensureApplicantApplicationRef);
   const invalidateSessionsAfterReset = useMutation(
     invalidateSessionsAfterPasswordResetRef,
   );
@@ -497,8 +497,6 @@ function SignInPageWithConvex() {
     <SignInPageContent
       convexSignIn={signIn}
       convexSignOut={signOut}
-      ensureApplication={ensureApplication}
-      fetchAccessToken={fetchAccessToken}
       invalidateSessionsAfterReset={() => invalidateSessionsAfterReset({})}
     />
   );
@@ -507,7 +505,7 @@ function SignInPageWithConvex() {
 export default function SignInPage() {
   const mockAuth = useMockAuth();
   if (mockAuth.enabled) {
-    return <SignInPageContent convexSignIn={null} ensureApplication={null} />;
+    return <SignInPageContent convexSignIn={null} />;
   }
   return <SignInPageWithConvex />;
 }

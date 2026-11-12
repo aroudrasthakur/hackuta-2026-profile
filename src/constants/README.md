@@ -8,7 +8,8 @@ Registration form option lists live in [src/pages/Register/constants.ts](../page
 
 | File | Summary |
 | --- | --- |
-| [site.ts](site.ts) | LANDING_URL — marketing site for logo/home links (VITE_LANDING_URL) |
+| [site.ts](site.ts) | LANDING_URL — marketing site for logo/home links (VITE_LANDING_URL); REGISTER_URL — registration app (VITE_REGISTER_URL) |
+| [authMessages.ts](authMessages.ts) | Portal sign-in copy when a session has no submitted application |
 | [mockAuth.ts](mockAuth.ts) | MockAuthScenario, MOCK_OTP, isMockApiEnabled() for VITE_USE_MOCK_API |
 | [images.ts](images.ts) | LogoVariant, LogoLayout, LOGO_SIZES, logoSrcSet(), logoDefaultSrc() |
 | [signInWeather.ts](signInWeather.ts) | SIGN_IN_AMBIENT_STORM, SIGN_IN_RAIN_DROPS — storm backdrop config |
@@ -18,6 +19,8 @@ Registration form option lists live in [src/pages/Register/constants.ts](../page
 | Export | Used by |
 | --- | --- |
 | LANDING_URL | PageShell, SignInShell, SuccessStep, unit tests |
+| REGISTER_URL | Sign-in application-required banner, participant home |
+| PORTAL_APPLICATION_REQUIRED_MESSAGE | SignInPage banner and portal-access tests |
 | isMockApiEnabled() | main.tsx, MockAuthProvider, registerApi.ts, ApplicationForm |
 | MOCK_OTP, MockAuthScenario | MockAuthProvider, mockAuthContext, sign-in/profile tests, Playwright e2e |
 | logoSrcSet, logoDefaultSrc, LOGO_SIZES | [components/art/Logo.tsx](../components/art/Logo.tsx) |
