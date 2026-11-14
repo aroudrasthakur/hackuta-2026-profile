@@ -171,7 +171,7 @@ export const purchaseShopItem = mutation({
     await recordVolunteerScanAttempt(ctx, volunteer._id, now);
 
     if (!isValidIdempotencyKey(idempotencyKey)) return { status: "invalid_request" as const };
-    const found = await badgeHolderForScan(ctx, volunteer._id, now, qrCodeToken);
+    const found = await badgeHolderForScan(ctx, volunteer._id, now, qrCodeToken, true);
     if ("failure" in found) return found.failure;
     const { participant, checkedIn } = found;
 

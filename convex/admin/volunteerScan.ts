@@ -11,9 +11,9 @@
  * registration QR is rejected before and after check-in; door check-in has
  * its own two-scan flow in `badgeCheckIn.ts`.
  *
- * Results after the throttle are returned, not thrown, because a throw rolls
- * back the rate-limit rows. Session failures (`NOT_AUTHENTICATED`,
- * `VOLUNTEER_ONLY`) still throw: nothing has been written at that point.
+ * Scan outcomes are returned, not thrown. Volunteer rate limits apply to shop
+ * scans only; check-in, food, and event scans are not throttled. Session
+ * failures (`NOT_AUTHENTICATED`, `VOLUNTEER_ONLY`) still throw before any write.
  * QR tokens are never logged, returned, or regenerated here.
  */
 import { v } from "convex/values";
@@ -42,21 +42,24 @@ type ScanPurpose = "food_check_in" | "point_scan" | "shop";
 type MealScanArgs = { qrCodeToken: string; mealPeriodId?: GenericId<"mealPeriods"> };
 
 /**
- * Participant behind an assigned badge, or the failure to return. Unknown,
- * replaced, and retired codes count toward the failure limit.
+ * Participant behind an assigned badge, or the failure to return.
+ * Bad lookups count toward shop scan rate limits only when `countForShopRateLimit` is true.
  */
 export async function badgeHolderForScan(
   ctx: MutationCtx,
   volunteerId: AdminDoc["_id"],
   now: number,
   raw: string,
+  countForShopRateLimit = false,
 ): Promise<
   | { participant: ParticipantDoc; checkedIn: CheckedInDoc }
   | { failure: { status: PostCheckInFailure } }
 > {
   const found = await resolveBadgeHolder(ctx, raw);
   if ("participant" in found) return { participant: found.participant, checkedIn: found.checkedIn };
-  if (found.countsAsFailure) await recordVolunteerScanFailure(ctx, volunteerId, now);
+  if (countForShopRateLimit && found.countsAsFailure) {
+    await recordVolunteerScanFailure(ctx, volunteerId, now);
+  }
   return { failure: { status: found.failure } };
 }
 
@@ -153,18 +156,14 @@ export const listActiveMealPeriods = query({
   },
 });
 
-/** All checks run inside the caller's mutation; returned failures commit throttle counters. */
 async function prepareMealScan(ctx: MutationCtx, volunteer: AdminDoc, args: MealScanArgs) {
   const now = Date.now();
-  if (await isVolunteerScanThrottled(ctx, volunteer._id, now)) return { status: "rate_limited" as const };
-  await recordVolunteerScanAttempt(ctx, volunteer._id, now);
   if (!hasVolunteerCapability(volunteer, "canFoodCheckIn")) {
-    await recordVolunteerScanFailure(ctx, volunteer._id, now);
     return { status: "not_authorized" as const };
   }
   // Old clients must select a meal too; there is no single-use eligibility fallback.
   if (!args.mealPeriodId) return { status: "meal_not_active" as const };
-  const found = await badgeHolderForScan(ctx, volunteer._id, now, args.qrCodeToken);
+  const found = await badgeHolderForScan(ctx, volunteer._id, now, args.qrCodeToken, false);
   if ("failure" in found) return { status: found.failure.status };
   const { participant, checkedIn } = found;
   if (!await isParticipantEligible(ctx, participant)) return { status: "participant_ineligible" as const };
@@ -252,7 +251,13 @@ async function resolveQr(
     if (!event) return null;
   }
 
-  const found = await badgeHolderForScan(ctx, volunteer._id, now, args.qrCodeToken);
+  const found = await badgeHolderForScan(
+    ctx,
+    volunteer._id,
+    now,
+    args.qrCodeToken,
+    args.purpose === "shop",
+  );
   if ("failure" in found) return found.failure;
   const { participant, checkedIn } = found;
   if (!await isParticipantEligible(ctx, participant)) {
@@ -301,8 +306,8 @@ async function resolveQr(
  * (missing capability or event access, or point scan without `eventId`);
  * `self_purchase_denied` (shop scan of the volunteer's own participant
  * record, including an unlinked account with the same email);
- * `self_scan_denied` (point scan of the volunteer's own badge); and
- * `rate_limited`. A shop preview returns the participant id
+ * `self_scan_denied` (point scan of the volunteer's own badge). Shop previews
+ * may return `rate_limited`; food and event previews do not. A shop preview returns the participant id
  * and balance for the purchase screens.
  */
 export const resolveQrForScan = mutation({
@@ -317,19 +322,23 @@ export const resolveQrForScan = mutation({
     const volunteer = await requireVolunteerAccess(ctx, sessionToken);
     if (args.purpose === "food_check_in") return previewMeal(ctx, volunteer, args);
     const now = Date.now();
-    if (await isVolunteerScanThrottled(ctx, volunteer._id, now)) {
-      return { status: "rate_limited" as const };
+    if (args.purpose === "shop") {
+      if (await isVolunteerScanThrottled(ctx, volunteer._id, now)) {
+        return { status: "rate_limited" as const };
+      }
+      await recordVolunteerScanAttempt(ctx, volunteer._id, now);
     }
-    await recordVolunteerScanAttempt(ctx, volunteer._id, now);
 
     const result = await resolveQr(ctx, volunteer, { ...args, purpose: args.purpose }, now);
     if (result) {
-      if (result.status === "self_scan_denied") {
+      if (args.purpose === "shop" && result.status === "self_scan_denied") {
         await recordVolunteerScanFailure(ctx, volunteer._id, now);
       }
       return result;
     }
-    await recordVolunteerScanFailure(ctx, volunteer._id, now);
+    if (args.purpose === "shop") {
+      await recordVolunteerScanFailure(ctx, volunteer._id, now);
+    }
     return { status: "not_authorized" as const };
   },
 });

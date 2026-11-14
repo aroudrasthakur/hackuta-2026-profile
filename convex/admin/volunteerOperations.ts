@@ -8,8 +8,8 @@
  * Only an assigned badge QR resolves a participant. Repeat scans are no-ops:
  * they return the stored result and write no participant, award, or log rows.
  *
- * Same throttle rules as the preview: session failures throw before any
- * write, and every outcome after the attempt row is returned, not thrown.
+ * Session failures throw before any write; outcomes are returned, not thrown.
+ * Shop scans keep volunteer rate limits; food and event scans do not.
  * Point awards need a switched-on event; schedule times are reference only.
  */
 import { v } from "convex/values";
@@ -19,29 +19,12 @@ import { isOwnParticipant } from "./participantQr";
 import { applyEventAward, isParticipantEligible } from "./pointsLedger";
 import { requireVolunteerAccess, sessionTokenArgs, volunteerHasAllEventAccess } from "./staffAuth";
 import { badgeHolderForScan, redeemMealForVolunteer } from "./volunteerScan";
-import {
-  isVolunteerScanThrottled,
-  recordVolunteerScanAttempt,
-  recordVolunteerScanFailure,
-} from "./volunteerScanRateLimit";
 
 type AdminDoc = Awaited<ReturnType<typeof requireVolunteerAccess>>;
-type Scan = { volunteer: AdminDoc; now: number };
 
 const scanArgs = { ...sessionTokenArgs, qrCodeToken: v.string() };
-const RATE_LIMITED = { status: "rate_limited" as const };
 
-/** Throttle check, then one attempt row. Null when throttled; nothing is written. */
-async function beginScan(ctx: MutationCtx, volunteer: AdminDoc): Promise<Scan | null> {
-  const now = Date.now();
-  if (await isVolunteerScanThrottled(ctx, volunteer._id, now)) return null;
-  await recordVolunteerScanAttempt(ctx, volunteer._id, now);
-  return { volunteer, now };
-}
-
-/** Denials count toward the failure limit. */
-async function deny<S extends string>(ctx: MutationCtx, scan: Scan, status: S) {
-  await recordVolunteerScanFailure(ctx, scan.volunteer._id, scan.now);
+function deny<S extends string>(status: S) {
   return { status };
 }
 
@@ -67,8 +50,7 @@ export const awardEventPoints = mutation({
   args: { ...scanArgs, eventId: v.id("events") },
   handler: async (ctx, { sessionToken, qrCodeToken, eventId }) => {
     const volunteer = await requireVolunteerAccess(ctx, sessionToken);
-    const scan = await beginScan(ctx, volunteer);
-    if (!scan) return RATE_LIMITED;
+    const now = Date.now();
 
     const hasAccess = volunteerHasAllEventAccess(volunteer) || (await ctx.db
       .query("volunteerEventAccess")
@@ -77,14 +59,14 @@ export const awardEventPoints = mutation({
       )
       .unique()) !== null;
     const event = hasAccess ? await ctx.db.get(eventId) : null;
-    if (!event) return deny(ctx, scan, "event_denied");
-    if (!event.active) return deny(ctx, scan, "event_inactive");
+    if (!event) return deny("event_denied");
+    if (!event.active) return deny("event_inactive");
 
-    const found = await badgeHolderForScan(ctx, volunteer._id, scan.now, qrCodeToken);
+    const found = await badgeHolderForScan(ctx, volunteer._id, now, qrCodeToken);
     if ("failure" in found) return found.failure;
     const { participant, checkedIn } = found;
     if (await isOwnParticipant(ctx, volunteer, participant, checkedIn._id)) {
-      return deny(ctx, scan, "self_scan_denied");
+      return deny("self_scan_denied");
     }
     if (!await isParticipantEligible(ctx, participant)) {
       return { status: "participant_not_eligible" as const };
@@ -94,7 +76,7 @@ export const awardEventPoints = mutation({
       actorAdminId: volunteer._id,
       checkedIn,
       event,
-      now: scan.now,
+      now,
     });
     if (award.status === "already_awarded") return award;
     return { status: "success" as const, pointsAwarded: award.pointsAwarded };
