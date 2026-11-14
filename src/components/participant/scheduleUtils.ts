@@ -1,6 +1,9 @@
 import type { ScheduleEntry } from "../../convex/api";
 
 const HACKATHON_TIME_ZONE = "America/Chicago";
+const CHECK_IN_TITLE = /^check[-\s]?in$/i;
+const QUIET_TIME_TITLE = /^quiet\s+time$/i;
+const MILESTONE_TITLE = /hacking\s+starts|hacking\s+ends|devpost\s+deadline/i;
 
 export type ScheduleDay = {
   date: string;
@@ -91,3 +94,28 @@ export function formatScheduleTime(timestamp: number) {
     timeZone: HACKATHON_TIME_ZONE,
   }).format(new Date(timestamp));
 }
+
+export function resolveScheduleDisplayCategory(
+  entry: Pick<ScheduleEntry, "title" | "category">,
+): string {
+  const title = entry.title.trim();
+  if (CHECK_IN_TITLE.test(title)) return "check_in";
+  if (QUIET_TIME_TITLE.test(title)) return "check_in";
+  if (MILESTONE_TITLE.test(title)) return "milestone";
+  const normalized = entry.category
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+  if (normalized === "quiet_time") return "check_in";
+  return normalized || "event";
+}
+
+export function scheduleSlotCategoryClass(
+  entry: Pick<ScheduleEntry, "title" | "category">,
+  slotBlock = "participant-schedule__slot",
+) {
+  const slug = resolveScheduleDisplayCategory(entry).replace(/_/g, "-");
+  return `${slotBlock}--cat-${slug}`;
+}
+

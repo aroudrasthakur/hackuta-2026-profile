@@ -6,6 +6,7 @@ import {
   groupScheduleEntriesByDay,
   scheduleDayNumeral,
   scheduleDateKey,
+  scheduleSlotCategoryClass,
 } from "./scheduleUtils";
 import { useParticipantSchedule } from "../../pages/dashboard/useParticipantSchedule";
 
@@ -131,7 +132,10 @@ function ScheduleContent() {
                     </li>
                   ) : (
                     day.entries.map((entry) => (
-                      <li key={`${day.date}-${entry.id}`} className="participant-schedule__slot">
+                      <li
+                        key={`${day.date}-${entry.id}`}
+                        className={`participant-schedule__slot ${scheduleSlotCategoryClass(entry)}`}
+                      >
                         <time dateTime={new Date(entry.startsAt).toISOString()}>
                           {formatScheduleTime(entry.startsAt)} – {formatScheduleTime(entry.endsAt)}
                         </time>

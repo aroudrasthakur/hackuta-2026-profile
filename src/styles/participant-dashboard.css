@@ -1195,44 +1195,93 @@
     gap: 0.625rem;
   }
 
-  /* Time | name | location row with a slim accent rail on the left. */
   .participant-schedule__slot {
+    --schedule-fill: var(--color-light);
+    --schedule-accent: var(--color-ocean);
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr);
+    grid-template-columns: max-content 1fr max-content;
     align-items: center;
     gap: clamp(0.625rem, 1.6vw, 1.25rem);
-    padding: 0.55rem clamp(0.875rem, 2vw, 1.375rem) 0.55rem clamp(1.125rem, 2.4vw, 1.625rem);
-    background: var(--color-light);
+    padding: 0.55rem clamp(0.875rem, 2vw, 1.375rem);
+    background: var(--schedule-fill);
     border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
     border-radius: 6px;
     box-shadow: 0 1px 2px color-mix(in srgb, var(--color-night) 8%, transparent);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
   }
 
-  .participant-schedule__slot::before {
-    content: "";
-    position: absolute;
-    inset: 6px auto 6px 6px;
-    width: 3px;
-    border-radius: 2px;
-    background: var(--color-ocean);
-    opacity: 0.55;
-    transition: opacity 0.2s ease;
+  .participant-schedule__slot .participant-schedule__slot-details {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    align-items: center;
+    text-align: center;
+    min-width: 0;
+  }
+
+  .participant-schedule__slot .participant-schedule__location {
+    grid-column: 3;
+    grid-row: 1;
+    z-index: 1;
   }
 
   .participant-schedule__slot:hover {
     transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--color-ocean) 35%, transparent);
+    border-color: color-mix(in srgb, var(--schedule-accent) 40%, transparent);
     box-shadow: 0 6px 16px color-mix(in srgb, var(--color-night) 12%, transparent);
   }
 
-  .participant-schedule__slot:hover::before {
-    opacity: 1;
+  .participant-schedule__slot.participant-schedule__slot--cat-check-in {
+    --schedule-fill: color-mix(in srgb, var(--color-clay) 78%, var(--color-light));
+    --schedule-accent: var(--color-clay);
+  }
+
+  .participant-schedule__slot.participant-schedule__slot--cat-meal {
+    --schedule-fill: color-mix(in srgb, #ffe9a8 62%, var(--color-light));
+    --schedule-accent: #e4c56a;
+  }
+
+  .participant-schedule__slot.participant-schedule__slot--cat-workshop {
+    --schedule-fill: #5a3b82;
+    --schedule-accent: #7a57a8;
+    border-color: color-mix(in srgb, #fff 22%, transparent);
+  }
+
+  .participant-schedule__slot.participant-schedule__slot--cat-workshop time,
+  .participant-schedule__slot.participant-schedule__slot--cat-workshop .participant-schedule__slot-details h3,
+  .participant-schedule__slot.participant-schedule__slot--cat-workshop .participant-schedule__slot-details p,
+  .participant-schedule__slot.participant-schedule__slot--cat-workshop .participant-schedule__category,
+  .participant-schedule__slot.participant-schedule__slot--cat-workshop .participant-schedule__location {
+    color: #fff;
+  }
+
+  .participant-schedule__slot.participant-schedule__slot--cat-event {
+    --schedule-fill: #2a5478;
+    --schedule-accent: var(--color-ocean);
+    border-color: color-mix(in srgb, #fff 18%, transparent);
+  }
+
+  .participant-schedule__slot.participant-schedule__slot--cat-event time,
+  .participant-schedule__slot.participant-schedule__slot--cat-event .participant-schedule__slot-details h3,
+  .participant-schedule__slot.participant-schedule__slot--cat-event .participant-schedule__slot-details p,
+  .participant-schedule__slot.participant-schedule__slot--cat-event .participant-schedule__category,
+  .participant-schedule__slot.participant-schedule__slot--cat-event .participant-schedule__location {
+    color: #fff;
+  }
+
+  .participant-schedule__slot.participant-schedule__slot--cat-milestone {
+    --schedule-red: #c94545;
+    --schedule-fill: color-mix(in srgb, var(--schedule-red) 44%, var(--color-light));
+    --schedule-accent: var(--schedule-red);
   }
 
   .participant-schedule__slot time {
+    grid-column: 1;
+    grid-row: 1;
+    z-index: 1;
     justify-self: start;
+    text-align: left;
     color: var(--color-ocean);
     font-size: 0.875rem;
     font-weight: 600;
@@ -1284,23 +1333,23 @@
 
   @media (max-width: 40rem) {
     .participant-schedule__slot {
-      grid-template-columns: auto minmax(0, 1fr);
-      row-gap: 0.15rem;
+      grid-template-columns: max-content 1fr max-content;
+      row-gap: 0;
     }
 
-    .participant-schedule__slot-details {
-      align-items: flex-end;
-      text-align: right;
+    .participant-schedule__slot .participant-schedule__slot-details {
+      align-items: center;
+      text-align: center;
     }
 
-    .participant-schedule__location {
-      grid-column: 1 / -1;
+    .participant-schedule__slot .participant-schedule__location {
+      grid-column: 3;
+      grid-row: 1;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .participant-schedule__slot,
-    .participant-schedule__slot::before {
+    .participant-schedule__slot {
       transition: none;
     }
 
