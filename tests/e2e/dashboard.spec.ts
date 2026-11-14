@@ -177,8 +177,10 @@ test.describe("participant portal", () => {
     await expect(page.getByRole("main")).not.toContainText(/notification/i);
     await expect(page.getByRole("list", { name: "Latest notification" })).toHaveCount(0);
     await expect(page.locator(".participant-home .participant-schedule__panel")).toHaveCount(3);
-    await expect(page.getByText("Devpost")).toBeVisible();
-    await expect(page.getByText("Coming soon")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Devpost/ })).toHaveAttribute(
+      "href",
+      "https://hackuta-8.devpost.com/",
+    );
     await expect(page.getByRole("link", { name: /Instagram/ })).toHaveAttribute(
       "href",
       "https://www.instagram.com/hack.uta/",
