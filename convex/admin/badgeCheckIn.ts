@@ -84,7 +84,7 @@ async function registrationHolder(ctx: MutationCtx, scan: Scan, raw: string) {
 }
 
 /** Exact badge value to assign, or the conflict to return. */
-async function availableBadge(ctx: MutationCtx, scan: Scan, raw: string) {
+async function availableBadge(ctx: MutationCtx, _scan: Scan, raw: string) {
   const checked = await checkBadgeAvailable(ctx, raw);
   if ("badge" in checked) return { badge: checked.badge };
   return { result: { status: checked.conflict } };

@@ -8,7 +8,7 @@
   "convex/admin/applications.ts": "cb0b1ba7aef4254532edbe24a641ec020809271a74b793f96c9d4a63aeb23bf9",
   "convex/admin/auth.ts": "91ab2716771a16e4a30400e7766aff5fb80d878ed26550ccee190ff3677bba5a",
   "convex/admin/badgeAdmin.ts": "9893b184bd1496888c3f2c3b0cf5c026623a4f7477e6082be531d7b8b2f21c43",
-  "convex/admin/badgeCheckIn.ts": "4c5b6c29feecc2e5779c00050df9a480e56d539488f32c22768a9399feb6fd29",
+  "convex/admin/badgeCheckIn.ts": "c878f92dc45d77719b2f23e6b6dba567e0515aca78cb789e23223df684134649",
   "convex/admin/checkedInLookup.ts": "2806b51377c418acff36e3512b8fd1b5ab2952cea6851262db0c6479d848c09b",
   "convex/admin/decisionEmailQueue.ts": "e9c560c9e1db5bd454cc6cc1e21c0a4c028802e1fa481f93b464c6cc7d1eef20",
   "convex/admin/decisionEmailRelease.ts": "40d7a21a02314e6cc3490159f5036789dc76bcc07f3b36cd654a3937c043615d",
