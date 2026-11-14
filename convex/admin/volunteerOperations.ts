@@ -14,13 +14,10 @@
  */
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
-import type { MutationCtx } from "../lib/dataModel";
 import { isOwnParticipant } from "./participantQr";
 import { applyEventAward, isParticipantEligible } from "./pointsLedger";
 import { requireVolunteerAccess, sessionTokenArgs, volunteerHasAllEventAccess } from "./staffAuth";
 import { badgeHolderForScan, redeemMealForVolunteer } from "./volunteerScan";
-
-type AdminDoc = Awaited<ReturnType<typeof requireVolunteerAccess>>;
 
 const scanArgs = { ...sessionTokenArgs, qrCodeToken: v.string() };
 
