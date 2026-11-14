@@ -32,6 +32,16 @@ import {
 import { RESUME_UPLOAD_AUTH_REQUIRED_MESSAGE } from "../../shared/registration/submitErrors";
 import { HACKATHON_SCHEDULE } from "../../shared/hackathon/schedule";
 
+/** Future close instant that stays on/before the hackathon start for eventConfig validation. */
+function configurableRegistrationCloseAt(now = Date.now()) {
+  return Math.min(now + 60_000, HACKATHON_SCHEDULE.startsAt - 1);
+}
+
+/** Future open instant that leaves room before hackathon start when shifting the timeline in tests. */
+function futureRegistrationOpenAt(now = Date.now()) {
+  return Math.min(now + 60_000, HACKATHON_SCHEDULE.startsAt - 4 * 60 * 60_000);
+}
+
 const modules = import.meta.glob("../../convex/**/*.ts", { eager: false });
 const assertRateLimit = makeFunctionReference<"mutation">("resumeUploads:assertUploadRateLimit");
 const cleanup = makeFunctionReference<"mutation">("resumeUploads:cleanupExpiredUploadSessions");
@@ -1347,7 +1357,7 @@ describe("event config", () => {
       registrationClosesAt: null,
     });
 
-    const closesAt = Date.now() + 60_000;
+    const closesAt = configurableRegistrationCloseAt();
     await expect(t.mutation("eventConfig:setRegistrationClosesAt", { closesAt })).resolves.toMatchObject({
       registrationClosesAt: closesAt,
     });
@@ -1444,7 +1454,7 @@ describe("event config", () => {
   it("enforces a configured opening instant before accepting drafts and submissions", async () => {
     const t = await authTest();
     await t.mutation("applicant:ensureApplicantApplication", {});
-    const registrationOpensAt = Date.now() + 60_000;
+    const registrationOpensAt = futureRegistrationOpenAt();
     await t.mutation("eventConfig:setTimelineDates", {
       registrationOpensAt,
       startsAt: registrationOpensAt + 3 * 60 * 60_000,
@@ -1473,7 +1483,7 @@ describe("event config", () => {
 
   it("accepts a complete application just before the configured cutoff", async () => {
     const t = await authTest();
-    const closesAt = Date.now() + 60_000;
+    const closesAt = configurableRegistrationCloseAt();
     await t.mutation("eventConfig:setRegistrationClosesAt", { closesAt });
     const clock = vi.spyOn(Date, "now").mockReturnValue(closesAt - 1);
     try {
@@ -1489,7 +1499,7 @@ describe("event config", () => {
   it.each([0, 1])("rejects submissions %d milliseconds after the close boundary", async (elapsed) => {
     const t = await authTest();
     await t.mutation("applicant:ensureApplicantApplication", {});
-    const closesAt = Date.now() + 60_000;
+    const closesAt = configurableRegistrationCloseAt();
     await t.mutation("eventConfig:setRegistrationClosesAt", { closesAt });
     const clock = vi.spyOn(Date, "now").mockReturnValue(closesAt + elapsed);
     try {

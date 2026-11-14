@@ -17,6 +17,7 @@ import { LEGACY_SCHOOL_OTHER_OPTION } from "../../shared/registration/otherOptio
 import { RESUME_FILENAME_HEADER, RESUME_TEST_CONTENT_LENGTH_HEADER } from "../../shared/registration/resume";
 import { INITIAL_FORM } from "../../shared/registration/types";
 import { validRegistrationPayload } from "../fixtures/validRegistrationForm";
+import { HACKATHON_SCHEDULE } from "../../shared/hackathon/schedule";
 
 const modules = import.meta.glob("../../convex/**/*.ts", { eager: false });
 
@@ -146,7 +147,7 @@ describe("authorization boundaries", () => {
 
   it("preserves authentication errors for draft writes after applications close", async () => {
     const t = createTest();
-    await t.mutation(ref.setRegistrationClosesAt, { closesAt: Date.now() - 1 });
+    await t.mutation(ref.setRegistrationClosesAt, { closesAt: HACKATHON_SCHEDULE.startsAt - 1 });
     await expect(t.mutation(ref.saveDraft, { patch: formToDraftPatch(INITIAL_FORM) }))
       .rejects.toThrow("Authentication required.");
   });
