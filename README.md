@@ -21,6 +21,7 @@ Sign in uses the same Convex Auth password account created on the registration s
 | --- | --- |
 | `/sign-in` | Sign in / forgot password |
 | `/dashboard` | Participant portal (status, dates, QR when accepted) |
+| `/dashboard/arcade` | Arcade hand-off to [gamble.hackuta.com](https://gamble.hackuta.com) (launch codes; Convex `arcade/*` comes from [hackuta2026-arcade-site](../hackuta2026-arcade-site) pushes, not profile) |
 
 Legacy `src/pages/Register` and `src/pages/Profile` trees are reference copies (schema lock); they are not mounted in [main.tsx](src/main.tsx).
 

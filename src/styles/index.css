@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./participant-dashboard.css";
+@import "./participant-arcade.css";
 
 @theme {
   --font-sans: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;

@@ -26,6 +26,15 @@ export function NavScheduleIcon({ className }: IconProps) {
   );
 }
 
+export function NavArcadeIcon({ className }: IconProps) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 8h14v11H5z" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 5h2v3H8zM14 5h2v3h-2zM8.5 12h2v2h-2zM13.5 11h2v3h-2z" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function NavTrophyIcon({ className }: IconProps) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">

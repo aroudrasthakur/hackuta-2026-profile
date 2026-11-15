@@ -4,6 +4,7 @@ import {
   NavScanIcon,
   NavScheduleIcon,
   NavSignOutIcon,
+  NavArcadeIcon,
   NavTrophyIcon,
 } from "../../components/participant/ParticipantNavIcons";
 import { useParticipantDashboard } from "./useParticipantDashboard";
@@ -12,11 +13,19 @@ import { ParticipantBrand } from "../../components/participant/ParticipantBrand"
 import { useSignOut } from "../../hooks/useSignOut";
 
 /** `shortLabel` replaces `label` below the mobile breakpoint (CSS swaps the two spans). */
-const NAV: { to: string; end: boolean; label: string; shortLabel?: string; icon: typeof NavHomeIcon }[] = [
+const NAV: {
+  to: string;
+  end: boolean;
+  label: string;
+  shortLabel?: string;
+  icon: typeof NavHomeIcon;
+  accent?: "arcade";
+}[] = [
   { to: "/dashboard", end: true, label: "Home", icon: NavHomeIcon },
   { to: "/dashboard/scan", end: false, label: "Check-in", icon: NavScanIcon },
   { to: "/dashboard/schedule", end: false, label: "Schedule", icon: NavScheduleIcon },
   { to: "/dashboard/leaderboard", end: false, label: "Leaderboard", shortLabel: "Board", icon: NavTrophyIcon },
+  { to: "/dashboard/arcade", end: false, label: "Arcade", shortLabel: "Play", icon: NavArcadeIcon, accent: "arcade" },
 ];
 
 export default function ParticipantPortalLayout() {
@@ -46,13 +55,15 @@ export default function ParticipantPortalLayout() {
           <ParticipantBrand />
         </div>
         <nav className="participant-dashboard__nav">
-          {NAV.map(({ to, end, label, shortLabel, icon: Icon }) => (
+          {NAV.map(({ to, end, label, shortLabel, icon: Icon, accent }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
-                `participant-dashboard__nav-item${isActive ? " participant-dashboard__nav-item--active" : ""}`
+                `participant-dashboard__nav-item${accent ? ` participant-dashboard__nav-item--${accent}` : ""}${
+                  isActive ? " participant-dashboard__nav-item--active" : ""
+                }`
               }
             >
               <Icon className="participant-dashboard__nav-icon" />
