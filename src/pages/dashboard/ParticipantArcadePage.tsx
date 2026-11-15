@@ -4,6 +4,7 @@ import { ParticipantPageHeader } from "../../components/participant/ParticipantP
 import { ARCADE_URL } from "../../constants/site";
 import { createLaunchCodeRef, getArcadeLauncherStateRef } from "../../convex/arcadeApi";
 import { getConvexClient } from "../../convex/client";
+import { useNow } from "../../hooks/useNow";
 
 function formatArcadeClock(timestamp: number) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
@@ -53,7 +54,7 @@ export default function ParticipantArcadePage() {
   const visible = state?.visible === true;
   const status = visible ? state.status : "off";
   const copy = STATUS_COPY[status];
-  const now = Date.now();
+  const now = useNow();
 
   async function enterArcade() {
     if (busy) return;
