@@ -11,10 +11,11 @@ async function signInToDashboard(page: Page) {
 test.describe("participant leaderboard", () => {
   test("places Leaderboard below Schedule and shows the podium", async ({ page }) => {
     await signInToDashboard(page);
-    const hrefs = await page.locator(".participant-dashboard__nav a").evaluateAll((links) =>
-      links.map((link) => link.getAttribute("href")),
-    );
-    expect(hrefs).toEqual([
+    // evaluateAll does not auto-wait, so poll until the lazily rendered nav has its links.
+    const navLinks = page.locator(".participant-dashboard__nav a");
+    await expect.poll(() =>
+      navLinks.evaluateAll((links) => links.map((link) => link.getAttribute("href"))),
+    ).toEqual([
       "/dashboard",
       "/dashboard/scan",
       "/dashboard/schedule",
