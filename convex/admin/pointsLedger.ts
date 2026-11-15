@@ -219,8 +219,8 @@ export async function adjustPoints(
 }
 
 /**
- * Awards plus signed `admin_adjust`, `shop_purchase`, `shop_refund`, and `check_in` deltas.
- * `point_scan` logs are not added again.
+ * Awards plus signed `admin_adjust`, `shop_purchase`, `shop_refund`, and `check_in` deltas,
+ * plus arcade deposits and withdrawals (`arcadeTransfers`). `point_scan` logs are not added again.
  */
 export async function computeLedgerPoints(
   ctx: QueryCtx | MutationCtx,
@@ -250,6 +250,16 @@ export async function computeLedgerPoints(
       throw adminError("INVALID_POINTS");
     }
     total += log.pointsDelta;
+  }
+  const transfers = await ctx.db
+    .query("arcadeTransfers")
+    .withIndex("by_checkedIn_createdAt", (q) => q.eq("checkedInId", checkedInId))
+    .collect();
+  for (const transfer of transfers) {
+    if (!Number.isSafeInteger(transfer.amount) || transfer.amount <= 0) {
+      throw adminError("INVALID_POINTS");
+    }
+    total += transfer.kind === "deposit" ? -transfer.amount : transfer.amount;
   }
   return assertPointBalance(total);
 }

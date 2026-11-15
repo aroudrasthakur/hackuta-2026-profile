@@ -1,6 +1,7 @@
 import { Email } from "@convex-dev/auth/providers/Email";
 import { convexAuth } from "@convex-dev/auth/server";
 import { HackutaPassword } from "./lib/hackutaPassword";
+import { ArcadeLaunch } from "./arcade/launchProvider";
 import type { GenericActionCtx } from "convex/server";
 import { makeFunctionReference } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -75,6 +76,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       verify: EmailVerification,
       reset: PasswordResetEmail,
     }),
+    ArcadeLaunch,
   ],
   signIn: {
     maxFailedAttempsPerHour: 5,

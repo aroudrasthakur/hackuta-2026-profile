@@ -24,6 +24,15 @@ const PROFILE_ONLY_SHARED_ADMIN = new Set([
   "submissionDisplay.ts",
 ]);
 
+/** Arcade game functions live in profile only; keep them across admin lock refresh. */
+const PROFILE_ONLY_ADMIN = new Set([
+  "slotSpin.ts",
+  "slotWindows.ts",
+  "o21Windows.ts",
+  "o21Tables.ts",
+  "o21Seed.ts",
+]);
+
 function sha256(content) {
   return createHash("sha256").update(content).digest("hex");
 }
@@ -81,7 +90,10 @@ if (!existsSync(adminRoot)) {
   process.exit(1);
 }
 
-syncTree(sourceAdminDir, profileAdminDir, { extensions: [".ts", ".md"] });
+syncTree(sourceAdminDir, profileAdminDir, {
+  keepRelative: PROFILE_ONLY_ADMIN,
+  extensions: [".ts", ".md"],
+});
 syncFile(join(adminRoot, "convex", "schema.ts"), join(root, "convex", "schema.ts"));
 syncTree(sourceSharedAdminDir, profileSharedAdminDir, {
   keepRelative: PROFILE_ONLY_SHARED_ADMIN,

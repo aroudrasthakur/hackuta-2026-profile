@@ -34,7 +34,7 @@
     "convex/applicationFields.ts": "4c3594b2614376ae2b44f65e5026c4c69d7c6716a9c2d8fdd1c1b7a5e9eb3f6f",
     "convex/applications.ts": "4930883080880712fe55de35b4484f1221c9109a61b4c438d2a9a08bcbbb5719",
     "convex/auth.config.ts": "549bf21c64697c3fadc2f1ea2e83189cd348523b0252334a02e1dd2b8e21a7ac",
-    "convex/auth.ts": "6695507ee842ac9ed2b8f8fc94650a2720cffeeb8afb3f83c2de9b04b6849897",
+    "convex/auth.ts": "f55892c943169aac7ebca2262de815fad5ac8a5a3f27d1ce6ece32dfac8f7e79",
     "convex/crons.ts": "92212f9da8b6cf5329a2bab115b96262169d3d73fede90f7b1e3734e1b65fa72",
     "convex/email/checkEmailStatus.ts": "ecf0163b3c87c7b3d2b6394752468f72c4cef2d96f7cd98206ccbafc7447250d",
     "convex/email/emailService.ts": "e5f850231193ee2893583327c319d64ebe42e5cfd15473f368ccf7fcd3f4d789",

@@ -63,6 +63,11 @@ export const staffConfigLogAction = v.union(
   v.literal("flash_sale_created"),
   v.literal("flash_sale_updated"),
   v.literal("flash_sale_cancelled"),
+  v.literal("arcade_settings_updated"),
+  v.literal("arcade_game_updated"),
+  v.literal("o21_window_created"),
+  v.literal("o21_window_updated"),
+  v.literal("o21_window_cancelled"),
   // Historical rows from the removed notification admin. New writes never use these.
   v.literal("notification_created"),
   v.literal("notification_updated"),

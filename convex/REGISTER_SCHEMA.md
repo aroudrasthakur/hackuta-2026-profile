@@ -23,6 +23,7 @@ These paths are **not** part of the register-owned lock. Profile-owned schedule 
 | --- | --- |
 | [`schema.ts`](schema.ts) | See [Schema tables](#schema-tables) — admin-owned review and participant tables |
 | [`admin/`](admin/) | Organizer Convex queries, mutations, actions |
+| [`arcade/`](arcade/) | Points arcade backend (wallet, games, launch codes). Profile-owned; not register-locked. |
 | [`profile/`](profile/) | Participant portal queries, including the schedule query and migration |
 | [`../src/`](../src/) | Admin dashboard UI |
 | [`../scripts/`](../scripts/) | Admin tooling (except frozen register snapshots under `register-schema-lock/`) |
@@ -65,6 +66,10 @@ File: [`convex/schema.ts`](schema.ts)
 | `shopItems` | Admin | **Yes** — shop catalog (name, description, price, status; no inventory) |
 | `shopRedemptions` | Admin | **Yes** — completed purchases with the price charged and any refund |
 | `shopFlashSales`, `shopFlashSaleItems` | Admin | **Yes** — timed promotions and their item prices |
+| `arcadeSettings`, `arcadeGames`, `arcadeWallets`, `arcadeTransfers`, `arcadePlays`, `arcadeLaunchCodes` | Admin | **Yes** — arcade site switch, wallets, plays, launch codes |
+| `rouletteSpins`, `slotSpins`, `slotWindows` | Admin | **Yes** — Wheel of the Fates and Olympus Slots |
+| `o21Windows`, `o21Tables`, `o21Hands`, `o21Actions`, `o21Queue`, `o21LiveTables`, `o21Seats` | Admin | **Yes** — Olympus 21 (legacy windows plus live tables) |
+| `pokerPlayers`, `pokerQueue`, `pokerTables`, `pokerSeats`, `pokerTransactions`, `pokerSessionStats` | Admin | **Yes** — Hades' Hold'em |
 | `schedule` | Profile | **Yes** — participant activity schedule; separate from point-award `events` |
 | `participantMediaDisclosures` | Profile | **Yes** — one-time media-disclosure acceptance (`participantId`, `acceptedAt`); gates the check-in QR |
 

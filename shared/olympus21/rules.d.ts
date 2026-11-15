@@ -1,0 +1,22 @@
+/** Types for rules.js (byte-identical copy of shared/olympus21/rules.js). */
+export type RandomFn = () => number;
+export type Move = { kind: "play"; card: string; color: string | null } | { kind: "draw" };
+export declare const COLORS: readonly string[];
+export declare const TARGET: 21;
+export declare const NUMBER_RANKS: readonly string[];
+export declare const ACTION_RANKS: readonly string[];
+export declare const COLOR_NAMES: Readonly<Record<string, string>>;
+export declare function seededRng(seed: number): RandomFn;
+export declare function randomInt(rng: RandomFn, max: number): number;
+export declare function buildDeck(): string[];
+export declare function shuffle(cards: readonly string[], rng: RandomFn): string[];
+export declare const colorOf: (card: string) => string | null;
+export declare const rankOf: (card: string) => string;
+export declare function isCard(card: unknown): boolean;
+export declare function isNumberCard(card: string): boolean;
+export declare function valueOf(card: string): number;
+export declare function canPlay(card: string, topCard: string | null, activeColor: string | null): boolean;
+export declare function legalCards(hand: readonly string[], topCard: string | null, activeColor: string | null): string[];
+export declare function scorePlay(count: number, card: string): { count: number; outcome: "win" | "bust" | "continue" };
+export declare function nextSeat(liveSeats: readonly number[], from: number, direction: 1 | -1, skipOne?: boolean): number;
+export declare function autoMove(hand: readonly string[], topCard: string | null, activeColor: string | null): Move;

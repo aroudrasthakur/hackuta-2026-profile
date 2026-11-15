@@ -1,6 +1,6 @@
 import { makeFunctionReference } from "convex/server";
 
-/** Live schedule from the deployment the arcade overlay is pushed to (via hackuta2026-arcade-site). */
+/** Live schedule from this repo's `convex/arcade` backend. */
 export type ArcadeLauncherState =
   | { visible: false }
   | {

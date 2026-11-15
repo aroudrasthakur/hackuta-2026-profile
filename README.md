@@ -21,7 +21,7 @@ Sign in uses the same Convex Auth password account created on the registration s
 | --- | --- |
 | `/sign-in` | Sign in / forgot password |
 | `/dashboard` | Participant portal (status, dates, QR when accepted) |
-| `/dashboard/arcade` | Arcade hand-off to [gamble.hackuta.com](https://gamble.hackuta.com) (launch codes; Convex `arcade/*` comes from [hackuta2026-arcade-site](../hackuta2026-arcade-site) pushes, not profile) |
+| `/dashboard/arcade` | Arcade hand-off to [gamble.hackuta.com](https://gamble.hackuta.com) (launch codes; Convex `arcade/*` lives in this repo) |
 
 Legacy `src/pages/Register` and `src/pages/Profile` trees are reference copies (schema lock); they are not mounted in [main.tsx](src/main.tsx).
 
@@ -32,7 +32,7 @@ Legacy `src/pages/Register` and `src/pages/Profile` trees are reference copies (
 | Register-owned Convex + shared files | `npm run verify:register-schema-lock` |
 | Admin-owned `convex/admin/**` | `npm run verify:admin-schema-lock` |
 
-Profile-owned code lives under `convex/profile/`, `src/`, and `tests/`. Do not edit locked register or admin modules without refreshing the corresponding lock from the source repo.
+Profile-owned code lives under `convex/profile/`, `convex/arcade/`, `src/`, and `tests/`. Do not edit locked register or admin modules without refreshing the corresponding lock from the source repo.
 
 Register is in production. Do not run `register-schema-lock:refresh` in this repo or in admin unless the register repo itself has shipped a backend change.
 

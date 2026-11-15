@@ -100,8 +100,9 @@ function extractSchemaBodyFixed(source) {
 
 const ADMIN_SHARED_PREFIX = "shared/admin/";
 const PROFILE_SHARED_PREFIX = "shared/profile/";
+const ARCADE_SHARED_PREFIXES = ["shared/arcade/", "shared/poker/", "shared/olympus21/", "shared/roulette/"];
 const CONVEX_EXEMPT = new Set(["convex/schema.ts"]);
-const CONVEX_EXEMPT_DIRS = new Set(["admin", "profile", "_generated"]);
+const CONVEX_EXEMPT_DIRS = new Set(["admin", "profile", "arcade", "_generated"]);
 
 function verifyLockedFiles(manifest) {
   const errors = [];
@@ -144,7 +145,11 @@ function verifyNoUnexpectedSharedFiles(manifest) {
       if (entry === "README.md" || rel.endsWith("/README.md")) {
         continue;
       }
-      if (rel.startsWith(ADMIN_SHARED_PREFIX) || rel.startsWith(PROFILE_SHARED_PREFIX)) {
+      if (
+        rel.startsWith(ADMIN_SHARED_PREFIX) ||
+        rel.startsWith(PROFILE_SHARED_PREFIX) ||
+        ARCADE_SHARED_PREFIXES.some((prefix) => rel.startsWith(prefix))
+      ) {
         continue;
       }
       if (!locked.has(rel)) {
